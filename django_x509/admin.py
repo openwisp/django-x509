@@ -17,9 +17,31 @@ class AbstractAdmin(BaseAdmin):
     actions_on_bottom = True
     save_on_top = True
 
+    readonly_in_edit_mode = ('key_length',
+                             'digest',
+                             'validity_start',
+                             'validity_end',
+                             'country_code',
+                             'state',
+                             'city',
+                             'organization',
+                             'email',
+                             'common_name',
+                             'serial_number',
+                             'public_key',
+                             'private_key')
+
     def __init__(self, *args, **kwargs):
-        self.readonly_fields += ('created', 'modified',)
+        self.readonly_fields += ('created', 'modified')
         super(AbstractAdmin, self).__init__(*args, **kwargs)
+
+    def get_readonly_fields(self, request, obj=None):
+        # edit
+        if obj:
+            return self.readonly_in_edit_mode + self.readonly_fields
+        # add
+        else: # This is an addition
+            return self.readonly_fields
 
 
 class CaAdmin(AbstractAdmin):
