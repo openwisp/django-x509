@@ -1,0 +1,32 @@
+language: python
+sudo: false
+cache: pip
+
+python:
+  - "3.4"
+  - "2.7"
+
+env:
+  - DJANGO="django>=1.9,<=1.10"
+  - DJANGO="django==1.10b1"
+
+branches:
+  only:
+    - master
+
+# command to install requirements
+install:
+  - pip install $DJANGO
+  - python setup.py -q develop
+  - pip install -r requirements-test.txt
+
+before_script:
+  - ./runflake8
+   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then ./runisort; fi
+
+# command to run tests, e.g. python setup.py test
+script:
+  - coverage run --source=django_x509 runtests.py
+
+after_success:
+  coveralls
