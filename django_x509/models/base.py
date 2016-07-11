@@ -166,6 +166,9 @@ class AbstractX509(models.Model):
             ext.append(crypto.X509Extension(b'basicConstraints',
                                             app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
                                             bytes(ext_value, 'utf8')))
+            ext.append(crypto.X509Extension(b'keyUsage',
+                                            app_settings.CA_KEYUSAGE_CRITICAL,
+                                            bytes(app_settings.CA_KEYUSAGE_VALUE, 'utf8')))
         # generating certificate issued by a CA
         else:
             issuer = self.ca.x509.get_subject()
@@ -173,6 +176,9 @@ class AbstractX509(models.Model):
             ext.append(crypto.X509Extension(b'basicConstraints',
                                             False,
                                             b'CA:FALSE'))
+            ext.append(crypto.X509Extension(b'keyUsage',
+                                            app_settings.CERT_KEYUSAGE_CRITICAL,
+                                            bytes(app_settings.CERT_KEYUSAGE_VALUE, 'utf8')))
         if ext:
             cert.add_extensions(ext)
         cert.set_issuer(issuer)

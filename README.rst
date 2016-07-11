@@ -188,6 +188,51 @@ intermediate certificates that may follow the generated certificate in a valid c
 
 Set this value to ``None`` to avoid imposing any limit.
 
+``DJANGO_X509_CA_KEYUSAGE_CRITICAL``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+--------------------------+
+| **type**:    | ``bool``                 |
++--------------+--------------------------+
+| **default**: | ``True``                 |
++--------------+--------------------------+
+
+Whether the ``keyUsage`` x509 extension should be flagged as "critical" for new CAs.
+
+``DJANGO_X509_CA_KEYUSAGE_VALUE``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+--------------------------+
+| **type**:    | ``str``                  |
++--------------+--------------------------+
+| **default**: | ``cRLSign, keyCertSign`` |
++--------------+--------------------------+
+
+Value of the ``keyUsage`` x509 extension for new CAs.
+
+``DJANGO_X509_CERT_KEYUSAGE_CRITICAL``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+--------------------------+
+| **type**:    | ``bool``                 |
++--------------+--------------------------+
+| **default**: | ``False``                |
++--------------+--------------------------+
+
+Whether the ``keyUsage`` x509 extension should be flagged as "critical" for new
+end-entity certificates.
+
+``DJANGO_X509_CERT_KEYUSAGE_VALUE``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+---------------------------------------+
+| **type**:    | ``str``                               |
++--------------+---------------------------------------+
+| **default**: | ``digitalSignature, keyEncipherment`` |
++--------------+---------------------------------------+
+
+Value of the ``keyUsage`` x509 extension for new end-entity certificates.
+
 Contributing
 ------------
 

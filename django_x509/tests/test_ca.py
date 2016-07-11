@@ -5,9 +5,9 @@ from django.test import TestCase
 from django.utils import timezone
 from OpenSSL import crypto
 
+from .. import settings as app_settings
 from ..models import Ca
 from ..models.base import generalized_time
-from .. import settings as app_settings
 
 
 class TestCa(TestCase):
@@ -183,3 +183,28 @@ WRyKPvMvJzWT
         e = ca.x509.get_extension(0)
         self.assertEqual(e.get_data(), b'0\x03\x01\x01\xff')
         setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)
+
+    def test_keyusage(self):
+        ca = self._create_ca()
+        e = ca.x509.get_extension(1)
+        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
+        self.assertEqual(e.get_critical(), True)
+        self.assertEqual(e.get_data(), b'\x03\x02\x01\x06')
+
+    def test_keyusage_not_critical(self):
+        setattr(app_settings, 'CA_KEYUSAGE_CRITICAL', False)
+        ca = self._create_ca()
+        e = ca.x509.get_extension(1)
+        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
+        self.assertEqual(e.get_critical(), False)
+        setattr(app_settings, 'CA_KEYUSAGE_CRITICAL', True)
+
+    def test_keyusage_value(self):
+        setattr(app_settings, 'CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign, keyAgreement')
+        ca = self._create_ca()
+        e = ca.x509.get_extension(1)
+        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
+        self.assertEqual(e.get_data(), b'\x03\x02\x01\x0e')
+        setattr(app_settings, 'CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign')
+
+    # def test_authority_key_identifier(self):

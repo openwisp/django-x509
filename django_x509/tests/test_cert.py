@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from OpenSSL import crypto
 
+from .. import settings as app_settings
 from ..models import Ca, Cert
 from ..models.base import generalized_time
 
@@ -246,3 +247,26 @@ WRyKPvMvJzWT
             self.assertIn('CA doesn\'t match', str(e.message_dict['__all__'][0]))
         else:
             self.fail('ValidationError not raised')
+
+    def test_keyusage(self):
+        cert = self._create_cert()
+        e = cert.x509.get_extension(1)
+        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
+        self.assertEqual(e.get_critical(), False)
+        self.assertEqual(e.get_data(), b'\x03\x02\x05\xa0')
+
+    def test_keyusage_critical(self):
+        setattr(app_settings, 'CERT_KEYUSAGE_CRITICAL', True)
+        cert = self._create_cert()
+        e = cert.x509.get_extension(1)
+        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
+        self.assertEqual(e.get_critical(), True)
+        setattr(app_settings, 'CERT_KEYUSAGE_CRITICAL', False)
+
+    def test_keyusage_value(self):
+        setattr(app_settings, 'CERT_KEYUSAGE_VALUE', 'digitalSignature')
+        cert = self._create_cert()
+        e = cert.x509.get_extension(1)
+        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
+        self.assertEqual(e.get_data(), b'\x03\x02\x07\x80')
+        setattr(app_settings, 'CERT_KEYUSAGE_VALUE', 'digitalSignature, keyEncipherment')
