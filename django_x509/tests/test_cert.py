@@ -137,6 +137,11 @@ WRyKPvMvJzWT
         store_ctx.verify_certificate()
         # ensure version is 3
         self.assertEqual(x509.get_version(), 3)
+        # basic constraints
+        e = cert.x509.get_extension(0)
+        self.assertEqual(e.get_critical(), 0)
+        self.assertEqual(e.get_short_name().decode(), 'basicConstraints')
+        self.assertEqual(e.get_data(), b'0\x00')
 
     def test_x509_property(self):
         cert = self._create_cert()

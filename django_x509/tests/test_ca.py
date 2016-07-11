@@ -7,6 +7,7 @@ from OpenSSL import crypto
 
 from ..models import Ca
 from ..models.base import generalized_time
+from .. import settings as app_settings
 
 
 class TestCa(TestCase):
@@ -77,6 +78,11 @@ WRyKPvMvJzWT
         self.assertEqual(issuer.commonName, ca.common_name)
         # ensure version is 3
         self.assertEqual(cert.get_version(), 3)
+        # basic constraints
+        e = cert.get_extension(0)
+        self.assertEqual(e.get_critical(), 1)
+        self.assertEqual(e.get_short_name().decode(), 'basicConstraints')
+        self.assertEqual(e.get_data(), b'0\x06\x01\x01\xff\x02\x01\x00')
 
     def test_x509_property(self):
         ca = self._create_ca()
@@ -156,3 +162,24 @@ WRyKPvMvJzWT
             self.assertIn('importing an existing certificate', str(e))
         else:
             self.fail('ValidationError not raised')
+
+    def test_basic_constraints_not_critical(self):
+        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_CRITICAL', False)
+        ca = self._create_ca()
+        e = ca.x509.get_extension(0)
+        self.assertEqual(e.get_critical(), 0)
+        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_CRITICAL', True)
+
+    def test_basic_constraints_pathlen(self):
+        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 2)
+        ca = self._create_ca()
+        e = ca.x509.get_extension(0)
+        self.assertEqual(e.get_data(), b'0\x06\x01\x01\xff\x02\x01\x02')
+        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)
+
+    def test_basic_constraints_pathlen_none(self):
+        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', None)
+        ca = self._create_ca()
+        e = ca.x509.get_extension(0)
+        self.assertEqual(e.get_data(), b'0\x03\x01\x01\xff')
+        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)

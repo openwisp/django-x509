@@ -8,7 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
 
-from ..settings import DEFAULT_CERT_VALIDITY
+from .. import settings as app_settings
 
 generalized_time = '%Y%m%d%H%M%SZ'
 
@@ -42,7 +42,7 @@ def default_cert_validity_end():
     """
     returns the default value for validity_end field
     """
-    delta = timedelta(days=DEFAULT_CERT_VALIDITY)
+    delta = timedelta(days=app_settings.DEFAULT_CERT_VALIDITY)
     return timezone.now() + delta
 
 
@@ -147,6 +147,7 @@ class AbstractX509(models.Model):
     def _generate(self):
         key = crypto.PKey()
         key.generate_key(crypto.TYPE_RSA, int(self.key_length))
+        ext = []
         cert = crypto.X509()
         subject = self._fill_subject(cert.get_subject())
         cert.set_version(3)
@@ -158,10 +159,22 @@ class AbstractX509(models.Model):
         if not hasattr(self, 'ca'):
             issuer = subject
             issuer_key = key
+            pathlen = app_settings.CA_BASIC_CONSTRAINTS_PATHLEN
+            ext_value = 'CA:TRUE'
+            if pathlen is not None:
+                ext_value = '{0}, pathlen:{1}'.format(ext_value, pathlen)
+            ext.append(crypto.X509Extension(b'basicConstraints',
+                                            app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
+                                            bytes(ext_value, 'utf8')))
         # generating certificate issued by a CA
         else:
             issuer = self.ca.x509.get_subject()
             issuer_key = self.ca.pkey
+            ext.append(crypto.X509Extension(b'basicConstraints',
+                                            False,
+                                            b'CA:FALSE'))
+        if ext:
+            cert.add_extensions(ext)
         cert.set_issuer(issuer)
         cert.set_pubkey(key)
         cert.sign(issuer_key, self.digest)

@@ -161,6 +161,33 @@ Default validity period (in days) when creating new x509 certificates.
 
 Default validity period (in days) when creating new Certification Authorities.
 
+``DJANGO_X509_CA_BASIC_CONSTRAINTS_CRITICAL``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+-----------+
+| **type**:    | ``bool``  |
++--------------+-----------+
+| **default**: | ``True``  |
++--------------+-----------+
+
+Whether the ``basicConstraint`` x509 extension must be flagged as critical when creating new CAs.
+
+``DJANGO_X509_CA_BASIC_CONSTRAINTS_PATHLEN``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+---------------------+
+| **type**:    | ``int`` or ``None`` |
++--------------+---------------------+
+| **default**: | ``0``               |
++--------------+---------------------+
+
+Value of the ``pathLenConstraint`` of ``basicConstraint`` x509 extension used when creating new CAs.
+
+When this value is a positive ``int`` it represents the maximum number of non-self-issued
+intermediate certificates that may follow the generated certificate in a valid certification path.
+
+Set this value to ``None`` to avoid imposing any limit.
+
 Contributing
 ------------
 
