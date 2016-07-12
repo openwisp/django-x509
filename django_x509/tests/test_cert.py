@@ -276,3 +276,8 @@ WRyKPvMvJzWT
         e = cert.x509.get_extension(2)
         self.assertEqual(e.get_short_name().decode(), 'subjectKeyIdentifier')
         self.assertEqual(e.get_critical(), False)
+        e2 = crypto.X509Extension(b'subjectKeyIdentifier',
+                                  False,
+                                  b'hash',
+                                  subject=cert.x509)
+        self.assertEqual(e.get_data(), e2.get_data())

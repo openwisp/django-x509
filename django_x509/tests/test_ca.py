@@ -212,4 +212,9 @@ WRyKPvMvJzWT
         e = ca.x509.get_extension(2)
         self.assertEqual(e.get_short_name().decode(), 'subjectKeyIdentifier')
         self.assertEqual(e.get_critical(), False)
+        e2 = crypto.X509Extension(b'subjectKeyIdentifier',
+                                  False,
+                                  b'hash',
+                                  subject=ca.x509)
+        self.assertEqual(e.get_data(), e2.get_data())
     # def test_authority_key_identifier(self):
