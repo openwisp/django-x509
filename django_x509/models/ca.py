@@ -21,6 +21,9 @@ class Ca(AbstractX509):
     """
     Concrete Ca model
     """
+    def __str__(self):
+        return self.name
+
     class Meta:
         verbose_name = _('CA')
         verbose_name_plural = _('CAs')

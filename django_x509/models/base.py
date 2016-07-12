@@ -9,6 +9,7 @@ from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
 
 from .. import settings as app_settings
+from ..utils import bytes_compat
 
 generalized_time = '%Y%m%d%H%M%SZ'
 
@@ -86,9 +87,6 @@ class AbstractX509(models.Model):
     class Meta:
         abstract = True
 
-    def __str__(self):
-        return self.name
-
     def clean_fields(self, *args, **kwargs):
         # importing existing certificate
         if self.public_key and self.private_key and (
@@ -153,8 +151,8 @@ class AbstractX509(models.Model):
         cert.set_version(3)
         cert.set_subject(subject)
         cert.set_serial_number(self.serial_number)
-        cert.set_notBefore(bytes(self.validity_start.strftime(generalized_time), 'utf8'))
-        cert.set_notAfter(bytes(self.validity_end.strftime(generalized_time), 'utf8'))
+        cert.set_notBefore(bytes_compat(self.validity_start.strftime(generalized_time), 'utf8'))
+        cert.set_notAfter(bytes_compat(self.validity_end.strftime(generalized_time), 'utf8'))
         # generating certificate for CA
         if not hasattr(self, 'ca'):
             issuer = subject
@@ -165,10 +163,10 @@ class AbstractX509(models.Model):
                 ext_value = '{0}, pathlen:{1}'.format(ext_value, pathlen)
             ext.append(crypto.X509Extension(b'basicConstraints',
                                             app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
-                                            bytes(ext_value, 'utf8')))
+                                            bytes_compat(ext_value, 'utf8')))
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CA_KEYUSAGE_CRITICAL,
-                                            bytes(app_settings.CA_KEYUSAGE_VALUE, 'utf8')))
+                                            bytes_compat(app_settings.CA_KEYUSAGE_VALUE, 'utf8')))
         # generating certificate issued by a CA
         else:
             issuer = self.ca.x509.get_subject()
@@ -178,7 +176,7 @@ class AbstractX509(models.Model):
                                             b'CA:FALSE'))
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CERT_KEYUSAGE_CRITICAL,
-                                            bytes(app_settings.CERT_KEYUSAGE_VALUE, 'utf8')))
+                                            bytes_compat(app_settings.CERT_KEYUSAGE_VALUE, 'utf8')))
         if ext:
             cert.add_extensions(ext)
         cert.set_issuer(issuer)

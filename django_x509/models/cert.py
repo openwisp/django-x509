@@ -12,6 +12,9 @@ class Cert(AbstractX509):
     """
     ca = models.ForeignKey('django_x509.Ca', verbose_name=_('CA'))
 
+    def __str__(self):
+        return self.name
+
     class Meta:
         verbose_name = _('certificate')
         verbose_name_plural = _('certificates')
