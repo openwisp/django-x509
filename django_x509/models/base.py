@@ -177,10 +177,13 @@ class AbstractX509(models.Model):
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CERT_KEYUSAGE_CRITICAL,
                                             bytes_compat(app_settings.CERT_KEYUSAGE_VALUE, 'utf8')))
-        if ext:
-            cert.add_extensions(ext)
         cert.set_issuer(issuer)
         cert.set_pubkey(key)
+        ext.append(crypto.X509Extension(b'subjectKeyIdentifier',
+                                        False,
+                                        b'hash',
+                                        subject=cert))
+        cert.add_extensions(ext)
         cert.sign(issuer_key, self.digest)
         self.public_key = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
         self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)

@@ -207,4 +207,9 @@ WRyKPvMvJzWT
         self.assertEqual(e.get_data(), b'\x03\x02\x01\x0e')
         setattr(app_settings, 'CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign')
 
+    def test_subject_key_identifier(self):
+        ca = self._create_ca()
+        e = ca.x509.get_extension(2)
+        self.assertEqual(e.get_short_name().decode(), 'subjectKeyIdentifier')
+        self.assertEqual(e.get_critical(), False)
     # def test_authority_key_identifier(self):

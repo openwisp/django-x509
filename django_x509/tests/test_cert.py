@@ -270,3 +270,9 @@ WRyKPvMvJzWT
         self.assertEqual(e.get_short_name().decode(), 'keyUsage')
         self.assertEqual(e.get_data(), b'\x03\x02\x07\x80')
         setattr(app_settings, 'CERT_KEYUSAGE_VALUE', 'digitalSignature, keyEncipherment')
+
+    def test_subject_key_identifier(self):
+        cert = self._create_cert()
+        e = cert.x509.get_extension(2)
+        self.assertEqual(e.get_short_name().decode(), 'subjectKeyIdentifier')
+        self.assertEqual(e.get_critical(), False)
