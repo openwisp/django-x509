@@ -167,6 +167,7 @@ class AbstractX509(models.Model):
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CA_KEYUSAGE_CRITICAL,
                                             bytes_compat(app_settings.CA_KEYUSAGE_VALUE, 'utf8')))
+            issuer_cert = cert
         # generating certificate issued by a CA
         else:
             issuer = self.ca.x509.get_subject()
@@ -177,6 +178,7 @@ class AbstractX509(models.Model):
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CERT_KEYUSAGE_CRITICAL,
                                             bytes_compat(app_settings.CERT_KEYUSAGE_VALUE, 'utf8')))
+            issuer_cert = self.ca.x509
         cert.set_issuer(issuer)
         cert.set_pubkey(key)
         ext.append(crypto.X509Extension(b'subjectKeyIdentifier',
@@ -184,6 +186,14 @@ class AbstractX509(models.Model):
                                         b'hash',
                                         subject=cert))
         cert.add_extensions(ext)
+        # authorityKeyIdentifier must be added after
+        # the other extensions have been already added
+        cert.add_extensions([
+            crypto.X509Extension(b'authorityKeyIdentifier',
+                                 False,
+                                 b'keyid:always,issuer:always',
+                                 issuer=issuer_cert)
+        ])
         cert.sign(issuer_key, self.digest)
         self.public_key = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
         self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)

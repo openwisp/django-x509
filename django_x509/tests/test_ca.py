@@ -217,4 +217,14 @@ WRyKPvMvJzWT
                                   b'hash',
                                   subject=ca.x509)
         self.assertEqual(e.get_data(), e2.get_data())
-    # def test_authority_key_identifier(self):
+
+    def test_authority_key_identifier(self):
+        ca = self._create_ca()
+        e = ca.x509.get_extension(3)
+        self.assertEqual(e.get_short_name().decode(), 'authorityKeyIdentifier')
+        self.assertEqual(e.get_critical(), False)
+        e2 = crypto.X509Extension(b'authorityKeyIdentifier',
+                                  False,
+                                  b'keyid:always,issuer:always',
+                                  issuer=ca.x509)
+        self.assertEqual(e.get_data(), e2.get_data())
