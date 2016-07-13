@@ -151,8 +151,8 @@ class AbstractX509(models.Model):
         cert.set_version(3)
         cert.set_subject(subject)
         cert.set_serial_number(self.serial_number)
-        cert.set_notBefore(bytes_compat(self.validity_start.strftime(generalized_time), 'utf8'))
-        cert.set_notAfter(bytes_compat(self.validity_end.strftime(generalized_time), 'utf8'))
+        cert.set_notBefore(bytes_compat(self.validity_start.strftime(generalized_time)))
+        cert.set_notAfter(bytes_compat(self.validity_end.strftime(generalized_time)))
         # generating certificate for CA
         if not hasattr(self, 'ca'):
             issuer = subject
@@ -163,10 +163,10 @@ class AbstractX509(models.Model):
                 ext_value = '{0}, pathlen:{1}'.format(ext_value, pathlen)
             ext.append(crypto.X509Extension(b'basicConstraints',
                                             app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
-                                            bytes_compat(ext_value, 'utf8')))
+                                            bytes_compat(ext_value)))
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CA_KEYUSAGE_CRITICAL,
-                                            bytes_compat(app_settings.CA_KEYUSAGE_VALUE, 'utf8')))
+                                            bytes_compat(app_settings.CA_KEYUSAGE_VALUE)))
             issuer_cert = cert
         # generating certificate issued by a CA
         else:
@@ -177,7 +177,7 @@ class AbstractX509(models.Model):
                                             b'CA:FALSE'))
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CERT_KEYUSAGE_CRITICAL,
-                                            bytes_compat(app_settings.CERT_KEYUSAGE_VALUE, 'utf8')))
+                                            bytes_compat(app_settings.CERT_KEYUSAGE_VALUE)))
             issuer_cert = self.ca.x509
         cert.set_issuer(issuer)
         cert.set_pubkey(key)
