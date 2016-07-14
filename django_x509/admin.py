@@ -27,6 +27,7 @@ class AbstractAdmin(BaseAdmin):
                      'organization',
                      'email',
                      'common_name',
+                     'extensions',
                      'serial_number',
                      'public_key',
                      'private_key')
@@ -63,6 +64,7 @@ class CertAdmin(AbstractAdmin):
               'organization',
               'email',
               'common_name',
+              'extensions',
               'serial_number',
               'public_key',
               'private_key',

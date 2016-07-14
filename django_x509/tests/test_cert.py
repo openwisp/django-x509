@@ -28,7 +28,7 @@ class TestCert(TestCase):
         ca.save()
         return ca
 
-    def _create_cert(self):
+    def _create_cert(self, ext=[]):
         cert = Cert(name='testcert',
                     ca=self._create_ca(),
                     key_length='1024',
@@ -38,7 +38,8 @@ class TestCert(TestCase):
                     city='Rome',
                     organization='Prova',
                     email='test@test2.com',
-                    common_name='test.org')
+                    common_name='test.org',
+                    extensions=ext)
         cert.full_clean()
         cert.save()
         return cert
@@ -292,3 +293,48 @@ WRyKPvMvJzWT
                                   b'keyid:always,issuer:always',
                                   issuer=cert.ca.x509)
         self.assertEqual(e.get_data(), e2.get_data())
+
+    def test_extensions(self):
+        extensions = [
+            {
+                "name": "nsCertType",
+                "critical": False,
+                "value": "client"
+            },
+            {
+                "name": "extendedKeyUsage",
+                "critical": True,  # critical just for testing purposes
+                "value": "clientAuth"
+            }
+        ]
+        cert = self._create_cert(ext=extensions)
+        e1 = cert.x509.get_extension(4)
+        self.assertEqual(e1.get_short_name().decode(), 'nsCertType')
+        self.assertEqual(e1.get_critical(), False)
+        self.assertEqual(e1.get_data(), b'\x03\x02\x07\x80')
+        e2 = cert.x509.get_extension(5)
+        self.assertEqual(e2.get_short_name().decode(), 'extendedKeyUsage')
+        self.assertEqual(e2.get_critical(), True)
+        self.assertEqual(e2.get_data(), b'0\n\x06\x08+\x06\x01\x05\x05\x07\x03\x02')
+
+    def test_extensions_error1(self):
+        extensions = {}
+        try:
+            self._create_cert(ext=extensions)
+        except ValidationError as e:
+            # verify error message
+            self.assertIn('Extension format invalid', str(e.message_dict['__all__'][0]))
+        else:
+            self.fail('ValidationError not raised')
+
+    def test_extensions_error2(self):
+        extensions = [
+            {"wrong": "wrong"}
+        ]
+        try:
+            self._create_cert(ext=extensions)
+        except ValidationError as e:
+            # verify error message
+            self.assertIn('Extension format invalid', str(e.message_dict['__all__'][0]))
+        else:
+            self.fail('ValidationError not raised')

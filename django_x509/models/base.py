@@ -1,3 +1,4 @@
+import collections
 from datetime import datetime, timedelta
 
 from django.core.exceptions import ValidationError
@@ -5,6 +6,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
+from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
 
@@ -75,12 +77,18 @@ class AbstractX509(models.Model):
     organization = models.CharField(_('organization'), max_length=64, blank=True)
     email = models.EmailField(_('email address'), blank=True)
     common_name = models.CharField(_('common name'), max_length=63, blank=True)
+    extensions = JSONField(_('extensions'),
+                           default=list,
+                           blank=True,
+                           help_text=_('additional x509 certificate extensions'),
+                           load_kwargs={'object_pairs_hook': collections.OrderedDict},
+                           dump_kwargs={'indent': 4})
     serial_number = models.PositiveIntegerField(_('serial number'),
                                                 help_text=_('leave blank to determine automatically'),
                                                 blank=True,
                                                 null=True)
-    public_key = models.TextField(blank=True, help_text='Certificate in X.509 PEM format')
-    private_key = models.TextField(blank=True, help_text='Private key in X.509 PEM format')
+    public_key = models.TextField(blank=True, help_text='certificate in X.509 PEM format')
+    private_key = models.TextField(blank=True, help_text='private key in X.509 PEM format')
     created = AutoCreatedField(_('created'), editable=True)
     modified = AutoLastModifiedField(_('modified'), editable=True)
 
@@ -103,6 +111,7 @@ class AbstractX509(models.Model):
         ):
             raise ValidationError(_('When importing an existing certificate, both'
                                     'keys (private and public) must be present'))
+        self._verify_extension_format()
 
     def save(self, *args, **kwargs):
         generate = False
@@ -135,7 +144,6 @@ class AbstractX509(models.Model):
     def _generate(self):
         key = crypto.PKey()
         key.generate_key(crypto.TYPE_RSA, int(self.key_length))
-        ext = []
         cert = crypto.X509()
         subject = self._fill_subject(cert.get_subject())
         cert.set_version(3)
@@ -153,7 +161,7 @@ class AbstractX509(models.Model):
             issuer_key = self.ca.pkey
         cert.set_issuer(issuer)
         cert.set_pubkey(key)
-        self._add_extensions(cert)
+        cert = self._add_extensions(cert)
         cert.sign(issuer_key, self.digest)
         self.public_key = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
         self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
@@ -207,6 +215,16 @@ class AbstractX509(models.Model):
             raise ValidationError(_("CA doesn't match, got the"
                                     "following error from pyOpenSSL: \"%s\"") % e.args[0][2])
 
+    def _verify_extension_format(self):
+        msg = 'Extension format invalid'
+        if not isinstance(self.extensions, list):
+            raise ValidationError(msg)
+        for ext in self.extensions:
+            if not isinstance(ext, dict):
+                raise ValidationError(msg)
+            if not ('name' in ext and 'critical' in ext and 'value' in ext):
+                raise ValidationError(msg)
+
     def _add_extensions(self, cert):
         ext = []
         # prepare extensions for CA
@@ -244,3 +262,10 @@ class AbstractX509(models.Model):
                                  b'keyid:always,issuer:always',
                                  issuer=issuer_cert)
         ])
+        for ext in self.extensions:
+            cert.add_extensions([
+                crypto.X509Extension(bytes_compat(ext['name']),
+                                     bool(ext['critical']),
+                                     bytes_compat(ext['value']))
+            ])
+        return cert
