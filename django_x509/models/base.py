@@ -157,43 +157,13 @@ class AbstractX509(models.Model):
         if not hasattr(self, 'ca'):
             issuer = subject
             issuer_key = key
-            pathlen = app_settings.CA_BASIC_CONSTRAINTS_PATHLEN
-            ext_value = 'CA:TRUE'
-            if pathlen is not None:
-                ext_value = '{0}, pathlen:{1}'.format(ext_value, pathlen)
-            ext.append(crypto.X509Extension(b'basicConstraints',
-                                            app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
-                                            bytes_compat(ext_value)))
-            ext.append(crypto.X509Extension(b'keyUsage',
-                                            app_settings.CA_KEYUSAGE_CRITICAL,
-                                            bytes_compat(app_settings.CA_KEYUSAGE_VALUE)))
-            issuer_cert = cert
         # generating certificate issued by a CA
         else:
             issuer = self.ca.x509.get_subject()
             issuer_key = self.ca.pkey
-            ext.append(crypto.X509Extension(b'basicConstraints',
-                                            False,
-                                            b'CA:FALSE'))
-            ext.append(crypto.X509Extension(b'keyUsage',
-                                            app_settings.CERT_KEYUSAGE_CRITICAL,
-                                            bytes_compat(app_settings.CERT_KEYUSAGE_VALUE)))
-            issuer_cert = self.ca.x509
         cert.set_issuer(issuer)
         cert.set_pubkey(key)
-        ext.append(crypto.X509Extension(b'subjectKeyIdentifier',
-                                        False,
-                                        b'hash',
-                                        subject=cert))
-        cert.add_extensions(ext)
-        # authorityKeyIdentifier must be added after
-        # the other extensions have been already added
-        cert.add_extensions([
-            crypto.X509Extension(b'authorityKeyIdentifier',
-                                 False,
-                                 b'keyid:always,issuer:always',
-                                 issuer=issuer_cert)
-        ])
+        self._add_extensions(cert)
         cert.sign(issuer_key, self.digest)
         self.public_key = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
         self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
@@ -246,3 +216,41 @@ class AbstractX509(models.Model):
         except crypto.X509StoreContextError as e:
             raise ValidationError(_("CA doesn't match, got the"
                                     "following error from pyOpenSSL: \"%s\"") % e.args[0][2])
+
+    def _add_extensions(self, cert):
+        ext = []
+        # prepare extensions for CA
+        if not hasattr(self, 'ca'):
+            pathlen = app_settings.CA_BASIC_CONSTRAINTS_PATHLEN
+            ext_value = 'CA:TRUE'
+            if pathlen is not None:
+                ext_value = '{0}, pathlen:{1}'.format(ext_value, pathlen)
+            ext.append(crypto.X509Extension(b'basicConstraints',
+                                            app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
+                                            bytes_compat(ext_value)))
+            ext.append(crypto.X509Extension(b'keyUsage',
+                                            app_settings.CA_KEYUSAGE_CRITICAL,
+                                            bytes_compat(app_settings.CA_KEYUSAGE_VALUE)))
+            issuer_cert = cert
+        # prepare extensions for end-entity certs
+        else:
+            ext.append(crypto.X509Extension(b'basicConstraints',
+                                            False,
+                                            b'CA:FALSE'))
+            ext.append(crypto.X509Extension(b'keyUsage',
+                                            app_settings.CERT_KEYUSAGE_CRITICAL,
+                                            bytes_compat(app_settings.CERT_KEYUSAGE_VALUE)))
+            issuer_cert = self.ca.x509
+        ext.append(crypto.X509Extension(b'subjectKeyIdentifier',
+                                        False,
+                                        b'hash',
+                                        subject=cert))
+        cert.add_extensions(ext)
+        # authorityKeyIdentifier must be added after
+        # the other extensions have been already added
+        cert.add_extensions([
+            crypto.X509Extension(b'authorityKeyIdentifier',
+                                 False,
+                                 b'keyid:always,issuer:always',
+                                 issuer=issuer_cert)
+        ])
