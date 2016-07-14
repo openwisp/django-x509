@@ -89,19 +89,9 @@ class AbstractX509(models.Model):
 
     def clean_fields(self, *args, **kwargs):
         # importing existing certificate
-        if self.public_key and self.private_key and (
-            not self.key_length or
-            not self.digest or
-            not self.validity_start or
-            not self.validity_end or
-            not self.country_code or
-            not self.state or
-            not self.city or
-            not self.organization or
-            not self.email or
-            not self.common_name or
-            not self.serial_number
-        ):
+        # must be done here in order to validate imported fields
+        # and fill private and public key before validation fails
+        if not self.pk and self.public_key and self.private_key:
             self._import()
         super(AbstractX509, self).clean_fields(*args, **kwargs)
 
