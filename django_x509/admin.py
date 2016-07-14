@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin as BaseAdmin
+from django.contrib.admin.templatetags.admin_static import static
 
 from .models import Ca, Cert
 
@@ -31,6 +32,9 @@ class AbstractAdmin(BaseAdmin):
                      'serial_number',
                      'public_key',
                      'private_key')
+
+    class Media:
+        css = {'all': (static('django-x509/css/admin.css'),)}
 
     def __init__(self, *args, **kwargs):
         self.readonly_fields += ('created', 'modified')
