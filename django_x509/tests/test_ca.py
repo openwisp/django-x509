@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -6,7 +6,7 @@ from django.utils import timezone
 from OpenSSL import crypto
 
 from .. import settings as app_settings
-from ..models import Ca
+from ..models import Ca, Cert
 from ..models.base import generalized_time
 
 
@@ -28,6 +28,30 @@ class TestCa(TestCase):
         ca.full_clean()
         ca.save()
         return ca
+
+    def _create_cert(self, ca=None, ext=[],
+                     validity_start=None,
+                     validity_end=None):
+        if not ca:
+            ca = self._create_ca()
+        cert = Cert(name='testcert',
+                    ca=ca,
+                    key_length='1024',
+                    digest='sha1',
+                    country_code='IT',
+                    state='RM',
+                    city='Rome',
+                    organization='Prova',
+                    email='test@test2.com',
+                    common_name='test.org',
+                    extensions=ext)
+        if validity_start:
+            cert.validity_start = validity_start
+        if validity_end:
+            cert.validity_end = validity_end
+        cert.full_clean()
+        cert.save()
+        return cert
 
     import_public_key = """
 -----BEGIN CERTIFICATE-----
@@ -265,3 +289,43 @@ WRyKPvMvJzWT
             self.assertIn('Extension format invalid', str(e.message_dict['__all__'][0]))
         else:
             self.fail('ValidationError not raised')
+
+    def test_get_revoked_certs(self):
+        ca = self._create_ca()
+        c1 = self._create_cert(ca=ca)
+        c2 = self._create_cert(ca=ca)
+        c3 = self._create_cert(ca=ca)  # noqa
+        self.assertEqual(ca.get_revoked_certs().count(), 0)
+        c1.revoke()
+        self.assertEqual(ca.get_revoked_certs().count(), 1)
+        c2.revoke()
+        self.assertEqual(ca.get_revoked_certs().count(), 2)
+        now = timezone.now()
+        # expired certificates are not counted
+        start = now - timedelta(days=6650)
+        end = now - timedelta(days=6600)
+        c4 = self._create_cert(ca=ca,
+                               validity_start=start,
+                               validity_end=end)
+        c4.revoke()
+        self.assertEqual(ca.get_revoked_certs().count(), 2)
+        # inactive not counted yet
+        start = now + timedelta(days=2)
+        end = now + timedelta(days=365)
+        c5 = self._create_cert(ca=ca,
+                               validity_start=start,
+                               validity_end=end)
+        c5.revoke()
+        self.assertEqual(ca.get_revoked_certs().count(), 2)
+
+    def test_crl(self):
+        ca = self._create_ca()
+        crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
+        self.assertIsNone(crl.get_revoked())
+        cert = self._create_cert(ca=ca)
+        cert.revoke()
+        crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
+        revoked_list = crl.get_revoked()
+        self.assertIsNotNone(revoked_list)
+        self.assertEqual(len(revoked_list), 1)
+        self.assertEqual(int(revoked_list[0].get_serial()), cert.serial_number)

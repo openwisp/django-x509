@@ -109,8 +109,6 @@ WRyKPvMvJzWT
 
     def test_new(self):
         cert = self._create_cert()
-        cert.full_clean()
-        cert.save()
         self.assertNotEqual(cert.public_key, '')
         self.assertNotEqual(cert.private_key, '')
         x509 = cert.x509
@@ -338,3 +336,11 @@ WRyKPvMvJzWT
             self.assertIn('Extension format invalid', str(e.message_dict['__all__'][0]))
         else:
             self.fail('ValidationError not raised')
+
+    def test_revoke(self):
+        cert = self._create_cert()
+        self.assertFalse(cert.revoked)
+        self.assertIsNone(cert.revoked_at)
+        cert.revoke()
+        self.assertTrue(cert.revoked)
+        self.assertIsNotNone(cert.revoked_at)

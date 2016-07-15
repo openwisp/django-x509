@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin as BaseAdmin
 from django.contrib.admin.templatetags.admin_static import static
+from django.utils.translation import ugettext_lazy as _
 
 from .models import Ca, Cert
 
@@ -17,7 +18,7 @@ class AbstractAdmin(BaseAdmin):
     search_fields = ('name', 'serial_number', 'common_name')
     actions_on_bottom = True
     save_on_top = True
-
+    # custom attribute
     readonly_edit = ('key_length',
                      'digest',
                      'validity_start',
@@ -54,10 +55,13 @@ class CaAdmin(AbstractAdmin):
 
 
 class CertAdmin(AbstractAdmin):
-    list_filter = ('ca', 'created',)
+    list_filter = ('ca', 'revoked', 'created',)
+    readonly_fields = ('revoked', 'revoked_at',)
     fields = ['name',
               'ca',
               'notes',
+              'revoked',
+              'revoked_at',
               'key_length',
               'digest',
               'validity_start',
@@ -75,8 +79,26 @@ class CertAdmin(AbstractAdmin):
               'created',
               'modified']
 
+    actions = ['revoke_action']
+
+    def revoke_action(self, request, queryset):
+        rows = 0
+        for cert in queryset:
+            cert.revoke()
+            rows += 1
+        if rows == 1:
+            bit = '1 certificate was'
+        else:
+            bit = '{0} certificates were'.format(rows)
+        message = '{0} revoked.'.format(bit)
+        self.message_user(request, _(message))
+
+    revoke_action.short_description = _('Revoke selected certificates')
+
+
 CertAdmin.list_display = AbstractAdmin.list_display[:]
 CertAdmin.list_display.insert(1, 'ca')
+CertAdmin.list_display.insert(4, 'revoked')
 CertAdmin.readonly_edit = AbstractAdmin.readonly_edit[:]
 CertAdmin.readonly_edit += ('ca',)
 
