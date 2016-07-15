@@ -150,6 +150,7 @@ Settings
 
 Default validity period (in days) when creating new x509 certificates.
 
+
 ``DJANGO_X509_DEFAULT_CA_VALIDITY``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -160,6 +161,43 @@ Default validity period (in days) when creating new x509 certificates.
 +--------------+-------------+
 
 Default validity period (in days) when creating new Certification Authorities.
+
+``DJANGO_X509_DEFAULT_KEY_LENGTH``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+-------------+
+| **type**:    | ``int``     |
++--------------+-------------+
+| **default**: | ``2048``    |
++--------------+-------------+
+
+Default key length for new CAs and new certificates.
+
+Must be one of the following values:
+
+* ``512``
+* ``1024``
+* ``2048``
+* ``4096``
+
+``DJANGO_X509_DEFAULT_DIGEST_ALGORITHM``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+-------------+
+| **type**:    | ``str``     |
++--------------+-------------+
+| **default**: | ``sha256``  |
++--------------+-------------+
+
+Default digest algorithm for new CAs and new certificates.
+
+Must be one of the following values:
+
+* ``sha1``
+* ``sha224``
+* ``sha256``
+* ``sha384``
+* ``sha512``
 
 ``DJANGO_X509_CA_BASIC_CONSTRAINTS_CRITICAL``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

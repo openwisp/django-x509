@@ -49,6 +49,22 @@ def default_cert_validity_end():
     return timezone.now() + delta
 
 
+def default_key_length():
+    """
+    returns default value for key_length field
+    (this avoids to set the exact default value in the database migration)
+    """
+    return app_settings.DEFAULT_KEY_LENGTH
+
+
+def default_digest_algorithm():
+    """
+    returns default value for digest field
+    (this avoids to set the exact default value in the database migration)
+    """
+    return app_settings.DEFAULT_DIGEST_ALGORITHM
+
+
 class AbstractX509(models.Model):
     """
     Abstract Cert class, shared between Ca and Cert
@@ -59,11 +75,13 @@ class AbstractX509(models.Model):
                                   help_text=_('bits'),
                                   blank=True,
                                   choices=KEY_LENGTH_CHOICES,
+                                  default=default_key_length,
                                   max_length=6)
     digest = models.CharField(_('digest algorithm'),
                               help_text=_('bits'),
                               blank=True,
                               choices=DIGEST_CHOICES,
+                              default=default_digest_algorithm,
                               max_length=8)
     validity_start = models.DateTimeField(blank=True,
                                           null=True,
