@@ -4,4 +4,8 @@ Changelog
 Version 0.1 [unreleased]
 ------------------------
 
-WIP
+* CA and end entity certificate generation
+* import existing certificates
+* x509 extensions
+* revocation
+* CRL
