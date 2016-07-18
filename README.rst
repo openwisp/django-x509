@@ -19,9 +19,7 @@ django-x509
 
 ------------
 
-Reusable django app implementing x509 PKI certificates management.
-
-**Work in progress**.
+Simple reusable django app implementing x509 PKI certificates management.
 
 ------------
 
@@ -34,12 +32,19 @@ Reusable django app implementing x509 PKI certificates management.
 Current features
 ----------------
 
-* TODO
+* CA generation
+* Import existing CAs
+* End entity certificate generation
+* Import existing certificates
+* Certificate revocation
+* CRL pubblication
+* Possibility to specify x509 extensions
 
 Project goals
 -------------
 
-* TODO
+* provide a simple and reusable x509 PKI management django app
+* provide abstract models that can be imported and extended in larger django projects
 
 Install stable version from pypi
 --------------------------------
