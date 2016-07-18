@@ -165,6 +165,10 @@ class AbstractX509(models.Model):
             return crypto.load_privatekey(crypto.FILETYPE_PEM, self.private_key)
 
     def _generate(self):
+        """
+        (internal use only)
+        generates a new x509 certificate (CA or end-entity)
+        """
         key = crypto.PKey()
         key.generate_key(crypto.TYPE_RSA, int(self.key_length))
         cert = crypto.X509()
@@ -190,6 +194,10 @@ class AbstractX509(models.Model):
         self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
 
     def _fill_subject(self, subject):
+        """
+        (internal use only)
+        fills OpenSSL.crypto.X509Name object
+        """
         subject.countryName = self.country_code
         subject.stateOrProvinceName = self.state
         subject.localityName = self.city
@@ -199,6 +207,10 @@ class AbstractX509(models.Model):
         return subject
 
     def _import(self):
+        """
+        (internal use only)
+        imports existing x509 certificates
+        """
         cert = self.x509
         # when importing an end entity certificate
         if hasattr(self, 'ca'):
@@ -229,6 +241,11 @@ class AbstractX509(models.Model):
             self.name = self.common_name
 
     def _verify_ca(self):
+        """
+        (internal use only)
+        verifies the current x509 is signed
+        by the associated CA
+        """
         store = crypto.X509Store()
         store.add_cert(self.ca.x509)
         store_ctx = crypto.X509StoreContext(store, self.x509)
@@ -239,6 +256,10 @@ class AbstractX509(models.Model):
                                     "following error from pyOpenSSL: \"%s\"") % e.args[0][2])
 
     def _verify_extension_format(self):
+        """
+        (internal use only)
+        verifies the format of ``self.extension`` is correct
+        """
         msg = 'Extension format invalid'
         if not isinstance(self.extensions, list):
             raise ValidationError(msg)
@@ -249,6 +270,10 @@ class AbstractX509(models.Model):
                 raise ValidationError(msg)
 
     def _add_extensions(self, cert):
+        """
+        (internal use only)
+        adds x509 extensions to ``cert``
+        """
         ext = []
         # prepare extensions for CA
         if not hasattr(self, 'ca'):

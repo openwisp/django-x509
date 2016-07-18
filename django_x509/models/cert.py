@@ -26,7 +26,11 @@ class AbstractCert(AbstractX509):
         verbose_name_plural = _('certificates')
         unique_together = ('ca', 'serial_number')
 
-    def revoke(self, reason='unspecified'):
+    def revoke(self):
+        """
+        * flag certificate as revoked
+        * fill in revoked_at DateTimeField
+        """
         now = timezone.now()
         self.revoked = True
         self.revoked_at = now

@@ -27,6 +27,10 @@ class AbstractCa(AbstractX509):
         verbose_name_plural = _('CAs')
 
     def get_revoked_certs(self):
+        """
+        Returns revoked certificates of this CA
+        (does not include expired certificates)
+        """
         now = timezone.now()
         return self.cert_set.filter(revoked=True,
                                     validity_start__lte=now,
@@ -34,6 +38,9 @@ class AbstractCa(AbstractX509):
 
     @property
     def crl(self):
+        """
+        Returns up to date CRL of this CA
+        """
         revoked_certs = self.get_revoked_certs()
         crl = crypto.CRL()
         now_str = timezone.now().strftime(generalized_time)
