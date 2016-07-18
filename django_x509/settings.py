@@ -10,3 +10,4 @@ CA_KEYUSAGE_CRITICAL = getattr(settings, 'DJANGO_X509_CA_KEYUSAGE_CRITICAL', Tru
 CA_KEYUSAGE_VALUE = getattr(settings, 'DJANGO_X509_CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign')
 CERT_KEYUSAGE_CRITICAL = getattr(settings, 'DJANGO_X509_CERT_KEYUSAGE_CRITICAL', False)
 CERT_KEYUSAGE_VALUE = getattr(settings, 'DJANGO_X509_CERT_KEYUSAGE_VALUE', 'digitalSignature, keyEncipherment')  # noqa
+CRL_PROTECTED = getattr(settings, 'DJANGO_X509_CRL_PROTECTED', False)

@@ -7,6 +7,9 @@ admin.autodiscover()
 
 urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
+    # django-x509 urls
+    # keep the namespace argument unchanged
+    url(r'^', include('django_x509.urls', namespace='x509')),
 ]
 
 urlpatterns += staticfiles_urlpatterns()

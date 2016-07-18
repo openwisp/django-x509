@@ -85,6 +85,18 @@ Add ``django_x509`` to ``INSTALLED_APPS``:
         'django_x509',
     ]
 
+Add the URLs to your main ``urls.py``:
+
+.. code-block:: python
+
+    urlpatterns = [
+        # ... other urls in your project ...
+
+        # django-x509 urls
+        # keep the namespace argument unchanged
+        url(r'^', include('django_x509.urls', namespace='x509')),
+    ]
+
 Then run:
 
 .. code-block:: shell
@@ -270,6 +282,18 @@ end-entity certificates.
 +--------------+---------------------------------------+
 
 Value of the ``keyUsage`` x509 extension for new end-entity certificates.
+
+``DJANGO_X509_CRL_PROTECTED``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------+-----------+
+| **type**:    | ``bool``  |
++--------------+-----------+
+| **default**: | ``False`` |
++--------------+-----------+
+
+Whether the view for downloading Certificate Revocation Lists should
+be protected with authentication or not.
 
 Contributing
 ------------

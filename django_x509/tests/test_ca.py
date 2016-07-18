@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.core.exceptions import ValidationError
+from django.core.urlresolvers import reverse
 from django.test import TestCase
 from django.utils import timezone
 from OpenSSL import crypto
@@ -52,6 +53,14 @@ class TestCa(TestCase):
         cert.full_clean()
         cert.save()
         return cert
+
+    def _prepare_revoked(self):
+        ca = self._create_ca()
+        crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
+        self.assertIsNone(crl.get_revoked())
+        cert = self._create_cert(ca=ca)
+        cert.revoke()
+        return (ca, cert)
 
     import_public_key = """
 -----BEGIN CERTIFICATE-----
@@ -319,13 +328,26 @@ WRyKPvMvJzWT
         self.assertEqual(ca.get_revoked_certs().count(), 2)
 
     def test_crl(self):
-        ca = self._create_ca()
-        crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
-        self.assertIsNone(crl.get_revoked())
-        cert = self._create_cert(ca=ca)
-        cert.revoke()
+        ca, cert = self._prepare_revoked()
         crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
         revoked_list = crl.get_revoked()
         self.assertIsNotNone(revoked_list)
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(int(revoked_list[0].get_serial()), cert.serial_number)
+
+    def test_crl_view(self):
+        ca, cert = self._prepare_revoked()
+        response = self.client.get(reverse('x509:crl', args=[ca.pk]))
+        self.assertEqual(response.status_code, 200)
+        crl = crypto.load_crl(crypto.FILETYPE_PEM, response.content)
+        revoked_list = crl.get_revoked()
+        self.assertIsNotNone(revoked_list)
+        self.assertEqual(len(revoked_list), 1)
+        self.assertEqual(int(revoked_list[0].get_serial()), cert.serial_number)
+
+    def test_crl_view_403(self):
+        setattr(app_settings, 'CRL_PROTECTED', True)
+        ca, cert = self._prepare_revoked()
+        response = self.client.get(reverse('x509:crl', args=[ca.pk]))
+        self.assertEqual(response.status_code, 403)
+        setattr(app_settings, 'CRL_PROTECTED', False)
