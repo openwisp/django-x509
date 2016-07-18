@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 from django.utils import timezone
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 from OpenSSL import crypto
 
@@ -18,15 +17,12 @@ def default_ca_validity_end():
     return timezone.now() + delta
 
 
-@python_2_unicode_compatible
-class Ca(AbstractX509):
+class AbstractCa(AbstractX509):
     """
-    Concrete Ca model
+    Abstract Ca model (for reuse)
     """
-    def __str__(self):
-        return self.name
-
     class Meta:
+        abstract = True
         verbose_name = _('CA')
         verbose_name_plural = _('CAs')
 
@@ -49,4 +45,11 @@ class Ca(AbstractX509):
             crl.add_revoked(revoked)
         return crl.export(self.x509, self.pkey, days=1)
 
-Ca._meta.get_field('validity_end').default = default_ca_validity_end
+AbstractCa._meta.get_field('validity_end').default = default_ca_validity_end
+
+
+class Ca(AbstractCa):
+    """
+    Concrete CA model
+    """
+Ca.Meta.abstract = False

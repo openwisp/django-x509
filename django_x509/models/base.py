@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
@@ -65,6 +66,7 @@ def default_digest_algorithm():
     return app_settings.DEFAULT_DIGEST_ALGORITHM
 
 
+@python_2_unicode_compatible
 class AbstractX509(models.Model):
     """
     Abstract Cert class, shared between Ca and Cert
@@ -112,6 +114,9 @@ class AbstractX509(models.Model):
 
     class Meta:
         abstract = True
+
+    def __str__(self):
+        return self.name
 
     def clean_fields(self, *args, **kwargs):
         # importing existing certificate
