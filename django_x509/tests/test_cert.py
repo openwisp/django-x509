@@ -44,7 +44,7 @@ class TestCert(TestCase):
         cert.save()
         return cert
 
-    import_public_key = """
+    import_certificate = """
 -----BEGIN CERTIFICATE-----
 MIICJzCCAdGgAwIBAwIDEtaHMA0GCSqGSIb3DQEBDgUAMHcxCzAJBgNVBAYTAlVT
 MQswCQYDVQQIDAJDQTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwE
@@ -79,7 +79,7 @@ b56wRkkyq2kMxFY=
 -----END PRIVATE KEY-----
 """
 
-    import_ca_public_key = """
+    import_ca_certificate = """
 -----BEGIN CERTIFICATE-----
 MIIB4zCCAY2gAwIBAwIDAeJAMA0GCSqGSIb3DQEBBQUAMHcxCzAJBgNVBAYTAlVT
 MQswCQYDVQQIDAJDQTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwE
@@ -109,7 +109,7 @@ WRyKPvMvJzWT
 
     def test_new(self):
         cert = self._create_cert()
-        self.assertNotEqual(cert.public_key, '')
+        self.assertNotEqual(cert.certificate, '')
         self.assertNotEqual(cert.private_key, '')
         x509 = cert.x509
         self.assertEqual(x509.get_serial_number(), cert.id)
@@ -145,7 +145,7 @@ WRyKPvMvJzWT
 
     def test_x509_property(self):
         cert = self._create_cert()
-        x509 = crypto.load_certificate(crypto.FILETYPE_PEM, cert.public_key)
+        x509 = crypto.load_certificate(crypto.FILETYPE_PEM, cert.certificate)
         self.assertEqual(cert.x509.get_subject(), x509.get_subject())
         self.assertEqual(cert.x509.get_issuer(), x509.get_issuer())
 
@@ -165,13 +165,13 @@ WRyKPvMvJzWT
 
     def test_import_cert(self):
         ca = Ca(name='ImportTest')
-        ca.public_key = self.import_ca_public_key
+        ca.certificate = self.import_ca_certificate
         ca.private_key = self.import_ca_private_key
         ca.full_clean()
         ca.save()
         cert = Cert(name='ImportCertTest',
                     ca=ca,
-                    public_key=self.import_public_key,
+                    certificate=self.import_certificate,
                     private_key=self.import_private_key)
         cert.full_clean()
         cert.save()
@@ -210,7 +210,7 @@ WRyKPvMvJzWT
         self.assertEqual(x509.get_version(), 3)
         cert.delete()
         # test auto name
-        cert = Cert(public_key=self.import_public_key,
+        cert = Cert(certificate=self.import_certificate,
                     private_key=self.import_private_key,
                     ca=ca)
         cert.full_clean()
@@ -219,13 +219,13 @@ WRyKPvMvJzWT
 
     def test_import_private_key_empty(self):
         ca = Ca(name='ImportTest')
-        ca.public_key = self.import_ca_public_key
+        ca.certificate = self.import_ca_certificate
         ca.private_key = self.import_ca_private_key
         ca.full_clean()
         ca.save()
         cert = Cert(name='ImportTest',
                     ca=ca)
-        cert.public_key = self.import_public_key
+        cert.certificate = self.import_certificate
         try:
             cert.full_clean()
         except ValidationError as e:
@@ -236,7 +236,7 @@ WRyKPvMvJzWT
 
     def test_import_wrong_ca(self):
         # test auto name
-        cert = Cert(public_key=self.import_public_key,
+        cert = Cert(certificate=self.import_certificate,
                     private_key=self.import_private_key,
                     ca=self._create_ca())
         try:

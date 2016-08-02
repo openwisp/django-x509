@@ -31,7 +31,7 @@ class AbstractAdmin(BaseAdmin):
                      'common_name',
                      'extensions',
                      'serial_number',
-                     'public_key',
+                     'certificate',
                      'private_key')
 
     class Media:
@@ -74,7 +74,7 @@ class CertAdmin(AbstractAdmin):
               'common_name',
               'extensions',
               'serial_number',
-              'public_key',
+              'certificate',
               'private_key',
               'created',
               'modified']

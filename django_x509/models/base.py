@@ -107,7 +107,7 @@ class AbstractX509(models.Model):
                                                 help_text=_('leave blank to determine automatically'),
                                                 blank=True,
                                                 null=True)
-    public_key = models.TextField(blank=True, help_text='certificate in X.509 PEM format')
+    certificate = models.TextField(blank=True, help_text='certificate in X.509 PEM format')
     private_key = models.TextField(blank=True, help_text='private key in X.509 PEM format')
     created = AutoCreatedField(_('created'), editable=True)
     modified = AutoLastModifiedField(_('modified'), editable=True)
@@ -122,15 +122,15 @@ class AbstractX509(models.Model):
         # importing existing certificate
         # must be done here in order to validate imported fields
         # and fill private and public key before validation fails
-        if not self.pk and self.public_key and self.private_key:
+        if not self.pk and self.certificate and self.private_key:
             self._import()
         super(AbstractX509, self).clean_fields(*args, **kwargs)
 
     def clean(self):
         # when importing, both public and private must be present
         if (
-            (self.public_key and not self.private_key) or
-            (self.private_key and not self.public_key)
+            (self.certificate and not self.private_key) or
+            (self.private_key and not self.certificate)
         ):
             raise ValidationError(_('When importing an existing certificate, both'
                                     'keys (private and public) must be present'))
@@ -138,7 +138,7 @@ class AbstractX509(models.Model):
 
     def save(self, *args, **kwargs):
         generate = False
-        if not self.id and not self.public_key and not self.private_key:
+        if not self.id and not self.certificate and not self.private_key:
             generate = True
         super(AbstractX509, self).save(*args, **kwargs)
         if generate:
@@ -153,8 +153,8 @@ class AbstractX509(models.Model):
         """
         returns an instance of OpenSSL.crypto.X509
         """
-        if self.public_key:
-            return crypto.load_certificate(crypto.FILETYPE_PEM, self.public_key)
+        if self.certificate:
+            return crypto.load_certificate(crypto.FILETYPE_PEM, self.certificate)
 
     @cached_property
     def pkey(self):
@@ -190,7 +190,7 @@ class AbstractX509(models.Model):
         cert.set_pubkey(key)
         cert = self._add_extensions(cert)
         cert.sign(issuer_key, self.digest)
-        self.public_key = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+        self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
         self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
 
     def _fill_subject(self, subject):

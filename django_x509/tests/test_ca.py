@@ -62,7 +62,7 @@ class TestCa(TestCase):
         cert.revoke()
         return (ca, cert)
 
-    import_public_key = """
+    import_certificate = """
 -----BEGIN CERTIFICATE-----
 MIIB4zCCAY2gAwIBAwIDAeJAMA0GCSqGSIb3DQEBBQUAMHcxCzAJBgNVBAYTAlVT
 MQswCQYDVQQIDAJDQTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwE
@@ -92,9 +92,9 @@ WRyKPvMvJzWT
 
     def test_new(self):
         ca = self._create_ca()
-        self.assertNotEqual(ca.public_key, '')
+        self.assertNotEqual(ca.certificate, '')
         self.assertNotEqual(ca.private_key, '')
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.public_key)
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
         self.assertEqual(cert.get_serial_number(), ca.id)
         subject = cert.get_subject()
         self.assertEqual(subject.countryName, ca.country_code)
@@ -120,7 +120,7 @@ WRyKPvMvJzWT
 
     def test_x509_property(self):
         ca = self._create_ca()
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.public_key)
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
         self.assertEqual(ca.x509.get_subject(), cert.get_subject())
         self.assertEqual(ca.x509.get_issuer(), cert.get_issuer())
 
@@ -140,7 +140,7 @@ WRyKPvMvJzWT
 
     def test_import_ca(self):
         ca = Ca(name='ImportTest')
-        ca.public_key = self.import_public_key
+        ca.certificate = self.import_certificate
         ca.private_key = self.import_private_key
         ca.full_clean()
         ca.save()
@@ -180,7 +180,7 @@ WRyKPvMvJzWT
         self.assertEqual(cert.get_version(), 3)
         ca.delete()
         # test auto name
-        ca = Ca(public_key=self.import_public_key,
+        ca = Ca(certificate=self.import_certificate,
                 private_key=self.import_private_key)
         ca.full_clean()
         ca.save()
@@ -188,7 +188,7 @@ WRyKPvMvJzWT
 
     def test_import_private_key_empty(self):
         ca = Ca(name='ImportTest')
-        ca.public_key = self.import_public_key
+        ca.certificate = self.import_certificate
         try:
             ca.full_clean()
         except ValidationError as e:

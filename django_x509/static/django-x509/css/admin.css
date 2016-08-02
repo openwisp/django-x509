@@ -1,15 +1,15 @@
-.field-public_key p,
-.field-public_key .vLargeTextField,
+.field-certificate p,
+.field-certificate .vLargeTextField,
 .field-private_key p,
 .field-private_key .vLargeTextField{
     font-family: monospace;
     white-space: pre;
 }
-.field-public_key .vLargeTextField,
+.field-certificate .vLargeTextField,
 .field-private_key .vLargeTextField{
     height: 350px;
 }
-.field-public_key p.help,
+.field-certificate p.help,
 .field-private_key p.help{
     font-family: inherit;
     white-space: normal;
