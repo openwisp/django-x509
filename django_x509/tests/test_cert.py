@@ -136,7 +136,7 @@ WRyKPvMvJzWT
         store_ctx = crypto.X509StoreContext(store, cert.x509)
         store_ctx.verify_certificate()
         # ensure version is 3
-        self.assertEqual(x509.get_version(), 3)
+        self.assertEqual(x509.get_version(), 2)
         # basic constraints
         e = cert.x509.get_extension(0)
         self.assertEqual(e.get_critical(), 0)

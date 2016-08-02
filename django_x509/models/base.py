@@ -173,7 +173,7 @@ class AbstractX509(models.Model):
         key.generate_key(crypto.TYPE_RSA, int(self.key_length))
         cert = crypto.X509()
         subject = self._fill_subject(cert.get_subject())
-        cert.set_version(3)
+        cert.set_version(0x2)  # version 3 (0 indexed counting)
         cert.set_subject(subject)
         cert.set_serial_number(self.serial_number)
         cert.set_notBefore(bytes_compat(self.validity_start.strftime(generalized_time)))

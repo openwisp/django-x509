@@ -111,7 +111,7 @@ WRyKPvMvJzWT
         self.assertEqual(issuer.emailAddress, ca.email)
         self.assertEqual(issuer.commonName, ca.common_name)
         # ensure version is 3
-        self.assertEqual(cert.get_version(), 3)
+        self.assertEqual(cert.get_version(), 2)
         # basic constraints
         e = cert.get_extension(0)
         self.assertEqual(e.get_critical(), 1)
