@@ -344,3 +344,8 @@ WRyKPvMvJzWT
         cert.revoke()
         self.assertTrue(cert.revoked)
         self.assertIsNotNone(cert.revoked_at)
+
+    def test_x509_text(self):
+        cert = self._create_cert()
+        text = crypto.dump_certificate(crypto.FILETYPE_TEXT, cert.x509)
+        self.assertEqual(cert.x509_text, text.decode('utf-8'))

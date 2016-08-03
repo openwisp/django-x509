@@ -1,7 +1,8 @@
 .field-certificate p,
 .field-certificate .vLargeTextField,
 .field-private_key p,
-.field-private_key .vLargeTextField{
+.field-private_key .vLargeTextField,
+pre.x509{
     font-family: monospace;
     white-space: pre;
 }
@@ -14,3 +15,6 @@
     font-family: inherit;
     white-space: normal;
 }
+fieldset.x509-custom { margin-top: 0 }
+fieldset.x509-custom .form-row{ padding: 0 }
+fieldset.x509-custom pre{ margin-top: 0 }

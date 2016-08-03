@@ -351,3 +351,8 @@ WRyKPvMvJzWT
         response = self.client.get(reverse('x509:crl', args=[ca.pk]))
         self.assertEqual(response.status_code, 403)
         setattr(app_settings, 'CRL_PROTECTED', False)
+
+    def test_x509_text(self):
+        ca = self._create_ca()
+        text = crypto.dump_certificate(crypto.FILETYPE_TEXT, ca.x509)
+        self.assertEqual(ca.x509_text, text.decode('utf-8'))

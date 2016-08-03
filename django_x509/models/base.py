@@ -157,6 +157,16 @@ class AbstractX509(models.Model):
             return crypto.load_certificate(crypto.FILETYPE_PEM, self.certificate)
 
     @cached_property
+    def x509_text(self):
+        """
+        returns a text dump of the information
+        contained in the x509 certificate
+        """
+        if self.certificate:
+            text = crypto.dump_certificate(crypto.FILETYPE_TEXT, self.x509)
+            return text.decode('utf-8')
+
+    @cached_property
     def pkey(self):
         """
         returns an instance of OpenSSL.crypto.PKey

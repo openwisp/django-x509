@@ -29,7 +29,6 @@ class AbstractAdmin(BaseAdmin):
                      'organization',
                      'email',
                      'common_name',
-                     'extensions',
                      'serial_number',
                      'certificate',
                      'private_key')
@@ -48,6 +47,13 @@ class AbstractAdmin(BaseAdmin):
         # add
         else:
             return self.readonly_fields
+
+    def get_fields(self, request, obj=None):
+        fields = super(AbstractAdmin, self).get_fields(request, obj)
+        # edit
+        if obj and 'extensions' in fields:
+            fields.remove('extensions')
+        return fields
 
 
 class CaAdmin(AbstractAdmin):
