@@ -288,9 +288,7 @@ WRyKPvMvJzWT
             self.fail('ValidationError not raised')
 
     def test_extensions_error2(self):
-        extensions = [
-            {"wrong": "wrong"}
-        ]
+        extensions = [{"wrong": "wrong"}]
         try:
             self._create_ca(ext=extensions)
         except ValidationError as e:
