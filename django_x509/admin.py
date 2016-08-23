@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin as BaseAdmin
 from django.contrib.admin.templatetags.admin_static import static
+from django.core.urlresolvers import reverse
+from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
 
 from .models import Ca, Cert
@@ -62,6 +64,7 @@ class CaAdmin(AbstractAdmin):
 
 class CertAdmin(AbstractAdmin):
     list_filter = ('ca', 'revoked', 'created',)
+    list_select_related = ('ca',)
     readonly_fields = ('revoked', 'revoked_at',)
     fields = ['name',
               'ca',
@@ -87,6 +90,12 @@ class CertAdmin(AbstractAdmin):
 
     actions = ['revoke_action']
 
+    def ca_url(self, obj):
+        url = reverse('admin:django_x509_ca_change', args=[obj.ca.id])
+        return format_html("<a href='{url}'>{text}</a>",
+                           url=url,
+                           text=obj.ca.name)
+    ca_url.short_description = 'CA'
     def revoke_action(self, request, queryset):
         rows = 0
         for cert in queryset:
@@ -103,7 +112,7 @@ class CertAdmin(AbstractAdmin):
 
 
 CertAdmin.list_display = AbstractAdmin.list_display[:]
-CertAdmin.list_display.insert(1, 'ca')
+CertAdmin.list_display.insert(1, 'ca_url')
 CertAdmin.list_display.insert(4, 'revoked')
 CertAdmin.readonly_edit = AbstractAdmin.readonly_edit[:]
 CertAdmin.readonly_edit += ('ca',)
