@@ -59,11 +59,11 @@ class AbstractAdmin(BaseAdmin):
 
 
 class CaAdmin(AbstractAdmin):
-    pass
+    list_filter = ('key_length', 'digest', 'created',)
 
 
 class CertAdmin(AbstractAdmin):
-    list_filter = ('ca', 'revoked', 'created',)
+    list_filter = ('ca', 'revoked', 'key_length', 'digest', 'created',)
     list_select_related = ('ca',)
     readonly_fields = ('revoked', 'revoked_at',)
     fields = ['name',
@@ -96,6 +96,7 @@ class CertAdmin(AbstractAdmin):
                            url=url,
                            text=obj.ca.name)
     ca_url.short_description = 'CA'
+
     def revoke_action(self, request, queryset):
         rows = 0
         for cert in queryset:
