@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.1.2 [unreleased]
+
+WIP
+
 Version 0.1.1 [2016-08-03]
 --------------------------
 
