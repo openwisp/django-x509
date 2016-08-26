@@ -37,8 +37,8 @@ Current features
 * End entity certificate generation
 * Import existing certificates
 * Certificate revocation
-* CRL pubblication
-* Possibility to specify x509 extensions
+* CRL view (public or protected)
+* Possibility to specify x509 extensions on each certificate
 
 Project goals
 -------------
