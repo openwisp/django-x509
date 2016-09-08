@@ -1,9 +1,13 @@
 Changelog
 =========
 
-Version 0.1.2 [unreleased]
+Version 0.1.2 [2016-09-08]
+--------------------------
 
-WIP
+* improved general ``verbose_name`` of the app
+* added official compatibility with django 1.10
+* [admin] show link to CA in cert admin
+* [admin] added ``key_length`` and ``digest`` to available filters
 
 Version 0.1.1 [2016-08-03]
 --------------------------

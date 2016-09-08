@@ -14,9 +14,6 @@ django-x509
 .. image:: https://badge.fury.io/py/django-x509.svg
    :target: http://badge.fury.io/py/django-x509
 
-.. image:: https://img.shields.io/pypi/dm/django-x509.svg
-   :target: https://pypi.python.org/pypi/django-x509
-
 ------------
 
 Simple reusable django app implementing x509 PKI certificates management.
