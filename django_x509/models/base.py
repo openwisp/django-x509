@@ -240,11 +240,11 @@ class AbstractX509(models.Model):
         self.validity_end.replace(tzinfo=timezone.tzinfo())
         self.validity_end = timezone.make_aware(self.validity_end)
         subject = cert.get_subject()
-        self.country_code = subject.countryName
-        self.state = subject.stateOrProvinceName
-        self.city = subject.localityName
-        self.organization = subject.organizationName
-        self.email = subject.emailAddress
+        self.country_code = subject.countryName or ''
+        self.state = subject.stateOrProvinceName or ''
+        self.city = subject.localityName or ''
+        self.organization = subject.organizationName or ''
+        self.email = subject.emailAddress or ''
         self.common_name = subject.commonName
         self.serial_number = cert.get_serial_number()
         if not self.name:
