@@ -87,7 +87,6 @@ class CertAdmin(AbstractAdmin):
               'private_key',
               'created',
               'modified']
-
     actions = ['revoke_action']
 
     def ca_url(self, obj):
@@ -114,7 +113,8 @@ class CertAdmin(AbstractAdmin):
 
 CertAdmin.list_display = AbstractAdmin.list_display[:]
 CertAdmin.list_display.insert(1, 'ca_url')
-CertAdmin.list_display.insert(4, 'revoked')
+CertAdmin.list_display.insert(4, 'serial_number')
+CertAdmin.list_display.insert(5, 'revoked')
 CertAdmin.readonly_edit = AbstractAdmin.readonly_edit[:]
 CertAdmin.readonly_edit += ('ca',)
 
