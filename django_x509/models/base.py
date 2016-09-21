@@ -208,12 +208,19 @@ class AbstractX509(models.Model):
         (internal use only)
         fills OpenSSL.crypto.X509Name object
         """
-        subject.countryName = self.country_code
-        subject.stateOrProvinceName = self.state
-        subject.localityName = self.city
-        subject.organizationName = self.organization
-        subject.emailAddress = self.email
-        subject.commonName = self.common_name
+        attr_map = {
+            'country_code': 'countryName',
+            'state': 'stateOrProvinceName',
+            'city': 'localityName',
+            'organization': 'organizationName',
+            'email': 'emailAddress',
+            'common_name': 'commonName'
+        }
+        # set x509 subject attributes only if not empty strings
+        for model_attr, subject_attr in attr_map.items():
+            value = getattr(self, model_attr)
+            if value:
+                setattr(subject, subject_attr, value)
         return subject
 
     def _import(self):

@@ -349,3 +349,19 @@ WRyKPvMvJzWT
         cert = self._create_cert()
         text = crypto.dump_certificate(crypto.FILETYPE_TEXT, cert.x509)
         self.assertEqual(cert.x509_text, text.decode('utf-8'))
+
+    def test_fill_subject_None_attrs(self):
+        # ensure no exception raised if model attrs are set to None
+        x509 = crypto.X509()
+        cert = Cert(name='test', ca=self._create_ca())
+        subject = cert._fill_subject(x509.get_subject())
+        self.country_code = 'IT'
+        subject = cert._fill_subject(x509.get_subject())
+        self.state = 'RM'
+        subject = cert._fill_subject(x509.get_subject())
+        self.city = 'Rome'
+        subject = cert._fill_subject(x509.get_subject())
+        self.organization = 'OpenWISP'
+        subject = cert._fill_subject(x509.get_subject())
+        self.email = 'test@test.com'
+        subject = cert._fill_subject(x509.get_subject())
