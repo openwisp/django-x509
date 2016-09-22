@@ -1,10 +1,12 @@
 Changelog
 =========
 
-Version 0.1.3 [unreleased]
+Version 0.1.3 [2016-09-22]
 --------------------------
 
-WIP
+* [model] avoid import error if any imported field is ``NULL``
+* [admin] added ``serial_number`` to ``list_display`` in ``Cert`` admin
+* [model] avoid exception if x509 subject attributes are empty
 
 Version 0.1.2 [2016-09-08]
 --------------------------
