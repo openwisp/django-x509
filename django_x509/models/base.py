@@ -199,7 +199,7 @@ class AbstractX509(models.Model):
         cert.set_issuer(issuer)
         cert.set_pubkey(key)
         cert = self._add_extensions(cert)
-        cert.sign(issuer_key, self.digest)
+        cert.sign(issuer_key, str(self.digest))
         self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
         self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
 
