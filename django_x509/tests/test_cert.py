@@ -6,8 +6,8 @@ from django.utils import timezone
 from OpenSSL import crypto
 
 from .. import settings as app_settings
+from ..base.models import generalized_time
 from ..models import Ca, Cert
-from ..models.base import generalized_time
 
 
 class TestCert(TestCase):

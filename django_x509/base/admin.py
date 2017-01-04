@@ -1,11 +1,11 @@
-from django.contrib.admin import ModelAdmin as BaseAdmin
+from django.contrib.admin import ModelAdmin
 from django.contrib.admin.templatetags.admin_static import static
 from django.core.urlresolvers import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
 
 
-class AbstractAdmin(BaseAdmin):
+class BaseAdmin(ModelAdmin):
     """
     ModelAdmin for TimeStampedEditableModel
     """
@@ -37,7 +37,7 @@ class AbstractAdmin(BaseAdmin):
 
     def __init__(self, *args, **kwargs):
         self.readonly_fields += ('created', 'modified')
-        super(AbstractAdmin, self).__init__(*args, **kwargs)
+        super(BaseAdmin, self).__init__(*args, **kwargs)
 
     def get_readonly_fields(self, request, obj=None):
         # edit
@@ -48,18 +48,18 @@ class AbstractAdmin(BaseAdmin):
             return self.readonly_fields
 
     def get_fields(self, request, obj=None):
-        fields = super(AbstractAdmin, self).get_fields(request, obj)
+        fields = super(BaseAdmin, self).get_fields(request, obj)
         # edit
         if obj and 'extensions' in fields:
             fields.remove('extensions')
         return fields
 
 
-class CaAdmin(AbstractAdmin):
+class CaAdmin(BaseAdmin):
     list_filter = ('key_length', 'digest', 'created',)
 
 
-class CertAdmin(AbstractAdmin):
+class CertAdmin(BaseAdmin):
     list_filter = ('ca', 'revoked', 'key_length', 'digest', 'created',)
     list_select_related = ('ca',)
     readonly_fields = ('revoked', 'revoked_at',)
@@ -108,9 +108,9 @@ class CertAdmin(AbstractAdmin):
     revoke_action.short_description = _('Revoke selected certificates')
 
 
-CertAdmin.list_display = AbstractAdmin.list_display[:]
+CertAdmin.list_display = BaseAdmin.list_display[:]
 CertAdmin.list_display.insert(1, 'ca_url')
 CertAdmin.list_display.insert(4, 'serial_number')
 CertAdmin.list_display.insert(5, 'revoked')
-CertAdmin.readonly_edit = AbstractAdmin.readonly_edit[:]
+CertAdmin.readonly_edit = BaseAdmin.readonly_edit[:]
 CertAdmin.readonly_edit += ('ca',)

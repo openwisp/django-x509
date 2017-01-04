@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 from django.db import migrations, models
-import django_x509.models.base
+import django_x509.base.models
 
 
 class Migration(migrations.Migration):
@@ -26,12 +26,12 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='ca',
             name='digest',
-            field=models.CharField(blank=True, choices=[('', ''), ('sha1', 'SHA1'), ('sha224', 'SHA224'), ('sha256', 'SHA256'), ('sha384', 'SHA384'), ('sha512', 'SHA512')], default=django_x509.models.base.default_digest_algorithm, help_text='bits', max_length=8, verbose_name='digest algorithm'),
+            field=models.CharField(blank=True, choices=[('', ''), ('sha1', 'SHA1'), ('sha224', 'SHA224'), ('sha256', 'SHA256'), ('sha384', 'SHA384'), ('sha512', 'SHA512')], default=django_x509.base.models.default_digest_algorithm, help_text='bits', max_length=8, verbose_name='digest algorithm'),
         ),
         migrations.AlterField(
             model_name='ca',
             name='key_length',
-            field=models.CharField(blank=True, choices=[('', ''), ('512', '512'), ('1024', '1024'), ('2048', '2048'), ('4096', '4096')], default=django_x509.models.base.default_key_length, help_text='bits', max_length=6, verbose_name='key length'),
+            field=models.CharField(blank=True, choices=[('', ''), ('512', '512'), ('1024', '1024'), ('2048', '2048'), ('4096', '4096')], default=django_x509.base.models.default_key_length, help_text='bits', max_length=6, verbose_name='key length'),
         ),
         migrations.AlterField(
             model_name='ca',
@@ -41,12 +41,12 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='cert',
             name='digest',
-            field=models.CharField(blank=True, choices=[('', ''), ('sha1', 'SHA1'), ('sha224', 'SHA224'), ('sha256', 'SHA256'), ('sha384', 'SHA384'), ('sha512', 'SHA512')], default=django_x509.models.base.default_digest_algorithm, help_text='bits', max_length=8, verbose_name='digest algorithm'),
+            field=models.CharField(blank=True, choices=[('', ''), ('sha1', 'SHA1'), ('sha224', 'SHA224'), ('sha256', 'SHA256'), ('sha384', 'SHA384'), ('sha512', 'SHA512')], default=django_x509.base.models.default_digest_algorithm, help_text='bits', max_length=8, verbose_name='digest algorithm'),
         ),
         migrations.AlterField(
             model_name='cert',
             name='key_length',
-            field=models.CharField(blank=True, choices=[('', ''), ('512', '512'), ('1024', '1024'), ('2048', '2048'), ('4096', '4096')], default=django_x509.models.base.default_key_length, help_text='bits', max_length=6, verbose_name='key length'),
+            field=models.CharField(blank=True, choices=[('', ''), ('512', '512'), ('1024', '1024'), ('2048', '2048'), ('4096', '4096')], default=django_x509.base.models.default_key_length, help_text='bits', max_length=6, verbose_name='key length'),
         ),
         migrations.AlterField(
             model_name='cert',

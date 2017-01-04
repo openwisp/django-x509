@@ -67,7 +67,7 @@ def default_digest_algorithm():
 
 
 @python_2_unicode_compatible
-class AbstractX509(models.Model):
+class BaseX509(models.Model):
     """
     Abstract Cert class, shared between Ca and Cert
     """
@@ -124,7 +124,7 @@ class AbstractX509(models.Model):
         # and fill private and public key before validation fails
         if not self.pk and self.certificate and self.private_key:
             self._import()
-        super(AbstractX509, self).clean_fields(*args, **kwargs)
+        super(BaseX509, self).clean_fields(*args, **kwargs)
 
     def clean(self):
         # when importing, both public and private must be present
@@ -140,13 +140,13 @@ class AbstractX509(models.Model):
         generate = False
         if not self.id and not self.certificate and not self.private_key:
             generate = True
-        super(AbstractX509, self).save(*args, **kwargs)
+        super(BaseX509, self).save(*args, **kwargs)
         if generate:
             # automatically determine serial number
             if not self.serial_number:
                 self.serial_number = self.id
             self._generate()
-            super(AbstractX509, self).save(*args, **kwargs)
+            super(BaseX509, self).save(*args, **kwargs)
 
     @cached_property
     def x509(self):
@@ -334,3 +334,82 @@ class AbstractX509(models.Model):
                                      bytes_compat(ext['value']))
             ])
         return cert
+
+
+def default_ca_validity_end():
+    """
+    returns the default value for validity_end field
+    """
+    delta = timedelta(days=app_settings.DEFAULT_CA_VALIDITY)
+    return timezone.now() + delta
+
+
+class AbstractCa(BaseX509):
+    """
+    Abstract Ca model
+    """
+    class Meta:
+        abstract = True
+        verbose_name = _('CA')
+        verbose_name_plural = _('CAs')
+
+    def get_revoked_certs(self):
+        """
+        Returns revoked certificates of this CA
+        (does not include expired certificates)
+        """
+        now = timezone.now()
+        return self.cert_set.filter(revoked=True,
+                                    validity_start__lte=now,
+                                    validity_end__gte=now)
+
+    @property
+    def crl(self):
+        """
+        Returns up to date CRL of this CA
+        """
+        revoked_certs = self.get_revoked_certs()
+        crl = crypto.CRL()
+        now_str = timezone.now().strftime(generalized_time)
+        for cert in revoked_certs:
+            revoked = crypto.Revoked()
+            revoked.set_serial(bytes_compat(cert.serial_number))
+            revoked.set_reason(b'unspecified')
+            revoked.set_rev_date(bytes_compat(now_str))
+            crl.add_revoked(revoked)
+        return crl.export(self.x509, self.pkey, days=1)
+
+
+AbstractCa._meta.get_field('validity_end').default = default_ca_validity_end
+
+
+class AbstractCert(BaseX509):
+    """
+    Abstract Cert model
+    """
+    ca = models.ForeignKey('django_x509.Ca', verbose_name=_('CA'))
+    revoked = models.BooleanField(_('revoked'),
+                                  default=False)
+    revoked_at = models.DateTimeField(_('revoked at'),
+                                      blank=True,
+                                      null=True,
+                                      default=None)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        abstract = True
+        verbose_name = _('certificate')
+        verbose_name_plural = _('certificates')
+        unique_together = ('ca', 'serial_number')
+
+    def revoke(self):
+        """
+        * flag certificate as revoked
+        * fill in revoked_at DateTimeField
+        """
+        now = timezone.now()
+        self.revoked = True
+        self.revoked_at = now
+        self.save()
