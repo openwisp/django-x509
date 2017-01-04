@@ -19,7 +19,7 @@ def default_ca_validity_end():
 
 class AbstractCa(AbstractX509):
     """
-    Abstract Ca model (for reuse)
+    Abstract Ca model
     """
     class Meta:
         abstract = True
@@ -52,6 +52,7 @@ class AbstractCa(AbstractX509):
             crl.add_revoked(revoked)
         return crl.export(self.x509, self.pkey, days=1)
 
+
 AbstractCa._meta.get_field('validity_end').default = default_ca_validity_end
 
 
@@ -59,4 +60,6 @@ class Ca(AbstractCa):
     """
     Concrete CA model
     """
+
+
 Ca.Meta.abstract = False

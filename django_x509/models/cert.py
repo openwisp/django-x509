@@ -41,4 +41,6 @@ class Cert(AbstractCert):
     """
     Concrete Cert model
     """
+
+
 Cert.Meta.abstract = False
