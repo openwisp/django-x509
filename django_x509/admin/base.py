@@ -1,11 +1,8 @@
-from django.contrib import admin
 from django.contrib.admin import ModelAdmin as BaseAdmin
 from django.contrib.admin.templatetags.admin_static import static
 from django.core.urlresolvers import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
-
-from .models import Ca, Cert
 
 
 class AbstractAdmin(BaseAdmin):
@@ -90,7 +87,7 @@ class CertAdmin(AbstractAdmin):
     actions = ['revoke_action']
 
     def ca_url(self, obj):
-        url = reverse('admin:django_x509_ca_change', args=[obj.ca.id])
+        url = reverse('admin:{0}_ca_change'.format(self.opts.app_label), args=[obj.ca.id])
         return format_html("<a href='{url}'>{text}</a>",
                            url=url,
                            text=obj.ca.name)
@@ -117,6 +114,3 @@ CertAdmin.list_display.insert(4, 'serial_number')
 CertAdmin.list_display.insert(5, 'revoked')
 CertAdmin.readonly_edit = AbstractAdmin.readonly_edit[:]
 CertAdmin.readonly_edit += ('ca',)
-
-admin.site.register(Ca, CaAdmin)
-admin.site.register(Cert, CertAdmin)
