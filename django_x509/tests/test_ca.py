@@ -15,14 +15,14 @@ class TestCa(TestCase):
     """
     tests for Ca model
     """
-    def _create_ca(self, ext=[]):
-        ca = Ca(name='newcert',
+    def _create_ca(self, organization='OpenWISP', ext=[]):
+        ca = Ca(name='Test CA',
                 key_length='2048',
                 digest='sha256',
                 country_code='IT',
                 state='RM',
                 city='Rome',
-                organization='OpenWISP',
+                organization=organization,
                 email='test@test.com',
                 common_name='openwisp.org',
                 extensions=ext)
@@ -413,3 +413,10 @@ KQV8C/ciDV+lIw2yBmlCNvUmy7GAsHSZM+C8y29+GFR7an6WV+xa
         ca.full_clean()
         ca.save()
         self.assertEqual(ca.email, '')
+
+    def test_fill_subject_non_strings(self):
+        ca1 = self._create_ca()
+        ca2 = Ca(name='ca', organization=ca1)
+        x509 = crypto.X509()
+        subject = ca2._fill_subject(x509.get_subject())
+        self.assertEqual(subject.organizationName, 'Test CA')

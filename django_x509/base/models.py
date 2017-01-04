@@ -10,6 +10,7 @@ from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
+from six import string_types
 
 from .. import settings as app_settings
 from ..utils import bytes_compat
@@ -220,6 +221,10 @@ class BaseX509(models.Model):
         for model_attr, subject_attr in attr_map.items():
             value = getattr(self, model_attr)
             if value:
+                # coerce value to string, allow these fields to be redefined
+                # as foreign keys by subclasses without losing compatibility
+                if not isinstance(value, string_types):
+                    value = str(value)
                 setattr(subject, subject_attr, value)
         return subject
 
