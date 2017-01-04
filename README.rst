@@ -43,6 +43,12 @@ Project goals
 * provide a simple and reusable x509 PKI management django app
 * provide abstract models that can be imported and extended in larger django projects
 
+Dependencies
+------------
+
+* Python 2.7 or Python >= 3.4
+* OpenSSL
+
 Install stable version from pypi
 --------------------------------
 
