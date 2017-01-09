@@ -15,7 +15,7 @@ class TestCert(TestCase):
     tests for Cert model
     """
     def _create_ca(self):
-        ca = Ca(name='newcert',
+        ca = Ca(name='Test CA',
                 key_length='2048',
                 digest='sha256',
                 country_code='IT',
