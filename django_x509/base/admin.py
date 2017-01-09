@@ -14,11 +14,11 @@ class BaseAdmin(ModelAdmin):
                     'digest',
                     'created',
                     'modified']
-    search_fields = ('name', 'serial_number', 'common_name')
+    search_fields = ['name', 'serial_number', 'common_name']
     actions_on_bottom = True
     save_on_top = True
     # custom attribute
-    readonly_edit = ('key_length',
+    readonly_edit = ['key_length',
                      'digest',
                      'validity_start',
                      'validity_end',
@@ -30,7 +30,7 @@ class BaseAdmin(ModelAdmin):
                      'common_name',
                      'serial_number',
                      'certificate',
-                     'private_key')
+                     'private_key']
 
     class Media:
         css = {'all': (static('django-x509/css/admin.css'),)}
@@ -42,7 +42,7 @@ class BaseAdmin(ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         # edit
         if obj:
-            return self.readonly_edit + self.readonly_fields
+            return tuple(self.readonly_edit) + tuple(self.readonly_fields)
         # add
         else:
             return self.readonly_fields
@@ -56,13 +56,13 @@ class BaseAdmin(ModelAdmin):
 
 
 class CaAdmin(BaseAdmin):
-    list_filter = ('key_length', 'digest', 'created',)
+    list_filter = ['key_length', 'digest', 'created']
 
 
 class CertAdmin(BaseAdmin):
-    list_filter = ('ca', 'revoked', 'key_length', 'digest', 'created',)
-    list_select_related = ('ca',)
-    readonly_fields = ('revoked', 'revoked_at',)
+    list_filter = ['ca', 'revoked', 'key_length', 'digest', 'created']
+    list_select_related = ['ca']
+    readonly_fields = ['revoked', 'revoked_at']
     fields = ['name',
               'ca',
               'notes',
