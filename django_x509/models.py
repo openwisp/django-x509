@@ -5,15 +5,13 @@ class Ca(AbstractCa):
     """
     Concrete Ca model
     """
-
-
-Ca.Meta.abstract = False
+    class Meta(AbstractCa.Meta):
+        abstract = False
 
 
 class Cert(AbstractCert):
     """
     Concrete Cert model
     """
-
-
-Cert.Meta.abstract = False
+    class Meta(AbstractCert.Meta):
+        abstract = False
