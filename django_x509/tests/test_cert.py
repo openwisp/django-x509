@@ -5,45 +5,18 @@ from django.test import TestCase
 from django.utils import timezone
 from OpenSSL import crypto
 
+from . import TestX509Mixin
 from .. import settings as app_settings
 from ..base.models import generalized_time
 from ..models import Ca, Cert
 
 
-class TestCert(TestCase):
+class TestCert(TestX509Mixin, TestCase):
     """
     tests for Cert model
     """
-    def _create_ca(self):
-        ca = Ca(name='Test CA',
-                key_length='2048',
-                digest='sha256',
-                country_code='IT',
-                state='RM',
-                city='Rome',
-                organization='OpenWISP',
-                email='test@test.com',
-                common_name='openwisp.org')
-        ca.full_clean()
-        ca.save()
-        return ca
-
-    def _create_cert(self, ext=[]):
-        cert = Cert(name='testcert',
-                    ca=self._create_ca(),
-                    key_length='1024',
-                    digest='sha1',
-                    country_code='IT',
-                    state='RM',
-                    city='Rome',
-                    organization='Prova',
-                    email='test@test2.com',
-                    common_name='test.org',
-                    extensions=ext)
-        cert.full_clean()
-        cert.save()
-        return cert
-
+    ca_model = Ca
+    cert_model = Cert
     import_certificate = """
 -----BEGIN CERTIFICATE-----
 MIICJzCCAdGgAwIBAwIDEtaHMA0GCSqGSIb3DQEBDgUAMHcxCzAJBgNVBAYTAlVT
@@ -305,7 +278,7 @@ WRyKPvMvJzWT
                 "value": "clientAuth"
             }
         ]
-        cert = self._create_cert(ext=extensions)
+        cert = self._create_cert(extensions=extensions)
         e1 = cert.x509.get_extension(4)
         self.assertEqual(e1.get_short_name().decode(), 'nsCertType')
         self.assertEqual(e1.get_critical(), False)
@@ -318,7 +291,7 @@ WRyKPvMvJzWT
     def test_extensions_error1(self):
         extensions = {}
         try:
-            self._create_cert(ext=extensions)
+            self._create_cert(extensions=extensions)
         except ValidationError as e:
             # verify error message
             self.assertIn('Extension format invalid', str(e.message_dict['__all__'][0]))
@@ -330,7 +303,7 @@ WRyKPvMvJzWT
             {"wrong": "wrong"}
         ]
         try:
-            self._create_cert(ext=extensions)
+            self._create_cert(extensions=extensions)
         except ValidationError as e:
             # verify error message
             self.assertIn('Extension format invalid', str(e.message_dict['__all__'][0]))
