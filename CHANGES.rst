@@ -1,10 +1,14 @@
 Changelog
 =========
 
-Version 0.2.0 [unreleased]
+Version 0.2.0 [2017-01-11]
 --------------------------
 
-WIP
+* [models] improved reusability by providing abstract models
+* [admin] improved reusability by providing abstract admin classes
+* [views] provided a base view that can be reused by third party apps
+* [docs] documented how to extend models and admin
+* [docs] documented hard dependencies
 
 Version 0.1.3 [2016-09-22]
 --------------------------
