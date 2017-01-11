@@ -303,6 +303,89 @@ Value of the ``keyUsage`` x509 extension for new end-entity certificates.
 Whether the view for downloading Certificate Revocation Lists should
 be protected with authentication or not.
 
+Extending django-x509
+---------------------
+
+*django-x509* provides a set of models and admin classes which can be imported,
+extended and reused by third party apps.
+
+To extend *django-x509*, **you MUST NOT** add it to ``settings.INSTALLED_APPS``,
+but you must create your own app (which goes into ``settings.INSTALLED_APPS``), import the
+base classes from django-x509 and add your customizations.
+
+Extending models
+~~~~~~~~~~~~~~~~
+
+This example provides an example of how to extend the base models of
+*django-x509* by adding a relation to another django model named `Organization`.
+
+.. code-block:: python
+
+    # models.py of your app
+    from django.db import models
+    from django_x509.base.models import AbstractCa, AbstractCert
+
+    # the model ``organizations.Organization`` is omitted for brevity
+    # if you are curious to see a real implementation, check out django-organizations
+
+
+    class OrganizationMixin(models.Model):
+        organization = models.ForeignKey('organizations.Organization')
+
+        class Meta:
+            abstract = True
+
+
+    class Ca(OrganizationMixin, AbstractCa):
+        class Meta(AbstractCa.Meta):
+            abstract = False
+
+        def clean(self):
+            # your own validation logic here...
+            pass
+
+
+    class Cert(OrganizationMixin, AbstractCert):
+        ca = models.ForeignKey(Ca)
+
+        class Meta(AbstractCert.Meta):
+            abstract = False
+
+        def clean(self):
+            # your own validation logic here...
+            pass
+
+Extending the admin
+~~~~~~~~~~~~~~~~~~~
+
+Following the previous `Organization` example, you can avoid duplicating the admin
+code by importing the base admin classes and registering your models with.
+
+.. code-block:: python
+
+    # admin.py of your app
+    from django.contrib import admin
+
+    from django_x509.base.admin import CaAdmin as BaseCaAdmin
+    from django_x509.base.admin import CertAdmin as BaseCertAdmin
+
+    from .models import Ca, Cert
+
+
+    class CaAdmin(BaseCaAdmin):
+        # extend/modify the default behaviour here
+        pass
+
+
+    class CertAdmin(BaseCertAdmin):
+        # extend/modify the default behaviour here
+        pass
+
+
+    admin.site.register(Ca, CaAdmin)
+    admin.site.register(Cert, CertAdmin)
+
+
 Contributing
 ------------
 
