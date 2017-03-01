@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
 from django.core.exceptions import ValidationError
-from django.core.urlresolvers import reverse
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 from OpenSSL import crypto
 
