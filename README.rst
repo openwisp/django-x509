@@ -414,4 +414,4 @@ See `LICENSE <https://github.com/openwisp/django-x509/blob/master/LICENSE>`_.
 Support
 -------
 
-Send questions to the `OpenWISP Mailing List <https://groups.google.com/d/forum/openwisp>`_.
+See `OpenWISP Support Channels <http://openwisp.org/support.html>`_.
