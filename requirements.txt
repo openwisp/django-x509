@@ -1,5 +1,5 @@
 six
 pyopenssl
-django>=1.9,<1.12
+django>=1.10,<1.12
 django-model-utils
 jsonfield
