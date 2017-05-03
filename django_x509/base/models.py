@@ -43,6 +43,14 @@ SIGNATURE_MAPPING = {
 }
 
 
+def default_ca_validity_end():
+    """
+    returns the default value for validity_end field
+    """
+    delta = timedelta(days=app_settings.DEFAULT_CA_VALIDITY)
+    return timezone.now() + delta
+
+
 def default_cert_validity_end():
     """
     returns the default value for validity_end field
@@ -339,14 +347,6 @@ class BaseX509(models.Model):
                                      bytes_compat(ext['value']))
             ])
         return cert
-
-
-def default_ca_validity_end():
-    """
-    returns the default value for validity_end field
-    """
-    delta = timedelta(days=app_settings.DEFAULT_CA_VALIDITY)
-    return timezone.now() + delta
 
 
 class AbstractCa(BaseX509):
