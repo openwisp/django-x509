@@ -99,9 +99,18 @@ WRyKPvMvJzWT
     def test_pkey_property_none(self):
         self.assertIsNone(Ca().pkey)
 
-    def test_default_validity(self):
+    def test_default_validity_end(self):
         ca = Ca()
         self.assertEqual(ca.validity_end.year, datetime.now().year + 10)
+
+    def test_default_validity_start(self):
+        ca = Ca()
+        self.assertEqual(ca.validity_start.year, datetime.now().year)
+        self.assertEqual(ca.validity_start.month, datetime.now().month)
+        self.assertEqual(ca.validity_start.day, datetime.now().day - 1)
+        self.assertEqual(ca.validity_start.hour, 0)
+        self.assertEqual(ca.validity_start.minute, 0)
+        self.assertEqual(ca.validity_start.second, 0)
 
     def test_import_ca(self):
         ca = Ca(name='ImportTest')

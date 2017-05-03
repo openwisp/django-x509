@@ -43,6 +43,16 @@ SIGNATURE_MAPPING = {
 }
 
 
+def default_validity_start():
+    """
+    sets validity_start field to 1 day before the current date
+    (avoids "certificate not valid yet" edge case)
+    intentionally returns naive datetime (not timezone aware)
+    """
+    start = datetime.now() - timedelta(days=1)
+    return start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def default_ca_validity_end():
     """
     returns the default value for validity_end field
@@ -96,7 +106,7 @@ class BaseX509(models.Model):
                               max_length=8)
     validity_start = models.DateTimeField(blank=True,
                                           null=True,
-                                          default=timezone.now)
+                                          default=default_validity_start)
     validity_end = models.DateTimeField(blank=True,
                                         null=True,
                                         default=default_cert_validity_end)

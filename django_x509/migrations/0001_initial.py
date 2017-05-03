@@ -27,7 +27,7 @@ class Migration(migrations.Migration):
                 ('notes', models.TextField(blank=True)),
                 ('key_length', models.CharField(blank=True, choices=[(b'', b''), (b'512', b'512'), (b'1024', b'1024'), (b'2048', b'2048'), (b'4096', b'4096')], default=django_x509.base.models.default_key_length, help_text='bits', max_length=6, verbose_name='key length')),
                 ('digest', models.CharField(blank=True, choices=[(b'', b''), (b'sha1', b'SHA1'), (b'sha224', b'SHA224'), (b'sha256', b'SHA256'), (b'sha384', b'SHA384'), (b'sha512', b'SHA512')], default=django_x509.base.models.default_digest_algorithm, help_text='bits', max_length=8, verbose_name='digest algorithm')),
-                ('validity_start', models.DateTimeField(blank=True, default=django.utils.timezone.now, null=True)),
+                ('validity_start', models.DateTimeField(blank=True, default=django_x509.base.models.default_validity_start, null=True)),
                 ('validity_end', models.DateTimeField(blank=True, default=django_x509.base.models.default_ca_validity_end, null=True)),
                 ('country_code', models.CharField(blank=True, max_length=2)),
                 ('state', models.CharField(blank=True, max_length=64, verbose_name='state or province')),
