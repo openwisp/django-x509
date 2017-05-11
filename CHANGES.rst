@@ -1,10 +1,10 @@
 Changelog
 =========
 
-Version 0.2.2 [unreleased]
+Version 0.2.2 [2017-05-11]
 --------------------------
 
-WIP
+* [models] Set ``validity_start`` to 1 day before the current date (at 00:00)
 
 Version 0.2.1 [2017-05-02]
 --------------------------
