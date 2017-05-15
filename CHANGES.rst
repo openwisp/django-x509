@@ -1,10 +1,10 @@
 Changelog
 =========
 
-Version 0.2.3 [unreleased]
+Version 0.2.3 [2017-05-15]
 --------------------------
 
-WIP
+* [migrations] Updated ``validity_start`` on ``Cert`` model
 
 Version 0.2.2 [2017-05-11]
 --------------------------
