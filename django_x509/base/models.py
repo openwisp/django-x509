@@ -402,7 +402,7 @@ class AbstractCert(BaseX509):
     """
     Abstract Cert model
     """
-    ca = models.ForeignKey('django_x509.Ca', verbose_name=_('CA'))
+    ca = models.ForeignKey('django_x509.Ca', on_delete=models.CASCADE, verbose_name=_('CA'))
     revoked = models.BooleanField(_('revoked'),
                                   default=False)
     revoked_at = models.DateTimeField(_('revoked at'),
