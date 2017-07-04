@@ -1,10 +1,11 @@
 Changelog
 =========
 
-Version 0.2.4 [unreleased]
+Version 0.2.4 [2017-07-04]
 --------------------------
 
-WIP
+* [models] added ``digest`` argument to ``CRL.export``
+* [requirements] pyopenssl>=17.1.0,<17.2.0
 
 Version 0.2.3 [2017-05-15]
 --------------------------
