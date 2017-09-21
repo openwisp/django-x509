@@ -292,7 +292,7 @@ class BaseX509(models.Model):
         try:
             store_ctx.verify_certificate()
         except crypto.X509StoreContextError as e:
-            raise ValidationError(_("CA doesn't match, got the"
+            raise ValidationError(_("CA doesn't match, got the "
                                     "following error from pyOpenSSL: \"%s\"") % e.args[0][2])
 
     def _verify_extension_format(self):
