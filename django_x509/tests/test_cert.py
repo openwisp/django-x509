@@ -347,3 +347,14 @@ WRyKPvMvJzWT
         cert._fill_subject(x509.get_subject())
         self.email = 'test@test.com'
         cert._fill_subject(x509.get_subject())
+
+    def test_cert_create(self):
+        ca = Ca(name='Test CA')
+        ca.full_clean()
+        ca.save()
+
+        Cert.objects.create(
+            ca=ca,
+            common_name='TestCert1',
+            name='TestCert1',
+        )

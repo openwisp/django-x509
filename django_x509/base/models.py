@@ -165,6 +165,7 @@ class BaseX509(models.Model):
             if not self.serial_number:
                 self.serial_number = self.id
             self._generate()
+            kwargs['force_insert'] = False
             super(BaseX509, self).save(*args, **kwargs)
 
     @cached_property
