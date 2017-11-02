@@ -272,6 +272,9 @@ class BaseX509(models.Model):
         self.validity_end = timezone.make_aware(self.validity_end)
         subject = cert.get_subject()
         self.country_code = subject.countryName or ''
+        # allow importing from legacy systems which use invalid country codes
+        if len(self.country_code) > 2:
+            self.country_code = ''
         self.state = subject.stateOrProvinceName or ''
         self.city = subject.localityName or ''
         self.organization = subject.organizationName or ''
