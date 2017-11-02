@@ -1,6 +1,8 @@
 .field-certificate p,
+.field-certificate div.readonly,
 .field-certificate .vLargeTextField,
 .field-private_key p,
+.field-private_key div.readonly,
 .field-private_key .vLargeTextField,
 pre.x509{
     font-family: monospace;
