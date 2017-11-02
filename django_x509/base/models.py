@@ -279,10 +279,10 @@ class BaseX509(models.Model):
         self.city = subject.localityName or ''
         self.organization = subject.organizationName or ''
         self.email = subject.emailAddress or ''
-        self.common_name = subject.commonName
+        self.common_name = subject.commonName or ''
         self.serial_number = cert.get_serial_number()
         if not self.name:
-            self.name = self.common_name
+            self.name = self.common_name or str(self.serial_number)
 
     def _verify_ca(self):
         """
