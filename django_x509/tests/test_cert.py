@@ -19,64 +19,62 @@ class TestCert(TestX509Mixin, TestCase):
     cert_model = Cert
     import_certificate = """
 -----BEGIN CERTIFICATE-----
-MIICJzCCAdGgAwIBAwIDEtaHMA0GCSqGSIb3DQEBDgUAMHcxCzAJBgNVBAYTAlVT
-MQswCQYDVQQIDAJDQTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwE
-QUNNRTEfMB0GCSqGSIb3DQEJARYQY29udGFjdEBhY21lLmNvbTETMBEGA1UEAwwK
-aW1wb3J0dGVzdDAiGA8yMDE2MDcwMTE0MTgwOVoYDzIwMTkwNzA3MTQxODA5WjB3
-MQswCQYDVQQGEwJJVDELMAkGA1UECAwCTUkxDjAMBgNVBAcMBU1pbGFuMRIwEAYD
-VQQKDAlBQ01FLXRlc3QxHDAaBgkqhkiG9w0BCQEWDXVuaXRAdGVzdC5jb20xGTAX
-BgNVBAMMEGltcG9ydC1jZXJ0LXRlc3QwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
-AoGBALgaNcjebrIyJGx3YGo5SWoAzTyw9sbiUZuthK9I5P5mzkzJz5YlRTDkjR9W
-F9l68ZibY+/yT/+BdHWydCqM//3wtRxLFMf5+WNjQ/I2IXO7l0pDL3OooMytP3eQ
-yo3eIuIHtEWgmLIP1+uu/9PDr4HOOZWB08+bBi3hF2SuPJfvAgMBAAEwDQYJKoZI
-hvcNAQEOBQADQQClCDugAsjCMPkLx4FJEYwxLI0fwcjmOzvFTfWPyaaFZlc+0HD1
-7h5Kt1NszHoqdVyBME/5jhPQCCZ+7hge1YyJ
+MIICMTCCAdugAwIBAgIDAeJAMA0GCSqGSIb3DQEBBQUAMGgxETAPBgNVBAoMCE9w
+ZW5XSVNQMQswCQYDVQQGEwJJVDEMMAoGA1UEAwwDb3cyMQ0wCwYDVQQHDARSb21l
+MRwwGgYJKoZIhvcNAQkBFg10ZXN0QHRlc3QuY29tMQswCQYDVQQIDAJSTTAiGA8y
+MDE1MTEwMTAwMDAwMFoYDzIxMTgxMTAyMTgwMDI1WjAAMFwwDQYJKoZIhvcNAQEB
+BQADSwAwSAJBANh0Y7oG5JUl9cCBs6E11cJ2xLul6zw8cEoD1L7NazrPXG/NGTLt
+OF2TOEUob24aQ+YagMD6HLbejV0baTXwXakCAwEAAaOB0TCBzjAJBgNVHRMEAjAA
+MAsGA1UdDwQEAwIFoDAdBgNVHQ4EFgQUpcvUDhxzJFpMvjlTQjBaCjQI/3QwgZQG
+A1UdIwSBjDCBiYAUwfnP0B5rF3xo7yDRAda+1nj6QqahbKRqMGgxETAPBgNVBAoM
+CE9wZW5XSVNQMQswCQYDVQQGEwJJVDEMMAoGA1UEAwwDb3cyMQ0wCwYDVQQHDARS
+b21lMRwwGgYJKoZIhvcNAQkBFg10ZXN0QHRlc3QuY29tMQswCQYDVQQIDAJSTYID
+AeJAMA0GCSqGSIb3DQEBBQUAA0EAUKog+BPsM8j34Clec2BAACcuyJlwX41vQ3kG
+FqQS2KfO7YIk5ITWhX8y0P//u+ENWRlnVTRQma9d5tYYJvL8+Q==
 -----END CERTIFICATE-----
 """
     import_private_key = """
 -----BEGIN PRIVATE KEY-----
-MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBALgaNcjebrIyJGx3
-YGo5SWoAzTyw9sbiUZuthK9I5P5mzkzJz5YlRTDkjR9WF9l68ZibY+/yT/+BdHWy
-dCqM//3wtRxLFMf5+WNjQ/I2IXO7l0pDL3OooMytP3eQyo3eIuIHtEWgmLIP1+uu
-/9PDr4HOOZWB08+bBi3hF2SuPJfvAgMBAAECgYEAl42MBSWGvs6kSV4kUo2CL+8l
-BPcwzxxzzdITzjAVwo9i+LeRWaqowM0El21KCNA6nkQdCuPQkydAdbtIAdc8y6ul
-tn00ffK9+1fl6fiWCLkkOrc2wWXNJcbgrQU9kxFTta2xKlhaMwH9urWnd2aNmIrg
-RnV8COLaaik6UgM8OXECQQDc4swTDgk65X4cB8aFOSKEhf3fZQY59EoDm09S9Mab
-FR7GREh9rCj1KgBClnPeoccHtmRbMptAGzk71A5OjJglAkEA1V53CggnV5/nt8PC
-PgcbYXcvxRGI/7h17TW1vem02yQgYu8hOICTyhM0uEHLj86ryb6pQsj1HgWlny1v
-/Xi5gwJAGuqAF6pUMZsZfOztofpOXHu/beNvmMxN4JaiWed99BPkxiA3/ShnbUiK
-85JF2FE6YZQ2Mm6+QFeQ59t1StkTCQJAFGP1rlC/KcGPTGF506GsPTE9sHCPjhib
-tHKYjrCh5vtZ2PqPSy4GcZ5KQH2RLYoLorkExewceKUDgeW+uRNrbwJBAKv3NDC5
-2t2eLEfQzyiFig5VUvgy+4pTG+5qImm8/9sGs/LPAMepAPGx3CWrevIV/zkyoY+v
-b56wRkkyq2kMxFY=
+MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEA2HRjugbklSX1wIGz
+oTXVwnbEu6XrPDxwSgPUvs1rOs9cb80ZMu04XZM4RShvbhpD5hqAwPoctt6NXRtp
+NfBdqQIDAQABAkEAx9M7NcOjRqXSqDOU92DRxEMNAAb+kY9iQpIi1zqgoZqWduVK
+tq0X0ous54j2ItqKDHxqEbbBzlo/BxMn5zkdOQIhAPIlngBgjgM0FFt+4bw6+5mW
+VvjxIQoVHkmd1HsfHkPvAiEA5NZ+Zqbbv6T7oLgixye1nbcJ3mQ5+IUuamGp7dVq
+/+cCIQDpxVNCffTcNt0ob9gyRqc74Z5Ze0EwYK761zqZGrO3VQIgYp0UZ4QsWo/s
+Z7wyMISqPUbtl8q1OKWb9PgVVIqNy60CIEpi865urZNSIz4SRrxn4r+WV9Mxlfxs
+1xtxYxSjiqrj
 -----END PRIVATE KEY-----
-"""
 
+"""
     import_ca_certificate = """
 -----BEGIN CERTIFICATE-----
-MIIB4zCCAY2gAwIBAwIDAeJAMA0GCSqGSIb3DQEBBQUAMHcxCzAJBgNVBAYTAlVT
-MQswCQYDVQQIDAJDQTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwE
-QUNNRTEfMB0GCSqGSIb3DQEJARYQY29udGFjdEBhY21lLmNvbTETMBEGA1UEAwwK
-aW1wb3J0dGVzdDAiGA8yMDE1MDEwMTAwMDAwMFoYDzIwMjAwMTAxMDAwMDAwWjB3
-MQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExFjAUBgNVBAcMDVNhbiBGcmFuY2lz
-Y28xDTALBgNVBAoMBEFDTUUxHzAdBgkqhkiG9w0BCQEWEGNvbnRhY3RAYWNtZS5j
-b20xEzARBgNVBAMMCmltcG9ydHRlc3QwXDANBgkqhkiG9w0BAQEFAANLADBIAkEA
-v42Y9u9pYUiFRb36lwqdLmG8hCjl0g0HlMo2WqvHCTLk2CJvprBEuggSnaRCAmG9
-ipCIds/ggaJ/w4KqJabNQQIDAQABMA0GCSqGSIb3DQEBBQUAA0EAAfEPPqbY1TLw
-6IXNVelAXKxUp2f8FYCnlb0pQ3tswvefpad3h3oHrI2RGkIsM70axo7dAEk05Tj0
-Zt3jXRLGAQ==
+MIICpTCCAk+gAwIBAgIDAeJAMA0GCSqGSIb3DQEBBQUAMGgxETAPBgNVBAoMCE9w
+ZW5XSVNQMQswCQYDVQQGEwJJVDEMMAoGA1UEAwwDb3cyMQ0wCwYDVQQHDARSb21l
+MRwwGgYJKoZIhvcNAQkBFg10ZXN0QHRlc3QuY29tMQswCQYDVQQIDAJSTTAiGA8y
+MDE1MTEwMTAwMDAwMFoYDzIxMjcxMDMxMTc1OTI1WjBoMREwDwYDVQQKDAhPcGVu
+V0lTUDELMAkGA1UEBhMCSVQxDDAKBgNVBAMMA293MjENMAsGA1UEBwwEUm9tZTEc
+MBoGCSqGSIb3DQEJARYNdGVzdEB0ZXN0LmNvbTELMAkGA1UECAwCUk0wXDANBgkq
+hkiG9w0BAQEFAANLADBIAkEAsz5ORGAkryOe3bHRsuBJjCbwvPh4peSfpdrRV9CS
+iz7HQWq1s+wdzHONvc8pin+lmnB+RhGm0LrZDOWRyfzjMwIDAQABo4HdMIHaMBIG
+A1UdEwEB/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBTB+c/Q
+HmsXfGjvINEB1r7WePpCpjCBlAYDVR0jBIGMMIGJgBTB+c/QHmsXfGjvINEB1r7W
+ePpCpqFspGowaDERMA8GA1UECgwIT3BlbldJU1AxCzAJBgNVBAYTAklUMQwwCgYD
+VQQDDANvdzIxDTALBgNVBAcMBFJvbWUxHDAaBgkqhkiG9w0BCQEWDXRlc3RAdGVz
+dC5jb20xCzAJBgNVBAgMAlJNggMB4kAwDQYJKoZIhvcNAQEFBQADQQAeHppFPgUx
+TPJ0Vv9oZHcaOTww6S2p/X/F6yCHZMYq83B+cVxcJ4v+MVxRLg7DBVAIA8gOEFy2
+sKMLWX3IKJmh
 -----END CERTIFICATE-----
 """
     import_ca_private_key = """
 -----BEGIN PRIVATE KEY-----
-MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAv42Y9u9pYUiFRb36
-lwqdLmG8hCjl0g0HlMo2WqvHCTLk2CJvprBEuggSnaRCAmG9ipCIds/ggaJ/w4Kq
-JabNQQIDAQABAkEAqpB3CEqeVxWwNi24GQ5Gb6pvpm6UVblsary0MYCLtk+jK6fg
-KCptUIryQ4cblZF54y3+wrLzJ9LUOStkk10DwQIhAPItbg5PqSZTCE/Ql20jUggo
-BHpXO7FI157oMxXnBJtVAiEAynx4ocYpgVtmJ9iSooZRtPp9ullEdUtU2pedSgY6
-oj0CIHtcBs6FZ20dKIO3hhrSvgtnjvhejQp+R08rijIi7ibNAiBUOhR/zosjSN6k
-gnz0aAUC0BOOeWV1mQFR8DE4QoEPTQIhAIdGrho1hsZ3Cs7mInJiLLhh4zwnndQx
-WRyKPvMvJzWT
+MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAsz5ORGAkryOe3bHR
+suBJjCbwvPh4peSfpdrRV9CSiz7HQWq1s+wdzHONvc8pin+lmnB+RhGm0LrZDOWR
+yfzjMwIDAQABAkEAnG5ICEyQN3my8HB8PsyX44UonQOM59s7qZfrE+SnwHU2ywhE
+k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
+2WlyfnXwE/RFzVDOfOcrAiEAx9Y1ZbtTr2AL6wsf+wpRbkq9dPEiWi4C+0ms3Uw2
+8BkCIGRctohLnqS2QWLrSHfQFdeM0StizN11uvMI023fYv6TAiEAxujn85/3V1wh
+4M4NAiMuFLseQ5V1XQ/pddjK0Od405kCIC2ezclTgDBbRkHXKFtKnoj3/pGUsa3K
+5XIa5rp5Is47
 -----END PRIVATE KEY-----
 """
 
@@ -108,7 +106,7 @@ WRyKPvMvJzWT
         store.add_cert(ca.x509)
         store_ctx = crypto.X509StoreContext(store, cert.x509)
         store_ctx.verify_certificate()
-        # ensure version is 3
+        # ensure version is 3 (indexed 0 based counting)
         self.assertEqual(x509.get_version(), 2)
         # basic constraints
         e = cert.x509.get_extension(0)
@@ -159,37 +157,37 @@ WRyKPvMvJzWT
         cert.save()
         x509 = cert.x509
         # verify attributes
-        self.assertEqual(x509.get_serial_number(), 1234567)
+        self.assertEqual(x509.get_serial_number(), 123456)
         subject = x509.get_subject()
-        self.assertEqual(subject.countryName, 'IT')
-        self.assertEqual(subject.stateOrProvinceName, 'MI')
-        self.assertEqual(subject.localityName, 'Milan')
-        self.assertEqual(subject.organizationName, 'ACME-test')
-        self.assertEqual(subject.emailAddress, 'unit@test.com')
-        self.assertEqual(subject.commonName, 'import-cert-test')
+        self.assertEqual(subject.countryName, None)
+        self.assertEqual(subject.stateOrProvinceName, None)
+        self.assertEqual(subject.localityName, None)
+        self.assertEqual(subject.organizationName, None)
+        self.assertEqual(subject.emailAddress, None)
+        self.assertEqual(subject.commonName, None)
         issuer = x509.get_issuer()
-        self.assertEqual(issuer.countryName, 'US')
-        self.assertEqual(issuer.stateOrProvinceName, 'CA')
-        self.assertEqual(issuer.localityName, 'San Francisco')
-        self.assertEqual(issuer.organizationName, 'ACME')
-        self.assertEqual(issuer.emailAddress, 'contact@acme.com')
-        self.assertEqual(issuer.commonName, 'importtest')
+        self.assertEqual(issuer.countryName, 'IT')
+        self.assertEqual(issuer.stateOrProvinceName, 'RM')
+        self.assertEqual(issuer.localityName, 'Rome')
+        self.assertEqual(issuer.organizationName, 'OpenWISP')
+        self.assertEqual(issuer.emailAddress, 'test@test.com')
+        self.assertEqual(issuer.commonName, 'ow2')
         # verify field attribtues
-        self.assertEqual(cert.key_length, '1024')
-        self.assertEqual(cert.digest, 'sha224')
-        start = timezone.make_aware(datetime.strptime('20160701141809Z', generalized_time))
+        self.assertEqual(cert.key_length, '512')
+        self.assertEqual(cert.digest, 'sha1')
+        start = timezone.make_aware(datetime.strptime('20151101000000Z', generalized_time))
         self.assertEqual(cert.validity_start, start)
-        end = timezone.make_aware(datetime.strptime('20190707141809Z', generalized_time))
+        end = timezone.make_aware(datetime.strptime('21181102180025Z', generalized_time))
         self.assertEqual(cert.validity_end, end)
-        self.assertEqual(cert.country_code, 'IT')
-        self.assertEqual(cert.state, 'MI')
-        self.assertEqual(cert.city, 'Milan')
-        self.assertEqual(cert.organization, 'ACME-test')
-        self.assertEqual(cert.email, 'unit@test.com')
-        self.assertEqual(cert.common_name, 'import-cert-test')
-        self.assertEqual(cert.serial_number, 1234567)
-        # ensure version is 3
-        self.assertEqual(x509.get_version(), 3)
+        self.assertEqual(cert.country_code, '')
+        self.assertEqual(cert.state, '')
+        self.assertEqual(cert.city, '')
+        self.assertEqual(cert.organization, '')
+        self.assertEqual(cert.email, '')
+        self.assertEqual(cert.common_name, '')
+        self.assertEqual(cert.serial_number, 123456)
+        # ensure version is 3 (indexed 0 based counting)
+        self.assertEqual(x509.get_version(), 2)
         cert.delete()
         # test auto name
         cert = Cert(certificate=self.import_certificate,
@@ -197,7 +195,7 @@ WRyKPvMvJzWT
                     ca=ca)
         cert.full_clean()
         cert.save()
-        self.assertEqual(cert.name, 'import-cert-test')
+        self.assertEqual(cert.name, '123456')
 
     def test_import_private_key_empty(self):
         ca = Ca(name='ImportTest')
