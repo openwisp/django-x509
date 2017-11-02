@@ -141,7 +141,7 @@ class BaseX509(models.Model):
         # importing existing certificate
         # must be done here in order to validate imported fields
         # and fill private and public key before validation fails
-        if not self.pk and self.certificate and self.private_key:
+        if self._state.adding and self.certificate and self.private_key:
             self._import()
         super(BaseX509, self).clean_fields(*args, **kwargs)
 
