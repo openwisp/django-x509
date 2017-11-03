@@ -1,10 +1,16 @@
 Changelog
 =========
 
-Version 0.2.5 [unreleased]
+Version 0.3.0 [2017-11-03]
 --------------------------
 
-WIP
+* [models] Avoided possible double insertion in ``Base.save``
+* [requirements] pyopenssl>=17.1.0,<17.4.0
+* [admin] Fixed preformatted look of certificate and private-key fields
+* [models] Allow importing certs with invalid country codes
+* [models] Allow importing certificate with empty common name
+* [tests] Updated data for import test to fix pyOpenSSL issue
+* [models] Renamed ``organization`` field to ``organization_name``
 
 Version 0.2.4 [2017-07-04]
 --------------------------
