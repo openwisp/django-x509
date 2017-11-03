@@ -279,10 +279,17 @@ class BaseX509(models.Model):
         self.city = subject.localityName or ''
         self.organization = subject.organizationName or ''
         self.email = subject.emailAddress or ''
-        self.common_name = subject.commonName or ''
+        self.common_name = self._get_organization(subject.commonName)
         self.serial_number = cert.get_serial_number()
         if not self.name:
             self.name = self.common_name or str(self.serial_number)
+
+    def _get_organization(self, value):
+        """
+        Allow overriding the logic for determining the organizaton name
+        (eg: get the name of the org from django-organizations)
+        """
+        return value or ''
 
     def _verify_ca(self):
         """
