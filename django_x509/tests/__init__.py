@@ -13,7 +13,7 @@ class TestX509Mixin(object):
                        country_code='IT',
                        state='RM',
                        city='Rome',
-                       organization='OpenWISP',
+                       organization_name='OpenWISP',
                        email='test@test.com',
                        common_name='openwisp.org',
                        extensions=[])
@@ -31,7 +31,7 @@ class TestX509Mixin(object):
                        country_code='IT',
                        state='RM',
                        city='Rome',
-                       organization='Test',
+                       organization_name='Test',
                        email='test@test.com',
                        common_name='openwisp.org',
                        extensions=[])

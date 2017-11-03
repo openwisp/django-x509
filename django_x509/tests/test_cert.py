@@ -89,7 +89,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         self.assertEqual(subject.countryName, cert.country_code)
         self.assertEqual(subject.stateOrProvinceName, cert.state)
         self.assertEqual(subject.localityName, cert.city)
-        self.assertEqual(subject.organizationName, cert.organization)
+        self.assertEqual(subject.organizationName, cert.organization_name)
         self.assertEqual(subject.emailAddress, cert.email)
         self.assertEqual(subject.commonName, cert.common_name)
         # check issuer
@@ -98,7 +98,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         self.assertEqual(issuer.countryName, ca.country_code)
         self.assertEqual(issuer.stateOrProvinceName, ca.state)
         self.assertEqual(issuer.localityName, ca.city)
-        self.assertEqual(issuer.organizationName, ca.organization)
+        self.assertEqual(issuer.organizationName, ca.organization_name)
         self.assertEqual(issuer.emailAddress, ca.email)
         self.assertEqual(issuer.commonName, ca.common_name)
         # check signature
@@ -182,7 +182,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         self.assertEqual(cert.country_code, '')
         self.assertEqual(cert.state, '')
         self.assertEqual(cert.city, '')
-        self.assertEqual(cert.organization, '')
+        self.assertEqual(cert.organization_name, '')
         self.assertEqual(cert.email, '')
         self.assertEqual(cert.common_name, '')
         self.assertEqual(cert.serial_number, 123456)
@@ -341,7 +341,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         cert._fill_subject(x509.get_subject())
         self.city = 'Rome'
         cert._fill_subject(x509.get_subject())
-        self.organization = 'OpenWISP'
+        self.organization_name = 'OpenWISP'
         cert._fill_subject(x509.get_subject())
         self.email = 'test@test.com'
         cert._fill_subject(x509.get_subject())

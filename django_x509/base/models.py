@@ -113,7 +113,7 @@ class BaseX509(models.Model):
     country_code = models.CharField(max_length=2, blank=True)
     state = models.CharField(_('state or province'), max_length=64, blank=True)
     city = models.CharField(_('city'), max_length=64, blank=True)
-    organization = models.CharField(_('organization'), max_length=64, blank=True)
+    organization_name = models.CharField(_('organization'), max_length=64, blank=True)
     email = models.EmailField(_('email address'), blank=True)
     common_name = models.CharField(_('common name'), max_length=63, blank=True)
     extensions = JSONField(_('extensions'),
@@ -232,7 +232,7 @@ class BaseX509(models.Model):
             'country_code': 'countryName',
             'state': 'stateOrProvinceName',
             'city': 'localityName',
-            'organization': 'organizationName',
+            'organization_name': 'organizationName',
             'email': 'emailAddress',
             'common_name': 'commonName'
         }
@@ -277,19 +277,12 @@ class BaseX509(models.Model):
             self.country_code = ''
         self.state = subject.stateOrProvinceName or ''
         self.city = subject.localityName or ''
-        self.organization = subject.organizationName or ''
+        self.organization_name = subject.organizationName or ''
         self.email = subject.emailAddress or ''
-        self.common_name = self._get_organization(subject.commonName)
+        self.common_name = subject.commonName or ''
         self.serial_number = cert.get_serial_number()
         if not self.name:
             self.name = self.common_name or str(self.serial_number)
-
-    def _get_organization(self, value):
-        """
-        Allow overriding the logic for determining the organizaton name
-        (eg: get the name of the org from django-organizations)
-        """
-        return value or ''
 
     def _verify_ca(self):
         """
