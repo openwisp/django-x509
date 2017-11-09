@@ -116,6 +116,8 @@ class BaseX509(models.Model):
     state = models.CharField(_('state or province'), max_length=64, blank=True)
     city = models.CharField(_('city'), max_length=64, blank=True)
     organization_name = models.CharField(_('organization'), max_length=64, blank=True)
+    organizational_unit_name = models.CharField(_('organizational unit name'),
+                                                max_length=64, blank=True)
     email = models.EmailField(_('email address'), blank=True)
     common_name = models.CharField(_('common name'), max_length=63, blank=True)
     extensions = JSONField(_('extensions'),
@@ -267,6 +269,7 @@ class BaseX509(models.Model):
             'state': 'stateOrProvinceName',
             'city': 'localityName',
             'organization_name': 'organizationName',
+            'organizational_unit_name': 'organizationalUnitName',
             'email': 'emailAddress',
             'common_name': 'commonName'
         }
@@ -312,6 +315,7 @@ class BaseX509(models.Model):
         self.state = subject.stateOrProvinceName or ''
         self.city = subject.localityName or ''
         self.organization_name = subject.organizationName or ''
+        self.organizational_unit_name = subject.organizationalUnitName or ''
         self.email = subject.emailAddress or ''
         self.common_name = subject.commonName or ''
         self.serial_number = cert.get_serial_number()
