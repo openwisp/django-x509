@@ -105,9 +105,10 @@ WRyKPvMvJzWT
 
     def test_default_validity_start(self):
         ca = Ca()
-        self.assertEqual(ca.validity_start.year, datetime.now().year)
-        self.assertEqual(ca.validity_start.month, datetime.now().month)
-        self.assertEqual(ca.validity_start.day, datetime.now().day - 1)
+        expected = datetime.now() - timedelta(days=1)
+        self.assertEqual(ca.validity_start.year, expected.year)
+        self.assertEqual(ca.validity_start.month, expected.month)
+        self.assertEqual(ca.validity_start.day, expected.day)
         self.assertEqual(ca.validity_start.hour, 0)
         self.assertEqual(ca.validity_start.minute, 0)
         self.assertEqual(ca.validity_start.second, 0)
