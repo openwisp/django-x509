@@ -1,5 +1,4 @@
 coverage
 coveralls
-cryptography==2.1.2
 isort
 flake8
