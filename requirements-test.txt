@@ -1,5 +1,8 @@
 coverage
 coveralls
-cryptography==2.1.2
 isort
 flake8
+# we need this otherwise
+# the travis build may break
+cryptography==2.1.2
+pyopenssl>=17.1.0,<17.4.0
