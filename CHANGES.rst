@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.3.1 [2017-12-01]
+--------------------------
+
+* temporarily downgraded cryptography and pyopenssl versions
+  to avoid segmentation faults
+
 Version 0.3.0 [2017-11-03]
 --------------------------
 
