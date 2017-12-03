@@ -155,10 +155,23 @@ Run tests with:
 .. code-block:: shell
 
     ./runtests.py
+    
+Install and run on docker
+--------------------------
+Build from docker file:
 
+.. code-block:: shell
+
+   sudo docker build -t openwisp/djangox509 .
+   
+Run the docker container:
+
+.. code-block:: shell
+
+   sudo docker run -it -p 8000:8000 batuhan/django509
+   
 Settings
 --------
-
 ``DJANGO_X509_DEFAULT_CERT_VALIDITY``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
