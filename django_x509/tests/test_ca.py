@@ -394,3 +394,32 @@ KQV8C/ciDV+lIw2yBmlCNvUmy7GAsHSZM+C8y29+GFR7an6WV+xa
         x509 = crypto.X509()
         subject = ca2._fill_subject(x509.get_subject())
         self.assertEqual(subject.organizationName, 'Test CA')
+
+    def test_import_ca_cert_validation_error(self):
+        certificate = self.import_certificate[20:]
+        private_key = self.import_private_key
+        ca = Ca(name="TestCaCertValidation")
+        try:
+            ca.certificate = certificate
+            ca.private_key = private_key
+            ca.full_clean()
+        except ValidationError as e:
+            self.assertIn("[('PEM routines', 'PEM_read_bio', 'no start line')]",
+                          str(e.message_dict['certificate'][0]))
+        else:
+            self.fail('ValidationError not raised')
+
+    def test_import_ca_key_validation_error(self):
+        certificate = self.import_certificate
+        private_key = self.import_private_key[20:]
+        ca = Ca(name="TestCaKeyValidation")
+        try:
+            ca.certificate = certificate
+            ca.private_key = private_key
+            ca.full_clean()
+            ca.save()
+        except ValidationError as e:
+            self.assertIn("[('PEM routines', 'PEM_read_bio', 'no start line')]",
+                          str(e.message_dict['private_key'][0]))
+        else:
+            self.fail('ValidationError not raised')

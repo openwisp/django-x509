@@ -358,3 +358,43 @@ WRyKPvMvJzWT
             common_name='TestCert1',
             name='TestCert1',
         )
+
+    def test_import_cert_validation_error(self):
+        certificate = self.import_certificate[20:]
+        private_key = self.import_private_key
+        ca = Ca(name='TestImportCertValidation')
+        ca.certificate = self.import_ca_certificate
+        ca.private_key = self.import_ca_private_key
+        ca.full_clean()
+        ca.save()
+        try:
+            cert = Cert(name='TestCertValidation',
+                        ca=ca,
+                        certificate=certificate,
+                        private_key=private_key)
+            cert.full_clean()
+        except ValidationError as e:
+            self.assertIn("[('PEM routines', 'PEM_read_bio', 'no start line')]",
+                          str(e.message_dict['certificate'][0]))
+        else:
+            self.fail('ValidationError not raised')
+
+    def test_import_key_validation_error(self):
+        certificate = self.import_certificate
+        private_key = self.import_private_key[20:]
+        ca = Ca(name='TestImportKeyValidation')
+        ca.certificate = self.import_certificate
+        ca.private_key = self.import_private_key
+        ca.full_clean()
+        ca.save()
+        try:
+            cert = Cert(name='TestKeyValidation',
+                        ca=ca,
+                        certificate=certificate,
+                        private_key=private_key)
+            cert.full_clean()
+        except ValidationError as e:
+            self.assertIn("[('PEM routines', 'PEM_read_bio', 'no start line')]",
+                          str(e.message_dict['private_key'][0]))
+        else:
+            self.fail('ValidationError not raised')
