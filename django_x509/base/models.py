@@ -203,11 +203,10 @@ class BaseX509(models.Model):
         """
         errors = {}
         for field in ['certificate', 'private_key']:
+            method_name = 'load_{0}'.format(field.replace('_', ''))
+            load_pem = getattr(crypto, method_name)
             try:
-                if field == "certificate":
-                    crypto.load_certificate(crypto.FILETYPE_PEM, getattr(self, field))
-                else:
-                    crypto.load_privatekey(crypto.FILETYPE_PEM, getattr(self,field))
+                load_pem(crypto.FILETYPE_PEM, getattr(self, field))
             except OpenSSL.crypto.Error as e:
                 errors[field] = ValidationError(_('OpenSSL error: {0}'.format(e.args[0])))
         if errors:
