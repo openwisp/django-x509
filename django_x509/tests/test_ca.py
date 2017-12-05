@@ -457,3 +457,32 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
                              certificate=self.problematic_certificate,
                              private_key=self.problematic_private_key)
         self.assertEqual(ca.country_code, '')
+
+    def test_import_ca_cert_validation_error(self):
+        certificate = self.import_certificate[20:]
+        private_key = self.import_private_key
+        ca = Ca(name="TestCaCertValidation")
+        try:
+            ca.certificate = certificate
+            ca.private_key = private_key
+            ca.full_clean()
+        except ValidationError as e:
+            self.assertIn("[('PEM routines', 'PEM_read_bio', 'no start line')]",
+                          str(e.message_dict['certificate'][0]))
+        else:
+            self.fail('ValidationError not raised')
+
+    def test_import_ca_key_validation_error(self):
+        certificate = self.import_certificate
+        private_key = self.import_private_key[20:]
+        ca = Ca(name="TestCaKeyValidation")
+        try:
+            ca.certificate = certificate
+            ca.private_key = private_key
+            ca.full_clean()
+            ca.save()
+        except ValidationError as e:
+            self.assertIn("[('PEM routines', 'PEM_read_bio', 'no start line')]",
+                          str(e.message_dict['private_key'][0]))
+        else:
+            self.fail('ValidationError not raised')

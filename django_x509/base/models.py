@@ -10,6 +10,7 @@ from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
+import OpenSSL
 from six import string_types
 
 from .. import settings as app_settings
@@ -142,6 +143,7 @@ class BaseX509(models.Model):
         # must be done here in order to validate imported fields
         # and fill private and public key before validation fails
         if self._state.adding and self.certificate and self.private_key:
+            self._validate_pem()
             self._import()
         super(BaseX509, self).clean_fields(*args, **kwargs)
 
@@ -193,6 +195,23 @@ class BaseX509(models.Model):
         """
         if self.private_key:
             return crypto.load_privatekey(crypto.FILETYPE_PEM, self.private_key)
+
+    def _validate_pem(self):
+        """
+        (internal use only)
+        validates certificate and private key
+        """
+        errors = {}
+        for field in ['certificate', 'private_key']:
+            try:
+                if field == "certificate":
+                    crypto.load_certificate(crypto.FILETYPE_PEM, getattr(self, field))
+                else:
+                    crypto.load_privatekey(crypto.FILETYPE_PEM, getattr(self,field))
+            except OpenSSL.crypto.Error as e:
+                errors[field] = ValidationError(_('OpenSSL error: {0}'.format(e.args[0])))
+        if errors:
+            raise ValidationError(errors)
 
     def _generate(self):
         """
