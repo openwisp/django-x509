@@ -1,10 +1,12 @@
 Changelog
 =========
 
-Version 0.3.2 [unreleased]
+Version 0.3.2 [2017-12-06]
 --------------------------
 
-WIP
+* [requirements] upgraded pyopenssl to 17.5.0 and cryptography to 2.2.0
+* [models] Fixed uncaught exception when imported
+  PEM `certificate` or `private_key` is invalid
 
 Version 0.3.1 [2017-12-01]
 --------------------------
