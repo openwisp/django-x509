@@ -335,17 +335,17 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         # ensure no exception raised if model attrs are set to None
         x509 = crypto.X509()
         cert = Cert(name='test', ca=self._create_ca())
-        cert._fill_subject(x509)
+        cert._fill_subject(x509.get_subject())
         self.country_code = 'IT'
-        cert._fill_subject(x509)
+        cert._fill_subject(x509.get_subject())
         self.state = 'RM'
-        cert._fill_subject(x509)
+        cert._fill_subject(x509.get_subject())
         self.city = 'Rome'
-        cert._fill_subject(x509)
+        cert._fill_subject(x509.get_subject())
         self.organization_name = 'OpenWISP'
-        cert._fill_subject(x509)
+        cert._fill_subject(x509.get_subject())
         self.email = 'test@test.com'
-        cert._fill_subject(x509)
+        cert._fill_subject(x509.get_subject())
 
     def test_cert_create(self):
         ca = Ca(name='Test CA')
