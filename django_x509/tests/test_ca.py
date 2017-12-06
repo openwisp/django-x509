@@ -393,8 +393,7 @@ KQV8C/ciDV+lIw2yBmlCNvUmy7GAsHSZM+C8y29+GFR7an6WV+xa
         ca1 = self._create_ca()
         ca2 = Ca(name='ca', organization_name=ca1)
         x509 = crypto.X509()
-        subject = ca2._fill_subject(x509)
-        subject = x509.get_subject()
+        subject = ca2._fill_subject(x509.get_subject())
         self.assertEqual(subject.organizationName, 'Test CA')
 
     # this certificate has an invalid country code
