@@ -1,6 +1,7 @@
 import collections
 from datetime import datetime, timedelta
 
+import OpenSSL
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -10,7 +11,6 @@ from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
-import OpenSSL
 from six import string_types
 
 from .. import settings as app_settings
@@ -228,7 +228,7 @@ class BaseX509(models.Model):
         cert.set_notAfter(bytes_compat(self.validity_end.strftime(generalized_time)))
         # generating certificate for CA
         if not hasattr(self, 'ca'):
-            issuer = subject
+            issuer = cert.get_subject()
             issuer_key = key
         # generating certificate issued by a CA
         else:
