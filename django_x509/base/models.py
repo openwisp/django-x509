@@ -1,6 +1,7 @@
 import collections
 from datetime import datetime, timedelta
 
+import OpenSSL
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -10,7 +11,6 @@ from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
-import OpenSSL
 from six import string_types
 
 from .. import settings as app_settings
@@ -220,15 +220,14 @@ class BaseX509(models.Model):
         key = crypto.PKey()
         key.generate_key(crypto.TYPE_RSA, int(self.key_length))
         cert = crypto.X509()
-        subject = self._fill_subject(cert.get_subject())
+        cert = self._fill_subject(cert)
         cert.set_version(0x2)  # version 3 (0 indexed counting)
-        cert.set_subject(subject)
         cert.set_serial_number(self.serial_number)
         cert.set_notBefore(bytes_compat(self.validity_start.strftime(generalized_time)))
         cert.set_notAfter(bytes_compat(self.validity_end.strftime(generalized_time)))
         # generating certificate for CA
         if not hasattr(self, 'ca'):
-            issuer = subject
+            issuer = cert.get_subject()
             issuer_key = key
         # generating certificate issued by a CA
         else:
@@ -241,11 +240,12 @@ class BaseX509(models.Model):
         self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
         self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
 
-    def _fill_subject(self, subject):
+    def _fill_subject(self, cert):
         """
         (internal use only)
         fills OpenSSL.crypto.X509Name object
         """
+        subject = cert.get_subject()
         attr_map = {
             'country_code': 'countryName',
             'state': 'stateOrProvinceName',
@@ -263,7 +263,8 @@ class BaseX509(models.Model):
                 if not isinstance(value, string_types):
                     value = str(value)
                 setattr(subject, subject_attr, value)
-        return subject
+        cert.set_subject(subject)
+        return cert
 
     def _import(self):
         """
