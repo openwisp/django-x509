@@ -1,6 +1,7 @@
 import collections
-from datetime import datetime, timedelta
 import uuid
+from datetime import datetime, timedelta
+
 import OpenSSL
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -126,10 +127,10 @@ class BaseX509(models.Model):
     # serial_number is set to CharField as a UUID integer is too big for a
     # PositiveIntegerField and an IntegerField on SQLite
     serial_number = models.CharField(_('serial number'),
-                                        help_text=_('leave blank to determine automatically'),
-                                        blank=True,
-                                        null=True,
-                                        max_length=39)
+                                     help_text=_('leave blank to determine automatically'),
+                                     blank=True,
+                                     null=True,
+                                     max_length=39)
     certificate = models.TextField(blank=True, help_text='certificate in X.509 PEM format')
     private_key = models.TextField(blank=True, help_text='private key in X.509 PEM format')
     created = AutoCreatedField(_('created'), editable=True)
