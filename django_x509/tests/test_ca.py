@@ -60,7 +60,7 @@ WRyKPvMvJzWT
         self.assertNotEqual(ca.certificate, '')
         self.assertNotEqual(ca.private_key, '')
         cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
-        self.assertEqual(cert.get_serial_number(), ca.id)
+        self.assertEqual(int(cert.get_serial_number()), int(ca.serial_number))
         subject = cert.get_subject()
         self.assertEqual(subject.countryName, ca.country_code)
         self.assertEqual(subject.stateOrProvinceName, ca.state)
@@ -150,7 +150,7 @@ WRyKPvMvJzWT
         self.assertEqual(ca.email, 'contact@acme.com')
         self.assertEqual(ca.common_name, 'importtest')
         self.assertEqual(ca.name, 'ImportTest')
-        self.assertEqual(ca.serial_number, 123456)
+        self.assertEqual(int(ca.serial_number), 123456)
         # ensure version is 3
         self.assertEqual(cert.get_version(), 3)
         ca.delete()
@@ -486,3 +486,15 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
                           str(e.message_dict['private_key'][0]))
         else:
             self.fail('ValidationError not raised')
+
+    def test_create_old_serial_ca(self):
+        ca = self._create_ca(serial_number=3)
+        self.assertEqual(int(ca.serial_number), 3)
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
+        self.assertEqual(int(cert.get_serial_number()), int(ca.serial_number))
+
+    def test_bad_serial_number_ca(self):
+        try:
+            self._create_ca(serial_number='notIntegers')
+        except ValidationError as e:
+            self.assertEqual("Serial number must be an integer", str(e.message_dict['serial_number'][0]))

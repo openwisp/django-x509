@@ -1,6 +1,6 @@
 import collections
 from datetime import datetime, timedelta
-
+import uuid
 import OpenSSL
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -123,10 +123,13 @@ class BaseX509(models.Model):
                            help_text=_('additional x509 certificate extensions'),
                            load_kwargs={'object_pairs_hook': collections.OrderedDict},
                            dump_kwargs={'indent': 4})
-    serial_number = models.PositiveIntegerField(_('serial number'),
-                                                help_text=_('leave blank to determine automatically'),
-                                                blank=True,
-                                                null=True)
+    # serial_number is set to CharField as a UUID integer is too big for a
+    # PositiveIntegerField and an IntegerField on SQLite
+    serial_number = models.CharField(_('serial number'),
+                                        help_text=_('leave blank to determine automatically'),
+                                        blank=True,
+                                        null=True,
+                                        max_length=39)
     certificate = models.TextField(blank=True, help_text='certificate in X.509 PEM format')
     private_key = models.TextField(blank=True, help_text='private key in X.509 PEM format')
     created = AutoCreatedField(_('created'), editable=True)
@@ -155,6 +158,8 @@ class BaseX509(models.Model):
         ):
             raise ValidationError(_('When importing an existing certificate, both'
                                     'keys (private and public) must be present'))
+        if self.serial_number:
+            self._validate_serial_number()
         self._verify_extension_format()
 
     def save(self, *args, **kwargs):
@@ -165,7 +170,7 @@ class BaseX509(models.Model):
         if generate:
             # automatically determine serial number
             if not self.serial_number:
-                self.serial_number = self.id
+                self.serial_number = uuid.uuid4().int
             self._generate()
             kwargs['force_insert'] = False
             super(BaseX509, self).save(*args, **kwargs)
@@ -212,6 +217,16 @@ class BaseX509(models.Model):
         if errors:
             raise ValidationError(errors)
 
+    def _validate_serial_number(self):
+        """
+        (internal use only)
+        validates serial number if set manually
+        """
+        try:
+            int(self.serial_number)
+        except ValueError:
+            raise ValidationError({'serial_number': _('Serial number must be an integer')})
+
     def _generate(self):
         """
         (internal use only)
@@ -223,7 +238,7 @@ class BaseX509(models.Model):
         subject = self._fill_subject(cert.get_subject())
         cert.set_version(0x2)  # version 3 (0 indexed counting)
         cert.set_subject(subject)
-        cert.set_serial_number(self.serial_number)
+        cert.set_serial_number(int(self.serial_number))
         cert.set_notBefore(bytes_compat(self.validity_start.strftime(generalized_time)))
         cert.set_notAfter(bytes_compat(self.validity_end.strftime(generalized_time)))
         # generating certificate for CA

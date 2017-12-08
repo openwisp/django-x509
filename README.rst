@@ -36,6 +36,8 @@ Current features
 * Certificate revocation
 * CRL view (public or protected)
 * Possibility to specify x509 extensions on each certificate
+* Random serial numbers based on uuid4 integers (see `why is this a good idea
+  <https://crypto.stackexchange.com/questions/257/unpredictability-of-x-509-serial-numbers>`_)
 
 Project goals
 -------------

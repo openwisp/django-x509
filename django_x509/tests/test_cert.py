@@ -83,7 +83,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         self.assertNotEqual(cert.certificate, '')
         self.assertNotEqual(cert.private_key, '')
         x509 = cert.x509
-        self.assertEqual(x509.get_serial_number(), cert.id)
+        self.assertEqual(x509.get_serial_number(), cert.serial_number)
         subject = x509.get_subject()
         # check subject
         self.assertEqual(subject.countryName, cert.country_code)
@@ -158,7 +158,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         cert.save()
         x509 = cert.x509
         # verify attributes
-        self.assertEqual(x509.get_serial_number(), 123456)
+        self.assertEqual(int(x509.get_serial_number()), 123456)
         subject = x509.get_subject()
         self.assertEqual(subject.countryName, None)
         self.assertEqual(subject.stateOrProvinceName, None)
@@ -186,7 +186,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         self.assertEqual(cert.organization_name, '')
         self.assertEqual(cert.email, '')
         self.assertEqual(cert.common_name, '')
-        self.assertEqual(cert.serial_number, 123456)
+        self.assertEqual(int(cert.serial_number), 123456)
         # ensure version is 3 (indexed 0 based counting)
         self.assertEqual(x509.get_version(), 2)
         cert.delete()
@@ -397,3 +397,15 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
                           str(e.message_dict['private_key'][0]))
         else:
             self.fail('ValidationError not raised')
+
+    def test_create_old_serial_certificate(self):
+        cert = self._create_cert(serial_number=3)
+        self.assertEqual(int(cert.serial_number), 3)
+        x509 = cert.x509
+        self.assertEqual(int(x509.get_serial_number()), 3)
+
+    def test_bad_serial_number_cert(self):
+        try:
+            self._create_cert(serial_number='notIntegers')
+        except ValidationError as e:
+            self.assertEqual("Serial number must be an integer", str(e.message_dict['serial_number'][0]))
