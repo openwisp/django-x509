@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib.admin import ModelAdmin
 from django.contrib.admin.templatetags.admin_static import static
 from django.urls import reverse
@@ -55,15 +56,50 @@ class BaseAdmin(ModelAdmin):
         return fields
 
 
-class CaAdmin(BaseAdmin):
+class AbstractCaAdmin(BaseAdmin):
     list_filter = ['key_length', 'digest', 'created']
+    fields = ['operation_type',
+              'name',
+              'notes',
+              'key_length',
+              'digest',
+              'validity_start',
+              'validity_end',
+              'country_code',
+              'state',
+              'city',
+              'organization_name',
+              'email',
+              'common_name',
+              'extensions',
+              'serial_number',
+              'certificate',
+              'private_key',
+              'created',
+              'modified']
+
+    class Media:
+        js = ('django-x509/js/switcher.js',)
 
 
-class CertAdmin(BaseAdmin):
+class AbstractCertForm(forms.ModelForm):
+        OPERATION_CHOICES = (
+            ('-----', '-----'),
+            ('new', _('Create new')),
+            ('import', _('Import Existing'))
+        )
+        operation_type = forms.ChoiceField(choices=OPERATION_CHOICES)
+
+        class Meta:
+            fields = '__all__'
+
+
+class AbstractCertAdmin(BaseAdmin):
     list_filter = ['ca', 'revoked', 'key_length', 'digest', 'created']
     list_select_related = ['ca']
     readonly_fields = ['revoked', 'revoked_at']
-    fields = ['name',
+    fields = ['operation_type',
+              'name',
               'ca',
               'notes',
               'revoked',
@@ -85,6 +121,9 @@ class CertAdmin(BaseAdmin):
               'created',
               'modified']
     actions = ['revoke_action']
+
+    class Media:
+        js = ('django-x509/js/switcher.js',)
 
     def ca_url(self, obj):
         url = reverse('admin:{0}_ca_change'.format(self.opts.app_label), args=[obj.ca.id])
@@ -108,9 +147,13 @@ class CertAdmin(BaseAdmin):
     revoke_action.short_description = _('Revoke selected certificates')
 
 
-CertAdmin.list_display = BaseAdmin.list_display[:]
-CertAdmin.list_display.insert(1, 'ca_url')
-CertAdmin.list_display.insert(4, 'serial_number')
-CertAdmin.list_display.insert(5, 'revoked')
-CertAdmin.readonly_edit = BaseAdmin.readonly_edit[:]
-CertAdmin.readonly_edit += ('ca',)
+# For backward compatibility
+CaAdmin = AbstractCaAdmin
+CertAdmin = AbstractCertAdmin
+
+AbstractCertAdmin.list_display = BaseAdmin.list_display[:]
+AbstractCertAdmin.list_display.insert(1, 'ca_url')
+AbstractCertAdmin.list_display.insert(4, 'serial_number')
+AbstractCertAdmin.list_display.insert(5, 'revoked')
+AbstractCertAdmin.readonly_edit = BaseAdmin.readonly_edit[:]
+AbstractCertAdmin.readonly_edit += ('ca',)
