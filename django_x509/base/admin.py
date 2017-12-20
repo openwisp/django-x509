@@ -151,7 +151,6 @@ CertAdmin = AbstractCertAdmin
 
 AbstractCertAdmin.list_display = BaseAdmin.list_display[:]
 AbstractCertAdmin.list_display.insert(1, 'ca_url')
-AbstractCertAdmin.list_display.insert(4, 'serial_number')
 AbstractCertAdmin.list_display.insert(5, 'revoked')
 AbstractCertAdmin.readonly_edit = BaseAdmin.readonly_edit[:]
 AbstractCertAdmin.readonly_edit += ('ca',)
