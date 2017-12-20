@@ -6,6 +6,15 @@ from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
 
 
+class X509Form(forms.ModelForm):
+    OPERATION_CHOICES = (
+        ('', '----- {0} -----'.format(_('Please select an option'))),
+        ('new', _('Create new')),
+        ('import', _('Import Existing'))
+    )
+    operation_type = forms.ChoiceField(choices=OPERATION_CHOICES)
+
+
 class BaseAdmin(ModelAdmin):
     """
     ModelAdmin for TimeStampedEditableModel
@@ -18,6 +27,7 @@ class BaseAdmin(ModelAdmin):
     search_fields = ['name', 'serial_number', 'common_name']
     actions_on_bottom = True
     save_on_top = True
+    form = X509Form
     # custom attribute
     readonly_edit = ['key_length',
                      'digest',
@@ -80,18 +90,6 @@ class AbstractCaAdmin(BaseAdmin):
 
     class Media:
         js = ('django-x509/js/switcher.js',)
-
-
-class AbstractX509Form(forms.ModelForm):
-        OPERATION_CHOICES = (
-            ('', '----- {0} -----'.format(_('Please select an option'))),
-            ('new', _('Create new')),
-            ('import', _('Import Existing'))
-        )
-        operation_type = forms.ChoiceField(choices=OPERATION_CHOICES)
-
-        class Meta:
-            fields = '__all__'
 
 
 class AbstractCertAdmin(BaseAdmin):
