@@ -82,7 +82,7 @@ class AbstractCaAdmin(BaseAdmin):
         js = ('django-x509/js/switcher.js',)
 
 
-class AbstractCertForm(forms.ModelForm):
+class AbstractX509Form(forms.ModelForm):
         OPERATION_CHOICES = (
             ('', '----- {0} -----'.format(_('Please select an option'))),
             ('new', _('Create new')),

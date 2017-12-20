@@ -1,20 +1,20 @@
 from django.contrib import admin
 
-from .base.admin import AbstractCaAdmin, AbstractCertAdmin, AbstractCertForm
+from .base.admin import AbstractCaAdmin, AbstractCertAdmin, AbstractX509Form
 from .models import Ca, Cert
 
 
-class CertForm(AbstractCertForm):
-    class Meta(AbstractCertForm.Meta):
+class X509Form(AbstractX509Form):
+    class Meta(AbstractX509Form.Meta):
         model = Cert
 
 
 class CertAdmin(AbstractCertAdmin):
-    form = CertForm
+    form = X509Form
 
 
 class CaAdmin(AbstractCaAdmin):
-    form = CertForm
+    form = X509Form
 
 
 admin.site.register(Ca, CaAdmin)
