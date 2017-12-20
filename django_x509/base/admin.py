@@ -84,7 +84,7 @@ class AbstractCaAdmin(BaseAdmin):
 
 class AbstractCertForm(forms.ModelForm):
         OPERATION_CHOICES = (
-            ('-----', '-----'),
+            ('', '----- {0} -----'.format(_('Please select an option'))),
             ('new', _('Create new')),
             ('import', _('Import Existing'))
         )

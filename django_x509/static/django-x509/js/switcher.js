@@ -1,41 +1,35 @@
-(function($){
-    // function for operation_type switcher
-    var filter_div = function(operation_type){
-        // define fields for each operation_type
-        var import_fields = $('.form-row:not(.field-certificate, .field-operation_type, .field-private_key, .field-name, .field-ca)'),
-        new_fields = $('.form-row:not(.field-certificate, .field-private_key)'),
-        default_fields = $('.form-row:not(.field-operation_type)'),
-        all_fields = $('.form-row');
-        if(operation_type === '-----'){
-            all_fields.show()
-            default_fields.hide()
-        }
-        if(operation_type === 'Create new'){
-            all_fields.hide()
-            new_fields.show()
-        }
-        if(operation_type === 'Import Existing'){
-            all_fields.show()
-            import_fields.hide()
-        }
+django.jQuery(function ($) {
+    'use strict';
+    var operationType = $(".field-operation_type select");
+    // enable switcher only in add forms
+    if ($('form .deletelink-box').length > 0) {
+        operationType.hide();
+        return;
     }
-    $(document).ready(function(){
-        // dont hide if edit cert
-        var path = window.location.pathname
-        if(path.indexOf("change") === -1){
-            // if field is set
-            if ($(".field operation_type" != "-----")){
-                filter_div($(".field-operation_type").find(":selected").text())
-            } else {
-                // filter default if field is not set
-                filter_div('-----')
-            }
-            $(".field-operation_type").on('change', function(){
-                switcher = $(".field-operation_type").find(":selected").text()
-                filter_div(switcher)
-            })
-        } else {
-            $(".field-operation_type").hide()
+    // function for operation_type switcher
+    var showFields = function () {
+        // define fields for each operation
+        var importFields = $('.form-row:not(.field-certificate, .field-operation_type, ' +
+                          '.field-private_key, .field-name, .field-ca)'),
+            newFields = $('.form-row:not(.field-certificate, .field-private_key)'),
+            defaultFields = $('.form-row:not(.field-operation_type)'),
+            allFields = $('.form-row'),
+            value = operationType.val();
+        if (!value) {
+            allFields.show();
+            defaultFields.hide();
         }
-    })
-})(django.jQuery);
+        if (value === 'new') {
+            allFields.hide();
+            newFields.show();
+        }
+        if (value === 'import') {
+            allFields.show();
+            importFields.hide();
+        }
+    };
+    showFields();
+    operationType.on('change', function (e) {
+        showFields();
+    });
+});
