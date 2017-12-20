@@ -1,10 +1,11 @@
 Changelog
 =========
 
-Version 0.3.3 [unreleased]
+Version 0.3.3 [2017-12-20]
 --------------------------
 
-WIP
+* [models] Reimplemented serial numbers as UUID integers
+* [UX] Import vs New javascript switcher
 
 Version 0.3.2 [2017-12-06]
 --------------------------
