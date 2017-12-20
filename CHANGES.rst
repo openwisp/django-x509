@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.3.4 [2017-12-20]
+--------------------------
+
+* [admin] Removed ``serial_number`` from certificate list
+
 Version 0.3.3 [2017-12-20]
 --------------------------
 
