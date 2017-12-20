@@ -1,9 +1,9 @@
 django.jQuery(function ($) {
     'use strict';
-    var operationType = $(".field-operation_type select");
+    var operationType = $('.field-operation_type select');
     // enable switcher only in add forms
     if (!operationType.length || $('form .deletelink-box').length > 0) {
-        operationType.hide();
+        $('.field-operation_type').hide();
         return;
     }
     // function for operation_type switcher
