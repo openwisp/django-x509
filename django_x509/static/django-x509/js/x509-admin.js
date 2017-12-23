@@ -1,5 +1,20 @@
 django.jQuery(function ($) {
     'use strict';
+    // select private_key/certificate field text on click
+    $('.field-certificate, .field-private_key').find(".readonly").on('click', function () {
+        var range, selection;
+        if (window.getSelection) {
+            selection = window.getSelection();
+            range = document.createRange();
+            range.selectNodeContents(this);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } else if (document.body.createTextRange) {
+            range = document.body.createTextRange();
+            range.moveToElementText(this);
+            range.select();
+        }
+    });
     var operationType = $('.field-operation_type select');
     // enable switcher only in add forms
     if (!operationType.length || $('form .deletelink-box').length > 0) {
