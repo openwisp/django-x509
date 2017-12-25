@@ -8,7 +8,9 @@ def crl(request, pk):
     """
     returns CRL of a CA
     """
-    if app_settings.CRL_PROTECTED and not request.user.is_authenticated():
+    authenticated = request.user.is_authenticated
+    authenticated = authenticated() if callable(authenticated) else authenticated
+    if app_settings.CRL_PROTECTED and not authenticated:
         return HttpResponse(_('Forbidden'),
                             status=403,
                             content_type='text/plain')
