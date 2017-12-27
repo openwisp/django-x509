@@ -254,8 +254,8 @@ class BaseX509(models.Model):
         cert.set_pubkey(key)
         cert = self._add_extensions(cert)
         cert.sign(issuer_key, str(self.digest))
-        self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
-        self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
+        self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8")
+        self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key).decode("utf-8")
 
     def _fill_subject(self, subject):
         """
