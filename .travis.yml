@@ -32,6 +32,7 @@ before_install:
   - pip install --no-cache-dir -U -r requirements-test.txt
   - ./runflake8
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then ./runisort; fi
+  - npm install -g jslint
 
 # command to install requirements
 install:
@@ -40,6 +41,7 @@ install:
 
 # command to run tests, e.g. python setup.py test
 script:
+  - jslint django_x509/static/django-x509/js/*.js
   - coverage run --source=django_x509 runtests.py
 
 after_success:
