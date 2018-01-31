@@ -1,7 +1,7 @@
 Changelog
 =========
 
-Version 0.3.5 [unreleased]
+Version 0.4.0 [unreleased]
 --------------------------
 
 WIP
