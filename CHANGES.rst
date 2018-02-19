@@ -1,10 +1,15 @@
 Changelog
 =========
 
-Version 0.4.0 [unreleased]
+Version 0.4.0 [2018-02-19]
 --------------------------
 
-WIP
+* `#24 <https://github.com/openwisp/django-x509/issues/24>`_:
+  [qa] Added django 2.0 & dropped django 1.10
+* `#25 <https://github.com/openwisp/django-x509/issues/25>`_:
+  [admin] Automatically select ``certificate`` and ``private_key`` on click
+* `#33 <https://github.com/openwisp/django-x509/issues/33>`_:
+  [models] Added ``organizational_unit_name`` in ``Cert`` and ``Ca``
 
 Version 0.3.4 [2017-12-20]
 --------------------------
