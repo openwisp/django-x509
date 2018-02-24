@@ -47,9 +47,15 @@ SIGNATURE_MAPPING = {
 
 def default_validity_start():
     """
-    sets validity_start field to 1 day before the current date
-    (avoids "certificate not valid yet" edge case)
-    intentionally returns naive datetime (not timezone aware)
+    Sets validity_start field to 1 day before the current date
+    (avoids "certificate not valid yet" edge case).
+
+    In some cases, because of timezone differences, when certificates
+    were just created they were considered valid in a timezone (eg: Europe)
+    but not yet valid in another timezone (eg: US).
+
+    This function intentionally returns naive datetime (not timezone aware),
+    so that certificates are valid from 00:00 AM in all timezones.
     """
     start = datetime.now() - timedelta(days=1)
     return start.replace(hour=0, minute=0, second=0, microsecond=0)
