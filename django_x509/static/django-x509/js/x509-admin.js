@@ -30,7 +30,7 @@ django.jQuery(function ($) {
             defaultFields = $('.form-row:not(.field-operation_type)'),
             allFields = $('.form-row'),
             value = operationType.val();
-        if (!value) {
+        if (value === '-') {
             allFields.show();
             defaultFields.hide();
         }

@@ -8,7 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 
 class X509Form(forms.ModelForm):
     OPERATION_CHOICES = (
-        ('', '----- {0} -----'.format(_('Please select an option'))),
+        ('-', '----- {0} -----'.format(_('Please select an option'))),
         ('new', _('Create new')),
         ('import', _('Import Existing'))
     )
