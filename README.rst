@@ -332,6 +332,66 @@ To extend *django-x509*, **you MUST NOT** add it to ``settings.INSTALLED_APPS``,
 but you must create your own app (which goes into ``settings.INSTALLED_APPS``), import the
 base classes from django-x509 and add your customizations.
 
+In order to help django find the static files and templates of *django-x509*,
+you need to perform the steps described below.
+
+1. Install ``openwisp-utils``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Install (and add to the requirement of your project) `openwisp-utils
+<https://github.com/openwisp/openwisp-utils>`_::
+
+    pip install openwisp-utils
+
+2. Add ``EXTENDED_APPS``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add the following to your ``settings.py``:
+
+.. code-block:: python
+
+    EXTENDED_APPS = ('django_x509',)
+
+3. Add ``openwisp_utils.staticfiles.DependencyFinder``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add ``openwisp_utils.staticfiles.DependencyFinder`` to
+``STATICFILES_FINDERS`` in your ``settings.py``:
+
+.. code-block:: python
+
+    STATICFILES_FINDERS = [
+        'django.contrib.staticfiles.finders.FileSystemFinder',
+        'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+        'openwisp_utils.staticfiles.DependencyFinder',
+    ]
+
+4. Add ``openwisp_utils.loaders.DependencyLoader``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add ``openwisp_utils.loaders.DependencyLoader`` to ``TEMPLATES`` in your ``settings.py``:
+
+.. code-block:: python
+
+    TEMPLATES = [
+        {
+            'BACKEND': 'django.template.backends.django.DjangoTemplates',
+            'OPTIONS': {
+                'loaders': [
+                    'django.template.loaders.filesystem.Loader',
+                    'django.template.loaders.app_directories.Loader',
+                    'openwisp_utils.loaders.DependencyLoader',
+                ],
+                'context_processors': [
+                    'django.template.context_processors.debug',
+                    'django.template.context_processors.request',
+                    'django.contrib.auth.context_processors.auth',
+                    'django.contrib.messages.context_processors.messages',
+                ],
+            },
+        }
+    ]
+
 Extending models
 ~~~~~~~~~~~~~~~~
 
