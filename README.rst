@@ -18,6 +18,9 @@ django-x509
 
 Simple reusable django app implementing x509 PKI certificates management.
 
+**Want to help OpenWISP?** `Find out how to help us grow here
+<http://openwisp.io/docs/general/help-us.html>`_.
+
 ------------
 
 .. contents:: **Table of Contents**:
@@ -401,9 +404,12 @@ code by importing the base admin classes and registering your models with.
     admin.site.register(Ca, CaAdmin)
     admin.site.register(Cert, CertAdmin)
 
-
 Contributing
 ------------
+
+Please read the `OpenWISP contributing guidelines
+<http://openwisp.io/docs/developer/contributing.html>`_
+and also keep in mind the following:
 
 1. Announce your intentions in the `OpenWISP Mailing List <https://groups.google.com/d/forum/openwisp>`_
 2. Fork this repo and install it
