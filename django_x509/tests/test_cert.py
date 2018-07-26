@@ -409,3 +409,21 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
             self._create_cert(serial_number='notIntegers')
         except ValidationError as e:
             self.assertEqual("Serial number must be an integer", str(e.message_dict['serial_number'][0]))
+
+    def test_serial_number_clash(self):
+        ca = Ca(name='TestSerialClash')
+        ca.certificate = self.import_ca_certificate
+        ca.private_key = self.import_ca_private_key
+        ca.save()
+        cert = self._create_cert(serial_number=123456, ca=ca)
+        cert.full_clean()
+        cert.save()
+        _cert = Cert(name='TestClash',
+                     ca=ca,
+                     certificate=self.import_certificate,
+                     private_key=self.import_private_key)
+        try:
+            _cert.full_clean()
+        except ValidationError as e:
+            self.assertEqual("Certificate with this CA and Serial number already exists.",
+                             str(e.message_dict['__all__'][0]))
