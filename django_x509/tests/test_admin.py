@@ -128,17 +128,11 @@ class ModelAdminTests(TestCase):
 
     def test_default_fieldsets_ca(self):
         ma = CaAdmin(Ca, self.site)
-        index = ca_fields.index('extensions')
-        ca_fields.remove('extensions')
         self.assertEqual(ma.get_fieldsets(request), [(None, {'fields': ca_fields})])
-        ca_fields.insert(index, 'extensions')
 
     def test_default_fieldsets_cert(self):
         ma = CertAdmin(Cert, self.site)
-        index = cert_fields.index('extensions')
-        cert_fields.remove('extensions')
         self.assertEqual(ma.get_fieldsets(request), [(None, {'fields': cert_fields})])
-        cert_fields.insert(index, 'extensions')
 
     def test_readonly_fields_Ca(self):
         ma = CaAdmin(Ca, self.site)

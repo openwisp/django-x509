@@ -62,7 +62,8 @@ class BaseAdmin(ModelAdmin):
     def get_fields(self, request, obj=None):
         fields = super(BaseAdmin, self).get_fields(request, obj)
         # edit
-        if obj and 'extensions' in fields:
+        if obj:
+            fields = fields[:]  # make copy
             fields.remove('extensions')
         return fields
 
