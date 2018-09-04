@@ -25,7 +25,7 @@ django.jQuery(function ($) {
     var showFields = function () {
         // define fields for each operation
         var importFields = $('.form-row:not(.field-certificate, .field-operation_type, ' +
-                          '.field-private_key, .field-name, .field-ca)'),
+                          '.field-private_key, .field-name, .field-ca, .field-passphrase)'),
             newFields = $('.form-row:not(.field-certificate, .field-private_key)'),
             defaultFields = $('.form-row:not(.field-operation_type)'),
             allFields = $('.form-row'),

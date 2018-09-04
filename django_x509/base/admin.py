@@ -65,6 +65,7 @@ class BaseAdmin(ModelAdmin):
         if obj:
             fields = fields[:]  # make copy
             fields.remove('extensions')
+            fields.remove('passphrase')
         return fields
 
 
@@ -88,6 +89,7 @@ class AbstractCaAdmin(BaseAdmin):
               'serial_number',
               'certificate',
               'private_key',
+              'passphrase',
               'created',
               'modified']
 
@@ -120,6 +122,7 @@ class AbstractCertAdmin(BaseAdmin):
               'serial_number',
               'certificate',
               'private_key',
+              'passphrase',
               'created',
               'modified']
     actions = ['revoke_action']
