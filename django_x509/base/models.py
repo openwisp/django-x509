@@ -143,6 +143,9 @@ class BaseX509(models.Model):
     private_key = models.TextField(blank=True, help_text='private key in X.509 PEM format')
     created = AutoCreatedField(_('created'), editable=True)
     modified = AutoLastModifiedField(_('modified'), editable=True)
+    passphrase = models.CharField(max_length=64,
+                                  blank=True,
+                                  help_text=_("Passphrase for the private key, if present"))
 
     class Meta:
         abstract = True
@@ -208,7 +211,9 @@ class BaseX509(models.Model):
         returns an instance of OpenSSL.crypto.PKey
         """
         if self.private_key:
-            return crypto.load_privatekey(crypto.FILETYPE_PEM, self.private_key)
+            return crypto.load_privatekey(crypto.FILETYPE_PEM,
+                                          self.private_key,
+                                          passphrase=getattr(self, 'passphrase').encode('utf-8'))
 
     def _validate_pem(self):
         """
@@ -220,7 +225,11 @@ class BaseX509(models.Model):
             method_name = 'load_{0}'.format(field.replace('_', ''))
             load_pem = getattr(crypto, method_name)
             try:
-                load_pem(crypto.FILETYPE_PEM, getattr(self, field))
+                args = (crypto.FILETYPE_PEM, getattr(self, field))
+                kwargs = {}
+                if method_name == 'load_privatekey':
+                    kwargs['passphrase'] = getattr(self, 'passphrase').encode('utf8')
+                load_pem(*args, **kwargs)
             except OpenSSL.crypto.Error as e:
                 errors[field] = ValidationError(_('OpenSSL error: {0}'.format(e.args[0])))
         if errors:
@@ -263,7 +272,12 @@ class BaseX509(models.Model):
         cert = self._add_extensions(cert)
         cert.sign(issuer_key, str(self.digest))
         self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8")
-        self.private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key).decode("utf-8")
+        key_args = (crypto.FILETYPE_PEM, key)
+        key_kwargs = {}
+        if self.passphrase:
+            key_kwargs['passphrase'] = self.passphrase.encode('utf-8')
+            key_kwargs['cipher'] = 'DES-EDE3-CBC'
+        self.private_key = crypto.dump_privatekey(*key_args, **key_kwargs).decode("utf-8")
 
     def _fill_subject(self, subject):
         """

@@ -31,7 +31,8 @@ ca_fields = ['operation_type',
              'extensions',
              'serial_number',
              'certificate',
-             'private_key']
+             'private_key',
+             'passphrase']
 
 cert_fields = ['operation_type',
                'name',
@@ -51,7 +52,8 @@ cert_fields = ['operation_type',
                'extensions',
                'serial_number',
                'certificate',
-               'private_key']
+               'private_key',
+               'passphrase']
 
 ca_readonly = ['key_length',
                'digest',
@@ -109,9 +111,12 @@ class ModelAdminTests(TestCase):
         ca_fields.insert(len(ca_fields), 'modified')
         self.assertEqual(list(ma.get_fields(request)), ca_fields)
         index = ca_fields.index('extensions')
+        pass_index = ca_fields.index('passphrase')
         ca_fields.remove('extensions')
+        ca_fields.remove('passphrase')
         self.assertEqual(list(ma.get_fields(request, self.ca)), ca_fields)
         ca_fields.insert(index, 'extensions')
+        ca_fields.insert(pass_index, 'passphrase')
 
     def test_default_fields_cert(self):
         ma = CertAdmin(Cert, self.site)
@@ -122,9 +127,12 @@ class ModelAdminTests(TestCase):
         cert_fields.insert(len(cert_fields), 'modified')
         self.assertEqual(list(ma.get_fields(request)), cert_fields)
         index = cert_fields.index('extensions')
+        pass_index = cert_fields.index('passphrase')
         cert_fields.remove('extensions')
+        cert_fields.remove('passphrase')
         self.assertEqual(list(ma.get_fields(request, self.cert)), cert_fields)
         cert_fields.insert(index, 'extensions')
+        cert_fields.insert(pass_index, 'passphrase')
 
     def test_default_fieldsets_ca(self):
         ma = CaAdmin(Ca, self.site)
