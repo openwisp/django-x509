@@ -41,6 +41,8 @@ Current features
 * Possibility to specify x509 extensions on each certificate
 * Random serial numbers based on uuid4 integers (see `why is this a good idea
   <https://crypto.stackexchange.com/questions/257/unpredictability-of-x-509-serial-numbers>`_)
+* Possibility to generate and import passphrase protected x509 certificates/CAs
+* Passphrase protected x509 content will be shown encrypted in the web UI
 
 Project goals
 -------------
