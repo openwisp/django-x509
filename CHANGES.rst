@@ -1,10 +1,15 @@
 Changelog
 =========
 
-Version 0.4.1 [unreleased]
+Version 0.4.1 [2018-09-05]
 --------------------------
 
-WIP
+* [admin] Fixed UI bug that prevented changing Cert and CA
+* [requirements] cryptography>=2.3.0,<2.4.0
+* [requirements] pyopenssl>=17.5.0,<18.1.0
+* `#41 <https://github.com/openwisp/django-x509/pull/41>`_:
+  [requirements] Added support for django 2.1
+* [admin] Fixed involuntary permanent modification of field list
 
 Version 0.4.0 [2018-02-19]
 --------------------------
