@@ -8,6 +8,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
+from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
@@ -231,7 +232,8 @@ class BaseX509(models.Model):
                     kwargs['passphrase'] = getattr(self, 'passphrase').encode('utf8')
                 load_pem(*args, **kwargs)
             except OpenSSL.crypto.Error as e:
-                errors[field] = ValidationError(_('OpenSSL error: {0}'.format(e.args[0])))
+                error = 'OpenSSL error: <br>{0}'.format(str(e.args[0]).replace('), ', '), <br>').strip("[]"))
+                errors[field] = ValidationError(_(mark_safe(error)))
         if errors:
             raise ValidationError(errors)
 
