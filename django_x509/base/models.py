@@ -233,6 +233,10 @@ class BaseX509(models.Model):
                 load_pem(*args, **kwargs)
             except OpenSSL.crypto.Error as e:
                 error = 'OpenSSL error: <br>{0}'.format(str(e.args[0]).replace('), ', '), <br>').strip("[]"))
+                if "bad decrypt" in error:
+                    error = "<b>Incorrect Passphrase</b> <br>" + error
+                    errors['passphrase'] = ValidationError(_(mark_safe(error)))
+                    continue
                 errors[field] = ValidationError(_(mark_safe(error)))
         if errors:
             raise ValidationError(errors)
