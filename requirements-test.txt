@@ -2,3 +2,4 @@ coverage
 coveralls
 isort
 flake8
+openwisp-utils>=0.2.1
