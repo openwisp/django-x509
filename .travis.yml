@@ -36,6 +36,7 @@ branches:
 before_install:
   - pip install -U pip setuptools wheel
   - pip install --no-cache-dir -U -r requirements-test.txt
+  - ./runcheckmigration
   - ./runflake8
   - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then ./runisort; fi
   - npm install -g jslint
