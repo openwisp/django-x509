@@ -467,7 +467,7 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
             ca.private_key = private_key
             ca.full_clean()
         except ValidationError as e:
-            self.assertIn("[('PEM routines', 'PEM_read_bio', 'no start line')]",
+            self.assertIn("[('PEM routines', 'get_name', 'no start line')]",
                           str(e.message_dict['certificate'][0]))
         else:
             self.fail('ValidationError not raised')
@@ -482,7 +482,7 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
             ca.full_clean()
             ca.save()
         except ValidationError as e:
-            self.assertIn("[('PEM routines', 'PEM_read_bio', 'no start line')]",
+            self.assertIn("[('PEM routines', 'get_name', 'no start line')]",
                           str(e.message_dict['private_key'][0]))
         else:
             self.fail('ValidationError not raised')
