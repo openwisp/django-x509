@@ -3,4 +3,4 @@ django>=1.11,<2.3
 django-model-utils
 jsonfield
 cryptography>=2.4.0,<2.7.0
-pyopenssl>=17.5.0,<18.1.0
+pyopenssl>=17.5.0,<20.0.0
