@@ -1,9 +1,11 @@
 language: python
-sudo: false
+sudo: required
+dist: xenial
 
 python:
+  - "3.7"
+  - "3.6"
   - "3.5"
-  - "3.4"
   - "2.7"
 
 addons:
@@ -17,6 +19,7 @@ env:
   - DJANGO="django>=1.11,<1.12"
   - DJANGO="django>=2.0,<2.1"
   - DJANGO="django>=2.1,<2.2"
+  - DJANGO="django>=2.2,<2.3"
 
 matrix:
   exclude:
@@ -24,8 +27,8 @@ matrix:
       env: DJANGO="django>=2.0,<2.1"
     - python: "2.7"
       env: DJANGO="django>=2.1,<2.2"
-    - python: "3.4"
-      env: DJANGO="django>=2.1,<2.2"
+    - python: "2.7"
+      env: DJANGO="django>=2.2,<2.3"
 
 branches:
   only:
