@@ -310,7 +310,7 @@ WRyKPvMvJzWT
 
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
-        response = self.client.get(reverse('x509:crl', args=[ca.pk]))
+        response = self.client.get(reverse('admin:crl', args=[ca.pk]))
         self.assertEqual(response.status_code, 200)
         crl = crypto.load_crl(crypto.FILETYPE_PEM, response.content)
         revoked_list = crl.get_revoked()
@@ -321,7 +321,7 @@ WRyKPvMvJzWT
     def test_crl_view_403(self):
         setattr(app_settings, 'CRL_PROTECTED', True)
         ca, cert = self._prepare_revoked()
-        response = self.client.get(reverse('x509:crl', args=[ca.pk]))
+        response = self.client.get(reverse('admin:crl', args=[ca.pk]))
         self.assertEqual(response.status_code, 403)
         setattr(app_settings, 'CRL_PROTECTED', False)
 

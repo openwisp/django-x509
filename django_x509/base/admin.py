@@ -1,9 +1,12 @@
 from django import forms
+from django.conf.urls import url
 from django.contrib.admin import ModelAdmin
 from django.contrib.admin.templatetags.admin_static import static
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
+
+from django_x509.views import crl
 
 
 class X509Form(forms.ModelForm):
@@ -95,6 +98,11 @@ class AbstractCaAdmin(BaseAdmin):
 
     class Media:
         js = ('django-x509/js/x509-admin.js',)
+
+    def get_urls(self):
+        return [
+            url(r'^x509/ca/(?P<pk>[^/]+).crl$', crl, name='crl')
+        ] + super(AbstractCaAdmin, self).get_urls()
 
 
 class AbstractCertAdmin(BaseAdmin):
