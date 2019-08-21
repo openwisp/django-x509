@@ -4,7 +4,7 @@
 {% block object-tools-items %}
 {% if opts.model_name == 'ca' %}
 <li>
-    <a href="{% url 'x509:crl' object_id %}" class="downloadcrl">
+    <a href="{% url 'admin:crl' object_id %}" class="downloadcrl">
         {% trans "Download CRL" %}
     </a>
 </li>

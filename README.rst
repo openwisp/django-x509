@@ -104,12 +104,12 @@ Add the URLs to your main ``urls.py``:
 
 .. code-block:: python
 
+    from django.contrib import admin
+
     urlpatterns = [
         # ... other urls in your project ...
 
-        # django-x509 urls
-        # keep the namespace argument unchanged
-        url(r'^', include('django_x509.urls', namespace='x509')),
+        url(r'admin/', admin.site.urls),
     ]
 
 Then run:
