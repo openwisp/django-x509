@@ -2,11 +2,13 @@ from django import forms
 from django.conf.urls import url
 from django.contrib.admin import ModelAdmin
 from django.contrib.admin.templatetags.admin_static import static
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
 
-from django_x509.views import crl
+from django_x509 import settings as app_settings
 
 
 class X509Form(forms.ModelForm):
@@ -101,8 +103,20 @@ class AbstractCaAdmin(BaseAdmin):
 
     def get_urls(self):
         return [
-            url(r'^x509/ca/(?P<pk>[^/]+).crl$', crl, name='crl')
+            url(r'^x509/ca/(?P<pk>[^/]+).crl$', self.crl_view, name='crl')
         ] + super(AbstractCaAdmin, self).get_urls()
+
+    def crl_view(self, request, pk):
+        authenticated = request.user.is_authenticated
+        authenticated = authenticated() if callable(authenticated) else authenticated
+        if app_settings.CRL_PROTECTED and not authenticated:
+            return HttpResponse(_('Forbidden'),
+                                status=403,
+                                content_type='text/plain')
+        instance = get_object_or_404(self.model, pk=pk)
+        return HttpResponse(instance.crl,
+                            status=200,
+                            content_type='application/x-pem-file')
 
 
 class AbstractCertAdmin(BaseAdmin):
