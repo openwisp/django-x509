@@ -325,6 +325,11 @@ WRyKPvMvJzWT
         self.assertEqual(response.status_code, 403)
         setattr(app_settings, 'CRL_PROTECTED', False)
 
+    def test_crl_view_404(self):
+        ca, cert = self._prepare_revoked()
+        response = self.client.get(reverse('admin:crl', args=[10]))
+        self.assertEqual(response.status_code, 404)
+
     def test_x509_text(self):
         ca = self._create_ca()
         text = crypto.dump_certificate(crypto.FILETYPE_TEXT, ca.x509)
