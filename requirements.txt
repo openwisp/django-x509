@@ -1,6 +1,6 @@
 six
 django>=1.11,<2.3
 django-model-utils
-jsonfield
+jsonfield2
 cryptography>=2.4.0,<2.8.0
 pyopenssl>=17.5.0,<20.0.0
