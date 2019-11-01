@@ -1,4 +1,3 @@
-six
 django>=1.11,<2.3
 django-model-utils
 jsonfield2

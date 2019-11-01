@@ -6,14 +6,12 @@ import OpenSSL
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
-from six import string_types
 
 from .. import settings as app_settings
 from ..utils import bytes_compat
@@ -94,7 +92,6 @@ def default_digest_algorithm():
     return app_settings.DEFAULT_DIGEST_ALGORITHM
 
 
-@python_2_unicode_compatible
 class BaseX509(models.Model):
     """
     Abstract Cert class, shared between Ca and Cert
@@ -305,9 +302,7 @@ class BaseX509(models.Model):
             if value:
                 # coerce value to string, allow these fields to be redefined
                 # as foreign keys by subclasses without losing compatibility
-                if not isinstance(value, string_types):
-                    value = str(value)
-                setattr(subject, subject_attr, value)
+                setattr(subject, subject_attr, str(value))
         return subject
 
     def _import(self):
