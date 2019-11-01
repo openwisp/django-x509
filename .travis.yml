@@ -3,10 +3,10 @@ sudo: required
 dist: xenial
 
 python:
+  - "3.8"
   - "3.7"
   - "3.6"
   - "3.5"
-  - "2.7"
 
 addons:
   apt:
@@ -19,16 +19,23 @@ env:
   - DJANGO="django>=1.11,<1.12"
   - DJANGO="django>=2.0,<2.1"
   - DJANGO="django>=2.1,<2.2"
-  - DJANGO="django>=2.2,<2.3"
+  - DJANGO="django>=2.2,<3.0"
+  - DJANGO="django>=3.0b1,<3.1"
 
 matrix:
   exclude:
-    - python: "2.7"
+    - python: "3.5"
+      env: DJANGO="django>=3.0b1,<3.1"
+    - python: "3.8"
+      env: DJANGO="django>=1.11,<1.12"
+    - python: "3.8"
       env: DJANGO="django>=2.0,<2.1"
-    - python: "2.7"
+    - python: "3.8"
       env: DJANGO="django>=2.1,<2.2"
-    - python: "2.7"
-      env: DJANGO="django>=2.2,<2.3"
+    - python: "3.8"
+      env: DJANGO="django>=2.2,<3.0"
+    - python: "3.8"
+      env: DJANGO="django>=3.0b1,<3.1"
 
 branches:
   only:
@@ -53,7 +60,6 @@ install:
 script:
   - jslint django_x509/static/django-x509/js/*.js
   - coverage run --source=django_x509 runtests.py
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.4 ]]; then ./tests/manage.py makemigrations --dry-run | grep "No changes detected"; fi
   - |
     if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
       # gets commit message of last commit before pull request merge
