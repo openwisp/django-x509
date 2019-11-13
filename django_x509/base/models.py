@@ -177,7 +177,7 @@ class BaseX509(models.Model):
 
     def save(self, *args, **kwargs):
         generate = False
-        if not self.id and not self.certificate and not self.private_key:
+        if not self.pk and not self.certificate and not self.private_key:
             generate = True
         super(BaseX509, self).save(*args, **kwargs)
         if generate:

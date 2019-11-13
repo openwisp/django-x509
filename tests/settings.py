@@ -22,7 +22,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
-    'django_x509'
+    'django_x509',
+
+    'customcert',
 ]
 
 MIDDLEWARE = [

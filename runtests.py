@@ -12,4 +12,5 @@ if __name__ == "__main__":
     args = sys.argv
     args.insert(1, "test")
     args.insert(2, "django_x509")
+    args.insert(3, "customcert")
     execute_from_command_line(args)
