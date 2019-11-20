@@ -1,10 +1,18 @@
 Changelog
 =========
 
-Version 0.5.0 [unreleased]
+Version 0.5.0 [2019-11-20]
 --------------------------
 
-WIP
+* `#36 <https://github.com/openwisp/django-x509/issues/36>`_:
+  [requirements] Added support for django 2.1
+* `#44 <https://github.com/openwisp/django-x509/issues/44>`_:
+  [models] Improved error message format #44
+* `#61 <https://github.com/openwisp/django-x509/pull/61>`_:
+  Bumped supported Django version to 2.2 and Python version to 3.7
+* `#63 <https://github.com/openwisp/django-x509/pull/63>`_:
+  [bug] Load model after registration in apps
+* Bumped cryptography version to 2.8.0, pyopenssl to 19.0.0
 
 Version 0.4.1 [2018-09-05]
 --------------------------
