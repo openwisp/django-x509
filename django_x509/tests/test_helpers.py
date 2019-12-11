@@ -6,7 +6,7 @@ class MessagingRequest(HttpRequest):
     session = 'session'
 
     def __init__(self):
-        super(MessagingRequest, self).__init__()
+        super().__init__()
         self._messages = FallbackStorage(self)
 
     def get_messages(self):

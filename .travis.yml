@@ -5,7 +5,6 @@ python:
   - "3.7"
   - "3.6"
   - "3.5"
-  - "2.7"
 
 addons:
   apt:
@@ -15,19 +14,13 @@ addons:
       - travis-ci/sqlite3
 
 env:
-  - DJANGO="django>=1.11,<1.12"
-  - DJANGO="django>=2.0,<2.1"
-  - DJANGO="django>=2.1,<2.2"
-  - DJANGO="django>=2.2,<2.3"
+  - DJANGO="django>=2.2,<3.0"
+  - DJANGO="django>=3.0"
 
 matrix:
   exclude:
-    - python: "2.7"
-      env: DJANGO="django>=2.0,<2.1"
-    - python: "2.7"
-      env: DJANGO="django>=2.1,<2.2"
-    - python: "2.7"
-      env: DJANGO="django>=2.2,<2.3"
+    - python: "3.5"
+      env: DJANGO="django>=3.0"
 
 branches:
   only:
@@ -38,7 +31,6 @@ branches:
 before_install:
   - pip install -U pip setuptools wheel
   - pip install --no-cache-dir -U -r requirements-test.txt
-  - openwisp-utils-qa-checks --migrations-to-ignore 4 --migration-path ./django_x509/migrations/
   - npm install -g jslint
 
 # command to install requirements
@@ -46,11 +38,14 @@ install:
   - pip install $DJANGO
   - python setup.py -q develop
 
+# qa checks
+before_script:
+  - openwisp-utils-qa-checks --migrations-to-ignore 4 --migration-path ./django_x509/migrations/ --migration-module django_x509
+
 # command to run tests, e.g. python setup.py test
 script:
   - jslint django_x509/static/django-x509/js/*.js
   - coverage run --source=django_x509 runtests.py
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.4 ]]; then ./tests/manage.py makemigrations --dry-run | grep "No changes detected"; fi
 
 after_success:
   coveralls
