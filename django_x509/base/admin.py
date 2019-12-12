@@ -153,7 +153,7 @@ class AbstractCertAdmin(BaseAdmin):
         js = ('django-x509/js/x509-admin.js',)
 
     def ca_url(self, obj):
-        url = reverse('admin:{0}_ca_change'.format(self.opts.app_label), args=[obj.ca.id])
+        url = reverse('admin:{0}_ca_change'.format(self.opts.app_label), args=[obj.ca.pk])
         return format_html("<a href='{url}'>{text}</a>",
                            url=url,
                            text=obj.ca.name)

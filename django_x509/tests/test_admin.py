@@ -92,7 +92,7 @@ class ModelAdminTests(TestCase):
 
     def setUp(self):
         self.ca = Ca.objects.create()
-        self.cert = Cert.objects.create(ca_id=self.ca.id)
+        self.cert = Cert.objects.create(ca_id=self.ca.pk)
         self.cert.ca = self.ca
         self.site = AdminSite()
 
