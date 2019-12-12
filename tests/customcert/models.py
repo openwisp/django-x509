@@ -1,6 +1,6 @@
 from django.db import models
 
-from django_x509.base.models import AbstractCa, AbstractCert
+from django_x509.base.models import AbstractCert
 
 
 class CustomCert(AbstractCert):
