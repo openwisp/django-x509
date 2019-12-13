@@ -39,9 +39,7 @@ branches:
 before_install:
   - pip install -U pip setuptools wheel
   - pip install --no-cache-dir -U -r requirements-test.txt
-  - ./runcheckmigration
-  - flake8
-  - if [[ $TRAVIS_PYTHON_VERSION == 3* ]]; then ./runisort; fi
+  - openwisp-utils-qa-checks --migrations-to-ignore 4 --migration-path ./django_x509/migrations/
   - npm install -g jslint
 
 # command to install requirements
@@ -54,14 +52,6 @@ script:
   - jslint django_x509/static/django-x509/js/*.js
   - coverage run --source=django_x509 runtests.py
   - if [[ $TRAVIS_PYTHON_VERSION == 3.4 ]]; then ./tests/manage.py makemigrations --dry-run | grep "No changes detected"; fi
-  - |
-    if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then
-      # gets commit message of last commit before pull request merge
-      COMMIT_MESSAGE=$(git log $TRAVIS_PULL_REQUEST_SHA --format=%B -n 1)
-      printf "Checking commit message:\n\n"
-      printf "$COMMIT_MESSAGE\n\n"
-      checkcommit --message "$COMMIT_MESSAGE"
-    fi
 
 after_success:
   coveralls
