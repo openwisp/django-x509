@@ -1,4 +1,0 @@
-#!/bin/bash
-set -e
-checkmigrations --migrations-to-ignore 4 \
-                --migration-path ./django_x509/migrations/ || exit 1
