@@ -99,7 +99,8 @@ class AbstractCaAdmin(BaseAdmin):
               'modified']
 
     class Media:
-        js = ('django-x509/js/x509-admin.js',)
+        js = ('admin/js/jquery.init.js',
+              'django-x509/js/x509-admin.js',)
 
     def get_urls(self):
         return [
@@ -150,7 +151,8 @@ class AbstractCertAdmin(BaseAdmin):
     actions = ['revoke_action']
 
     class Media:
-        js = ('django-x509/js/x509-admin.js',)
+        js = ('admin/js/jquery.init.js',
+              'django-x509/js/x509-admin.js',)
 
     def ca_url(self, obj):
         url = reverse('admin:{0}_ca_change'.format(self.opts.app_label), args=[obj.ca.pk])
