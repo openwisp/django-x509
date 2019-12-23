@@ -1,10 +1,12 @@
 Changelog
 =========
 
-Version 0.6.0 [unreleased]
+Version 0.5.1 [2019-12-23]
 --------------------------
 
-WIP
+- [fix] Use ``self.pk`` instead of ``self.id`` to allow more
+  flexible override of primary key
+- Fixed jQuery init issue on django 2.2
 
 Version 0.5.0 [2019-11-20]
 --------------------------
