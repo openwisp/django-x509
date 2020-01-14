@@ -1,9 +1,9 @@
 from django import forms
 from django.conf.urls import url
 from django.contrib.admin import ModelAdmin
-from django.contrib.admin.templatetags.admin_static import static
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
@@ -54,7 +54,7 @@ class BaseAdmin(ModelAdmin):
 
     def __init__(self, *args, **kwargs):
         self.readonly_fields += ('created', 'modified')
-        super(BaseAdmin, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def get_readonly_fields(self, request, obj=None):
         # edit
@@ -65,7 +65,7 @@ class BaseAdmin(ModelAdmin):
             return self.readonly_fields
 
     def get_fields(self, request, obj=None):
-        fields = super(BaseAdmin, self).get_fields(request, obj)
+        fields = super().get_fields(request, obj)
         # edit
         if obj:
             fields = fields[:]  # make copy
@@ -105,7 +105,7 @@ class AbstractCaAdmin(BaseAdmin):
     def get_urls(self):
         return [
             url(r'^x509/ca/(?P<pk>[^/]+).crl$', self.crl_view, name='crl')
-        ] + super(AbstractCaAdmin, self).get_urls()
+        ] + super().get_urls()
 
     def crl_view(self, request, pk):
         authenticated = request.user.is_authenticated

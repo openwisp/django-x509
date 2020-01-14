@@ -6,17 +6,14 @@ import OpenSSL
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
-from six import string_types
 
 from .. import settings as app_settings
-from ..utils import bytes_compat
 
 generalized_time = '%Y%m%d%H%M%SZ'
 
@@ -94,7 +91,6 @@ def default_digest_algorithm():
     return app_settings.DEFAULT_DIGEST_ALGORITHM
 
 
-@python_2_unicode_compatible
 class BaseX509(models.Model):
     """
     Abstract Cert class, shared between Ca and Cert
@@ -161,7 +157,7 @@ class BaseX509(models.Model):
         if self._state.adding and self.certificate and self.private_key:
             self._validate_pem()
             self._import()
-        super(BaseX509, self).clean_fields(*args, **kwargs)
+        super().clean_fields(*args, **kwargs)
 
     def clean(self):
         # when importing, both public and private must be present
@@ -179,14 +175,14 @@ class BaseX509(models.Model):
         generate = False
         if not self.pk and not self.certificate and not self.private_key:
             generate = True
-        super(BaseX509, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
         if generate:
             # automatically determine serial number
             if not self.serial_number:
                 self.serial_number = uuid.uuid4().int
             self._generate()
             kwargs['force_insert'] = False
-            super(BaseX509, self).save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
     @cached_property
     def x509(self):
@@ -263,8 +259,8 @@ class BaseX509(models.Model):
         cert.set_version(0x2)  # version 3 (0 indexed counting)
         cert.set_subject(subject)
         cert.set_serial_number(int(self.serial_number))
-        cert.set_notBefore(bytes_compat(self.validity_start.strftime(generalized_time)))
-        cert.set_notAfter(bytes_compat(self.validity_end.strftime(generalized_time)))
+        cert.set_notBefore(bytes(str(self.validity_start.strftime(generalized_time)), 'utf8'))
+        cert.set_notAfter(bytes(str(self.validity_end.strftime(generalized_time)), 'utf8'))
         # generating certificate for CA
         if not hasattr(self, 'ca'):
             issuer = cert.get_subject()
@@ -305,9 +301,7 @@ class BaseX509(models.Model):
             if value:
                 # coerce value to string, allow these fields to be redefined
                 # as foreign keys by subclasses without losing compatibility
-                if not isinstance(value, string_types):
-                    value = str(value)
-                setattr(subject, subject_attr, value)
+                setattr(subject, subject_attr, str(value))
         return subject
 
     def _import(self):
@@ -391,10 +385,10 @@ class BaseX509(models.Model):
                 ext_value = '{0}, pathlen:{1}'.format(ext_value, pathlen)
             ext.append(crypto.X509Extension(b'basicConstraints',
                                             app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
-                                            bytes_compat(ext_value)))
+                                            bytes(str(ext_value), 'utf8')))
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CA_KEYUSAGE_CRITICAL,
-                                            bytes_compat(app_settings.CA_KEYUSAGE_VALUE)))
+                                            bytes(str(app_settings.CA_KEYUSAGE_VALUE), 'utf8')))
             issuer_cert = cert
         # prepare extensions for end-entity certs
         else:
@@ -403,7 +397,7 @@ class BaseX509(models.Model):
                                             b'CA:FALSE'))
             ext.append(crypto.X509Extension(b'keyUsage',
                                             app_settings.CERT_KEYUSAGE_CRITICAL,
-                                            bytes_compat(app_settings.CERT_KEYUSAGE_VALUE)))
+                                            bytes(str(app_settings.CERT_KEYUSAGE_VALUE), 'utf8')))
             issuer_cert = self.ca.x509
         ext.append(crypto.X509Extension(b'subjectKeyIdentifier',
                                         False,
@@ -420,9 +414,9 @@ class BaseX509(models.Model):
         ])
         for ext in self.extensions:
             cert.add_extensions([
-                crypto.X509Extension(bytes_compat(ext['name']),
+                crypto.X509Extension(bytes(str(ext['name']), 'utf8'),
                                      bool(ext['critical']),
-                                     bytes_compat(ext['value']))
+                                     bytes(str(ext['value']), 'utf8'))
             ])
         return cert
 
@@ -456,9 +450,9 @@ class AbstractCa(BaseX509):
         now_str = timezone.now().strftime(generalized_time)
         for cert in revoked_certs:
             revoked = crypto.Revoked()
-            revoked.set_serial(bytes_compat(cert.serial_number))
+            revoked.set_serial(bytes(str(cert.serial_number), 'utf8'))
             revoked.set_reason(b'unspecified')
-            revoked.set_rev_date(bytes_compat(now_str))
+            revoked.set_rev_date(bytes(str(now_str), 'utf8'))
             crl.add_revoked(revoked)
         return crl.export(self.x509, self.pkey, days=1, digest=b'sha256')
 

@@ -1,6 +1,5 @@
-six
-django>=1.11,<2.3
-django-model-utils
-jsonfield
+django>=2.2,<3.1
+django-model-utils>=4.0
+jsonfield2
 cryptography>=2.4.0,<2.9.0
 pyopenssl>=17.5.0,<20.0.0
