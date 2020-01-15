@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.6.0 [2020-01-15]
+--------------------------
+
+- Dropped support for python 2
+- Added support for django 3.0
+
 Version 0.5.1 [2019-12-23]
 --------------------------
 
