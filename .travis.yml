@@ -4,7 +4,6 @@ dist: xenial
 python:
   - "3.7"
   - "3.6"
-  - "3.5"
 
 addons:
   apt:
@@ -15,12 +14,7 @@ addons:
 
 env:
   - DJANGO="django>=2.2,<3.0"
-  - DJANGO="django>=3.0"
-
-matrix:
-  exclude:
-    - python: "3.5"
-      env: DJANGO="django>=3.0"
+  - DJANGO="django>=3.0,<3.1"
 
 branches:
   only:
@@ -33,16 +27,13 @@ before_install:
   - pip install --no-cache-dir -U -r requirements-test.txt
   - npm install -g jslint
 
-# command to install requirements
 install:
   - pip install $DJANGO
   - python setup.py -q develop
 
-# qa checks
 before_script:
   - openwisp-utils-qa-checks --migrations-to-ignore 4 --migration-path ./django_x509/migrations/ --migration-module django_x509
 
-# command to run tests, e.g. python setup.py test
 script:
   - jslint django_x509/static/django-x509/js/*.js
   - coverage run --source=django_x509 runtests.py
