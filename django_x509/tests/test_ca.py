@@ -7,7 +7,7 @@ from django.utils import timezone
 from OpenSSL import crypto
 
 from .. import settings as app_settings
-from ..base.models import generalized_time
+from ..base.models import datetime_to_string, generalized_time, utc_time
 from ..models import Ca, Cert
 from . import TestX509Mixin
 
@@ -614,3 +614,11 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         ca.full_clean()
         ca.save()
         self.assertIsInstance(ca.pkey, crypto.PKey)
+
+    def test_datetime_to_string(self):
+        generalized_datetime = datetime(2050, 1, 1, 0, 0, 0, 0)
+        utc_datetime = datetime(2049, 12, 31, 0, 0, 0, 0)
+        self.assertEqual(datetime_to_string(generalized_datetime),
+                         generalized_datetime.strftime(generalized_time))
+        self.assertEqual(datetime_to_string(utc_datetime),
+                         utc_datetime.strftime(utc_time))

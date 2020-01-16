@@ -16,6 +16,7 @@ from OpenSSL import crypto
 from .. import settings as app_settings
 
 generalized_time = '%Y%m%d%H%M%SZ'
+utc_time = '%y%m%d%H%M%SZ'
 
 KEY_LENGTH_CHOICES = (
     ('', ''),
@@ -41,6 +42,16 @@ SIGNATURE_MAPPING = {
     'sha384WithRSAEncryption': 'sha384',
     'sha512WithRSAEncryption': 'sha512',
 }
+
+
+def datetime_to_string(datetime_):
+    """
+    Converts datetime.datetime object to UTCTime/GeneralizedTime string following RFC5280.
+    (Returns string encoded in UTCtime for dates through year 2049, otherwise in GeneralizedTime format)
+    """
+    if datetime_.year < 2050:
+        return datetime_.strftime(utc_time)
+    return datetime_.strftime(generalized_time)
 
 
 def default_validity_start():
@@ -259,8 +270,8 @@ class BaseX509(models.Model):
         cert.set_version(0x2)  # version 3 (0 indexed counting)
         cert.set_subject(subject)
         cert.set_serial_number(int(self.serial_number))
-        cert.set_notBefore(bytes(str(self.validity_start.strftime(generalized_time)), 'utf8'))
-        cert.set_notAfter(bytes(str(self.validity_end.strftime(generalized_time)), 'utf8'))
+        cert.set_notBefore(bytes(str(datetime_to_string(self.validity_start)), 'utf8'))
+        cert.set_notAfter(bytes(str(datetime_to_string(self.validity_end)), 'utf8'))
         # generating certificate for CA
         if not hasattr(self, 'ca'):
             issuer = cert.get_subject()
@@ -319,12 +330,10 @@ class BaseX509(models.Model):
         algorithm = cert.get_signature_algorithm().decode('utf8')
         self.digest = SIGNATURE_MAPPING[algorithm]
         not_before = cert.get_notBefore().decode('utf8')
-        self.validity_start = datetime.strptime(not_before,
-                                                generalized_time)
+        self.validity_start = datetime.strptime(not_before, generalized_time)
         self.validity_start = timezone.make_aware(self.validity_start)
         not_after = cert.get_notAfter().decode('utf8')
-        self.validity_end = datetime.strptime(not_after,
-                                              generalized_time)
+        self.validity_end = datetime.strptime(not_after, generalized_time)
         self.validity_end.replace(tzinfo=timezone.tzinfo())
         self.validity_end = timezone.make_aware(self.validity_end)
         subject = cert.get_subject()
@@ -447,7 +456,7 @@ class AbstractCa(BaseX509):
         """
         revoked_certs = self.get_revoked_certs()
         crl = crypto.CRL()
-        now_str = timezone.now().strftime(generalized_time)
+        now_str = datetime_to_string(timezone.now())
         for cert in revoked_certs:
             revoked = crypto.Revoked()
             revoked.set_serial(bytes(str(cert.serial_number), 'utf8'))
