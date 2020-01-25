@@ -146,7 +146,7 @@ class BaseX509(models.Model):
                                      help_text=_('leave blank to determine automatically'),
                                      blank=True,
                                      null=True,
-                                     max_length=39)
+                                     max_length=48)
     certificate = models.TextField(blank=True, help_text='certificate in X.509 PEM format')
     private_key = models.TextField(blank=True, help_text='private key in X.509 PEM format')
     created = AutoCreatedField(_('created'), editable=True)
