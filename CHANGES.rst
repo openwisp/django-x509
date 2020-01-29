@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 0.6.1 [2020-01-29]
+--------------------------
+
+- Ensured RFC5280 datetime standard
+- Increased maximum length of x509 serial number to 48
+- jsonfield2 version set to >=3.1.0,<4.0.0
+
 Version 0.6.0 [2020-01-15]
 --------------------------
 
