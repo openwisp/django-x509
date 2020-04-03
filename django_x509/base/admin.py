@@ -81,14 +81,14 @@ class BaseAdmin(ModelAdmin):
                 'title': _('Renew selected CAs'),
                 'ca_count': ca_count,
                 'cert_count': cert_count,
-                'cancel_url': 'django_x509_ca_changelist',
+                'cancel_url': f'{self.opts.app_label}_ca_changelist',
                 'action': 'renew_ca'
             })
         else:
             context.update({
                 'title': _('Renew selected certs'),
                 'cert_count': cert_count,
-                'cancel_url': 'django_x509_cert_changelist',
+                'cancel_url': f'{self.opts.app_label}_cert_changelist',
                 'action': 'renew_cert'
             })
         context.update({
@@ -211,7 +211,7 @@ class AbstractCertAdmin(BaseAdmin):
 
     def ca_url(self, obj):
         url = reverse('admin:{0}_ca_change'.format(self.opts.app_label), args=[obj.ca.pk])
-        return format_html("<a href='{url}'>{text}</a>",
+        return format_html('<a href="{url}">{text}</a>',
                            url=url,
                            text=obj.ca.name)
     ca_url.short_description = 'CA'

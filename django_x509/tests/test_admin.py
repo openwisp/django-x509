@@ -1,11 +1,14 @@
 from copy import deepcopy
 
+from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
 from django.test import TestCase
+from swapper import load_model
 
-from ..admin import CaAdmin, CertAdmin
-from ..models import Ca, Cert
-from .test_helpers import MessagingRequest
+from . import MessagingRequest
+
+Ca = load_model('django_x509', 'Ca')
+Cert = load_model('django_x509', 'Cert')
 
 
 class MockSuperUser:
@@ -91,6 +94,9 @@ cert_readonly = ['revoked',
 
 
 class ModelAdminTests(TestCase):
+    app_label = 'django_x509'
+    ca_admin = admin.site._registry[Ca].__class__
+    cert_admin = admin.site._registry[Cert].__class__
 
     def setUp(self):
         self.ca = Ca.objects.create()
@@ -99,15 +105,15 @@ class ModelAdminTests(TestCase):
         self.site = AdminSite()
 
     def test_modeladmin_str_ca(self):
-        ma = CaAdmin(Ca, self.site)
-        self.assertEqual(str(ma), 'django_x509.CaAdmin')
+        ma = self.ca_admin(Ca, self.site)
+        self.assertEqual(str(ma), f'{self.app_label}.CaAdmin')
 
     def test_modeladmin_str_certr(self):
-        ma = CertAdmin(Cert, self.site)
-        self.assertEqual(str(ma), 'django_x509.CertAdmin')
+        ma = self.cert_admin(Cert, self.site)
+        self.assertEqual(str(ma), f'{self.app_label}.CertAdmin')
 
     def test_default_fields_ca(self):
-        ma = CaAdmin(Ca, self.site)
+        ma = self.ca_admin(Ca, self.site)
         self.assertEqual(list(ma.get_form(request).base_fields), ca_fields)
         ca_fields.insert(len(ca_fields), 'created')
         ca_fields.insert(len(ca_fields), 'modified')
@@ -121,7 +127,7 @@ class ModelAdminTests(TestCase):
         ca_fields.insert(pass_index, 'passphrase')
 
     def test_default_fields_cert(self):
-        ma = CertAdmin(Cert, self.site)
+        ma = self.cert_admin(Cert, self.site)
         self.assertEqual(list(ma.get_form(request).base_fields), cert_fields)
         cert_fields.insert(4, 'revoked')
         cert_fields.insert(5, 'revoked_at')
@@ -137,32 +143,32 @@ class ModelAdminTests(TestCase):
         cert_fields.insert(pass_index, 'passphrase')
 
     def test_default_fieldsets_ca(self):
-        ma = CaAdmin(Ca, self.site)
+        ma = self.ca_admin(Ca, self.site)
         self.assertEqual(ma.get_fieldsets(request), [(None, {'fields': ca_fields})])
 
     def test_default_fieldsets_cert(self):
-        ma = CertAdmin(Cert, self.site)
+        ma = self.cert_admin(Cert, self.site)
         self.assertEqual(ma.get_fieldsets(request), [(None, {'fields': cert_fields})])
 
     def test_readonly_fields_Ca(self):
-        ma = CaAdmin(Ca, self.site)
+        ma = self.ca_admin(Ca, self.site)
         self.assertEqual(ma.get_readonly_fields(request), ('created', 'modified'))
         self.assertEqual(ma.get_readonly_fields(request, self.ca), tuple(ca_readonly))
         ca_readonly.remove('created')
         ca_readonly.remove('modified')
 
     def test_readonly_fields_Cert(self):
-        ma = CertAdmin(Cert, self.site)
+        ma = self.cert_admin(Cert, self.site)
         self.assertEqual(ma.get_readonly_fields(request), cert_readonly)
         ca_readonly.append('ca')
         self.assertEqual(ma.get_readonly_fields(request, self.cert), tuple(ca_readonly + cert_readonly))
 
     def test_ca_url(self):
-        ma = CertAdmin(Cert, self.site)
-        self.assertEqual(ma.ca_url(self.cert), "<a href='/admin/django_x509/ca/1/change/'></a>")
+        ma = self.cert_admin(Cert, self.site)
+        self.assertEqual(ma.ca_url(self.cert), f'<a href="/admin/{self.app_label}/ca/1/change/"></a>')
 
     def test_revoke_action(self):
-        ma = CertAdmin(Cert, self.site)
+        ma = self.cert_admin(Cert, self.site)
         ma.revoke_action(request, [self.cert])
         m = list(request.get_messages())
         self.assertEqual(len(m), 1)
@@ -180,7 +186,7 @@ class ModelAdminTests(TestCase):
         old_cert_key = cert.private_key
         old_cert_end = cert.validity_end
         old_cert_serial_number = cert.serial_number
-        ma = CaAdmin(Ca, self.site)
+        ma = self.ca_admin(Ca, self.site)
         req.POST.update({
             'post': None
         })
@@ -216,7 +222,7 @@ class ModelAdminTests(TestCase):
         old_cert_key = cert.private_key
         old_cert_end = cert.validity_end
         old_cert_serial_number = cert.serial_number
-        ma = CertAdmin(Cert, self.site)
+        ma = self.cert_admin(Cert, self.site)
         req.POST.update({
             'post': None
         })

@@ -4,19 +4,21 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 from OpenSSL import crypto
+from swapper import load_model
 
 from .. import settings as app_settings
 from ..base.models import generalized_time
-from ..models import Ca, Cert
 from . import TestX509Mixin
+
+Ca = load_model('django_x509', 'Ca')
+Cert = load_model('django_x509', 'Cert')
 
 
 class TestCert(TestX509Mixin, TestCase):
     """
     tests for Cert model
     """
-    ca_model = Ca
-    cert_model = Cert
+
     import_certificate = """
 -----BEGIN CERTIFICATE-----
 MIICMTCCAdugAwIBAgIDAeJAMA0GCSqGSIb3DQEBBQUAMGgxETAPBgNVBAoMCE9w
