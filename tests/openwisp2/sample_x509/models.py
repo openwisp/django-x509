@@ -14,6 +14,7 @@ class Ca(DetailsModel, AbstractCa):
     """
     Concrete Ca model
     """
+
     class Meta(AbstractCa.Meta):
         abstract = False
 
@@ -22,6 +23,7 @@ class Cert(DetailsModel, AbstractCert):
     """
     Concrete Cert model
     """
+
     class Meta(AbstractCert.Meta):
         abstract = False
 
@@ -30,6 +32,7 @@ class CustomCert(DetailsModel, AbstractCert):
     """
     Custom Cert model
     """
+
     fingerprint = models.CharField(primary_key=True, max_length=64, unique=True)
 
     class Meta(AbstractCert.Meta):

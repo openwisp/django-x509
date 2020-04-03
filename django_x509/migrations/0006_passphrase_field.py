@@ -5,19 +5,25 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('django_x509', '0005_organizational_unit_name'),
-    ]
+    dependencies = [('django_x509', '0005_organizational_unit_name')]
 
     operations = [
         migrations.AddField(
             model_name='ca',
             name='passphrase',
-            field=models.CharField(blank=True, help_text='Passphrase for the private key, if present', max_length=64),
+            field=models.CharField(
+                blank=True,
+                help_text='Passphrase for the private key, if present',
+                max_length=64,
+            ),
         ),
         migrations.AddField(
             model_name='cert',
             name='passphrase',
-            field=models.CharField(blank=True, help_text='Passphrase for the private key, if present', max_length=64),
+            field=models.CharField(
+                blank=True,
+                help_text='Passphrase for the private key, if present',
+                max_length=64,
+            ),
         ),
     ]

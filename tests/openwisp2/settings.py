@@ -7,10 +7,7 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'djangox509.db',
-    }
+    'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': 'djangox509.db'}
 }
 
 SECRET_KEY = 'fn)t*+$)ugeyip6-#txyy$5wf2ervc0d2n#h)qb)y5@ly$t*@w'
@@ -61,7 +58,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
             ],
         },
-    },
+    }
 ]
 
 DJANGO_X509_CA_MODEL = 'django_x509.Ca'

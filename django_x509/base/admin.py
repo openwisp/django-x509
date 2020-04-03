@@ -16,7 +16,7 @@ class X509Form(forms.ModelForm):
     OPERATION_CHOICES = (
         ('-', '----- {0} -----'.format(_('Please select an option'))),
         ('new', _('Create new')),
-        ('import', _('Import Existing'))
+        ('import', _('Import Existing')),
     )
     operation_type = forms.ChoiceField(choices=OPERATION_CHOICES)
 
@@ -25,30 +25,29 @@ class BaseAdmin(ModelAdmin):
     """
     ModelAdmin for TimeStampedEditableModel
     """
-    list_display = ['name',
-                    'key_length',
-                    'digest',
-                    'created',
-                    'modified']
+
+    list_display = ['name', 'key_length', 'digest', 'created', 'modified']
     search_fields = ['name', 'serial_number', 'common_name']
     actions_on_bottom = True
     save_on_top = True
     form = X509Form
     # custom attribute
-    readonly_edit = ['key_length',
-                     'digest',
-                     'validity_start',
-                     'validity_end',
-                     'country_code',
-                     'state',
-                     'city',
-                     'organization_name',
-                     'organizational_unit_name',
-                     'email',
-                     'common_name',
-                     'serial_number',
-                     'certificate',
-                     'private_key']
+    readonly_edit = [
+        'key_length',
+        'digest',
+        'validity_start',
+        'validity_end',
+        'country_code',
+        'state',
+        'city',
+        'organization_name',
+        'organizational_unit_name',
+        'email',
+        'common_name',
+        'serial_number',
+        'certificate',
+        'private_key',
+    ]
 
     class Media:
         css = {'all': (static('django-x509/css/admin.css'),)}
@@ -77,55 +76,57 @@ class BaseAdmin(ModelAdmin):
     def get_context(self, data, ca_count=0, cert_count=0):
         context = dict()
         if ca_count:
-            context.update({
-                'title': _('Renew selected CAs'),
-                'ca_count': ca_count,
-                'cert_count': cert_count,
-                'cancel_url': f'{self.opts.app_label}_ca_changelist',
-                'action': 'renew_ca'
-            })
+            context.update(
+                {
+                    'title': _('Renew selected CAs'),
+                    'ca_count': ca_count,
+                    'cert_count': cert_count,
+                    'cancel_url': f'{self.opts.app_label}_ca_changelist',
+                    'action': 'renew_ca',
+                }
+            )
         else:
-            context.update({
-                'title': _('Renew selected certs'),
-                'cert_count': cert_count,
-                'cancel_url': f'{self.opts.app_label}_cert_changelist',
-                'action': 'renew_cert'
-            })
-        context.update({
-            'opts': self.model._meta,
-            'data': data
-        })
+            context.update(
+                {
+                    'title': _('Renew selected certs'),
+                    'cert_count': cert_count,
+                    'cancel_url': f'{self.opts.app_label}_cert_changelist',
+                    'action': 'renew_cert',
+                }
+            )
+        context.update({'opts': self.model._meta, 'data': data})
         return context
 
 
 class AbstractCaAdmin(BaseAdmin):
     list_filter = ['key_length', 'digest', 'created']
-    fields = ['operation_type',
-              'name',
-              'notes',
-              'key_length',
-              'digest',
-              'validity_start',
-              'validity_end',
-              'country_code',
-              'state',
-              'city',
-              'organization_name',
-              'organizational_unit_name',
-              'email',
-              'common_name',
-              'extensions',
-              'serial_number',
-              'certificate',
-              'private_key',
-              'passphrase',
-              'created',
-              'modified']
+    fields = [
+        'operation_type',
+        'name',
+        'notes',
+        'key_length',
+        'digest',
+        'validity_start',
+        'validity_end',
+        'country_code',
+        'state',
+        'city',
+        'organization_name',
+        'organizational_unit_name',
+        'email',
+        'common_name',
+        'extensions',
+        'serial_number',
+        'certificate',
+        'private_key',
+        'passphrase',
+        'created',
+        'modified',
+    ]
     actions = ['renew_ca']
 
     class Media:
-        js = ('admin/js/jquery.init.js',
-              'django-x509/js/x509-admin.js',)
+        js = ('admin/js/jquery.init.js', 'django-x509/js/x509-admin.js')
 
     def get_urls(self):
         return [
@@ -136,13 +137,11 @@ class AbstractCaAdmin(BaseAdmin):
         authenticated = request.user.is_authenticated
         authenticated = authenticated() if callable(authenticated) else authenticated
         if app_settings.CRL_PROTECTED and not authenticated:
-            return HttpResponse(_('Forbidden'),
-                                status=403,
-                                content_type='text/plain')
+            return HttpResponse(_('Forbidden'), status=403, content_type='text/plain')
         instance = get_object_or_404(self.model, pk=pk)
-        return HttpResponse(instance.crl,
-                            status=200,
-                            content_type='application/x-pem-file')
+        return HttpResponse(
+            instance.crl, status=200, content_type='application/x-pem-file'
+        )
 
     def renew_ca(self, request, queryset):
         if request.POST.get('post'):
@@ -151,11 +150,16 @@ class AbstractCaAdmin(BaseAdmin):
                 ca.renew()
                 renewed_rows += 1
             message = ngettext(
-                '%(renewed_rows)d CA and its related certificates have been successfully renewed',
-                '%(renewed_rows)d CAs and their related certificates have been successfully renewed',
-                renewed_rows) % {
-                    'renewed_rows': renewed_rows
-            }
+                (
+                    '%(renewed_rows)d CA and its related certificates have '
+                    'been successfully renewed'
+                ),
+                (
+                    '%(renewed_rows)d CAs and their related '
+                    'certificates have been successfully renewed'
+                ),
+                renewed_rows,
+            ) % {'renewed_rows': renewed_rows}
             self.message_user(request, message)
         else:
             data = dict()
@@ -169,7 +173,9 @@ class AbstractCaAdmin(BaseAdmin):
             return render(
                 request,
                 'admin/django_x509/renew_confirmation.html',
-                context=self.get_context(data, ca_count=ca_count, cert_count=cert_count)
+                context=self.get_context(
+                    data, ca_count=ca_count, cert_count=cert_count
+                ),
             )
 
     renew_ca.short_description = _('Renew selected CAs')
@@ -179,41 +185,43 @@ class AbstractCertAdmin(BaseAdmin):
     list_filter = ['ca', 'revoked', 'key_length', 'digest', 'created']
     list_select_related = ['ca']
     readonly_fields = ['revoked', 'revoked_at']
-    fields = ['operation_type',
-              'name',
-              'ca',
-              'notes',
-              'revoked',
-              'revoked_at',
-              'key_length',
-              'digest',
-              'validity_start',
-              'validity_end',
-              'country_code',
-              'state',
-              'city',
-              'organization_name',
-              'organizational_unit_name',
-              'email',
-              'common_name',
-              'extensions',
-              'serial_number',
-              'certificate',
-              'private_key',
-              'passphrase',
-              'created',
-              'modified']
+    fields = [
+        'operation_type',
+        'name',
+        'ca',
+        'notes',
+        'revoked',
+        'revoked_at',
+        'key_length',
+        'digest',
+        'validity_start',
+        'validity_end',
+        'country_code',
+        'state',
+        'city',
+        'organization_name',
+        'organizational_unit_name',
+        'email',
+        'common_name',
+        'extensions',
+        'serial_number',
+        'certificate',
+        'private_key',
+        'passphrase',
+        'created',
+        'modified',
+    ]
     actions = ['revoke_action', 'renew_cert']
 
     class Media:
-        js = ('admin/js/jquery.init.js',
-              'django-x509/js/x509-admin.js',)
+        js = ('admin/js/jquery.init.js', 'django-x509/js/x509-admin.js')
 
     def ca_url(self, obj):
-        url = reverse('admin:{0}_ca_change'.format(self.opts.app_label), args=[obj.ca.pk])
-        return format_html('<a href="{url}">{text}</a>',
-                           url=url,
-                           text=obj.ca.name)
+        url = reverse(
+            'admin:{0}_ca_change'.format(self.opts.app_label), args=[obj.ca.pk]
+        )
+        return format_html('<a href="{url}">{text}</a>', url=url, text=obj.ca.name)
+
     ca_url.short_description = 'CA'
 
     def revoke_action(self, request, queryset):
@@ -239,18 +247,17 @@ class AbstractCertAdmin(BaseAdmin):
             message = ngettext(
                 '%(renewed_rows)d Certificate has been successfully renewed',
                 '%(renewed_rows)d Certificates have been successfully renewed',
-                renewed_rows) % {
-                    'renewed_rows': renewed_rows
-            }
+                renewed_rows,
+            ) % {'renewed_rows': renewed_rows}
             self.message_user(request, message)
         else:
             return render(
                 request,
                 'admin/django_x509/renew_confirmation.html',
-                context=self.get_context(queryset, cert_count=len(queryset))
+                context=self.get_context(queryset, cert_count=len(queryset)),
             )
 
-    renew_cert.short_description = _("Renew selected certificates")
+    renew_cert.short_description = _('Renew selected certificates')
 
 
 # For backward compatibility
