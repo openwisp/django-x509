@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from django.contrib.admin.sites import AdminSite
 from django.test import TestCase
 
@@ -165,3 +167,73 @@ class ModelAdminTests(TestCase):
         m = list(request.get_messages())
         self.assertEqual(len(m), 1)
         self.assertEqual(str(m[0]), '1 certificate was revoked.')
+
+    def test_renew_ca_action(self):
+        req = deepcopy(request)
+        ca = Ca.objects.create(name="test_ca")
+        cert = Cert.objects.create(name="test_cert", ca=ca)
+        old_ca_cert = ca.certificate
+        old_ca_key = ca.private_key
+        old_ca_end = ca.validity_end
+        old_ca_serial_number = ca.serial_number
+        old_cert_cert = cert.certificate
+        old_cert_key = cert.private_key
+        old_cert_end = cert.validity_end
+        old_cert_serial_number = cert.serial_number
+        ma = CaAdmin(Ca, self.site)
+        req.POST.update({
+            'post': None
+        })
+        r = ma.renew_ca(req, [ca])
+        self.assertEqual(r.status_code, 200)
+        req.POST.update({
+            'post': 'yes'
+        })
+        ma.renew_ca(req, [ca])
+        message = req.get_message_strings()
+        cert.refresh_from_db()
+        self.assertNotEqual(old_ca_cert, ca.certificate)
+        self.assertNotEqual(old_ca_key, ca.private_key)
+        self.assertLess(old_ca_end, ca.validity_end)
+        self.assertNotEqual(old_ca_serial_number, ca.serial_number)
+        self.assertNotEqual(old_cert_serial_number, cert.serial_number)
+        self.assertLess(old_cert_end, cert.validity_end)
+        self.assertNotEqual(old_cert_key, cert.private_key)
+        self.assertNotEqual(old_cert_cert, cert.certificate)
+        self.assertEqual(len(message), 1)
+        self.assertEqual(message[0],
+                         '1 CA and its related certificates have been successfully renewed')
+
+    def test_renew_cert_action(self):
+        req = deepcopy(request)
+        ca = Ca.objects.create(name="test_ca")
+        cert = Cert.objects.create(name="test_cert", ca=ca)
+        old_ca_cert = ca.certificate
+        old_ca_key = ca.private_key
+        old_ca_end = ca.validity_end
+        old_ca_serial_number = ca.serial_number
+        old_cert_cert = cert.certificate
+        old_cert_key = cert.private_key
+        old_cert_end = cert.validity_end
+        old_cert_serial_number = cert.serial_number
+        ma = CertAdmin(Cert, self.site)
+        req.POST.update({
+            'post': None
+        })
+        r = ma.renew_cert(req, [cert])
+        self.assertEqual(r.status_code, 200)
+        req.POST.update({
+            'post': 'yes'
+        })
+        ma.renew_cert(req, [cert])
+        message = req.get_message_strings()
+        self.assertNotEqual(old_cert_serial_number, cert.serial_number)
+        self.assertLess(old_cert_end, cert.validity_end)
+        self.assertNotEqual(old_cert_key, cert.private_key)
+        self.assertNotEqual(old_cert_cert, cert.certificate)
+        self.assertEqual(old_ca_cert, ca.certificate)
+        self.assertEqual(old_ca_key, ca.private_key)
+        self.assertEqual(old_ca_end, ca.validity_end)
+        self.assertEqual(old_ca_serial_number, ca.serial_number)
+        self.assertEqual(len(message), 1)
+        self.assertEqual(message[0], '1 Certificate has been successfully renewed')

@@ -2,10 +2,11 @@ from django import forms
 from django.conf.urls import url
 from django.contrib.admin import ModelAdmin
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.translation import ngettext
 from django.utils.translation import ugettext_lazy as _
 
 from django_x509 import settings as app_settings
@@ -73,6 +74,29 @@ class BaseAdmin(ModelAdmin):
             fields.remove('passphrase')
         return fields
 
+    def get_context(self, data, ca_count=0, cert_count=0):
+        context = dict()
+        if ca_count:
+            context.update({
+                'title': _('renew selected CAs'),
+                'ca_count': ca_count,
+                'cert_count': cert_count,
+                'cancel_url': 'django_x509_ca_changelist',
+                'action': 'renew_ca'
+            })
+        else:
+            context.update({
+                'title': _('renew selected certs'),
+                'cert_count': cert_count,
+                'cancel_url': 'django_x509_cert_changelist',
+                'action': 'renew_cert'
+            })
+        context.update({
+            'opts': self.model._meta,
+            'data': data
+        })
+        return context
+
 
 class AbstractCaAdmin(BaseAdmin):
     list_filter = ['key_length', 'digest', 'created']
@@ -97,6 +121,7 @@ class AbstractCaAdmin(BaseAdmin):
               'passphrase',
               'created',
               'modified']
+    actions = ['renew_ca']
 
     class Media:
         js = ('admin/js/jquery.init.js',
@@ -118,6 +143,36 @@ class AbstractCaAdmin(BaseAdmin):
         return HttpResponse(instance.crl,
                             status=200,
                             content_type='application/x-pem-file')
+
+    def renew_ca(self, request, queryset):
+        if request.POST.get('post'):
+            renewed_rows = 0
+            for ca in queryset:
+                ca.renew()
+                renewed_rows += 1
+            message = ngettext(
+                '%(renewed_rows)d CA and its related certificates have been successfully renewed',
+                '%(renewed_rows)d CAs and their related certificates have been successfully renewed',
+                renewed_rows) % {
+                    'renewed_rows': renewed_rows
+            }
+            self.message_user(request, message)
+        else:
+            data = dict()
+            ca_count = 0
+            cert_count = 0
+            for ca in queryset:
+                ca_count += 1
+                certs = ca.cert_set.all()
+                cert_count += len(certs)
+                data[ca] = certs
+            return render(
+                request,
+                'admin/django_x509/renew_confirmation.html',
+                context=self.get_context(data, ca_count=ca_count, cert_count=cert_count)
+            )
+
+    renew_ca.short_description = _('Renew selected CAs')
 
 
 class AbstractCertAdmin(BaseAdmin):
@@ -148,7 +203,7 @@ class AbstractCertAdmin(BaseAdmin):
               'passphrase',
               'created',
               'modified']
-    actions = ['revoke_action']
+    actions = ['revoke_action', 'renew_cert']
 
     class Media:
         js = ('admin/js/jquery.init.js',
@@ -174,6 +229,28 @@ class AbstractCertAdmin(BaseAdmin):
         self.message_user(request, _(message))
 
     revoke_action.short_description = _('Revoke selected certificates')
+
+    def renew_cert(self, request, queryset):
+        if request.POST.get('post'):
+            renewed_rows = 0
+            for cert in queryset:
+                cert.renew()
+                renewed_rows += 1
+            message = ngettext(
+                '%(renewed_rows)d Certificate has been successfully renewed',
+                '%(renewed_rows)d Certificates have been successfully renewed',
+                renewed_rows) % {
+                    'renewed_rows': renewed_rows
+            }
+            self.message_user(request, message)
+        else:
+            return render(
+                request,
+                'admin/django_x509/renew_confirmation.html',
+                context=self.get_context(queryset, cert_count=len(queryset))
+            )
+
+    renew_cert.short_description = _("Renew selected certificates")
 
 
 # For backward compatibility

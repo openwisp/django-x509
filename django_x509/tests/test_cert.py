@@ -488,3 +488,23 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         ca.full_clean()
         ca.save()
         self.assertIsInstance(ca.pkey, crypto.PKey)
+
+    def test_renew(self):
+        cert = self._create_cert()
+        old_cert = cert.certificate
+        old_key = cert.private_key
+        old_end = cert.validity_end
+        old_serial_number = cert.serial_number
+        old_ca_cert = cert.ca.certificate
+        old_ca_key = cert.ca.private_key
+        old_ca_end = cert.ca.validity_end
+        old_ca_serial_number = cert.ca.serial_number
+        cert.renew()
+        self.assertNotEqual(old_cert, cert.certificate)
+        self.assertNotEqual(old_key, cert.private_key)
+        self.assertLess(old_end, cert.validity_end)
+        self.assertNotEqual(old_serial_number, cert.serial_number)
+        self.assertEqual(old_ca_cert, cert.ca.certificate)
+        self.assertEqual(old_ca_key, cert.ca.private_key)
+        self.assertEqual(old_ca_end, cert.ca.validity_end)
+        self.assertEqual(old_ca_serial_number, cert.ca.serial_number)
