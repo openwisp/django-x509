@@ -78,7 +78,7 @@ class BaseAdmin(ModelAdmin):
         context = dict()
         if ca_count:
             context.update({
-                'title': _('renew selected CAs'),
+                'title': _('Renew selected CAs'),
                 'ca_count': ca_count,
                 'cert_count': cert_count,
                 'cancel_url': 'django_x509_ca_changelist',
@@ -86,7 +86,7 @@ class BaseAdmin(ModelAdmin):
             })
         else:
             context.update({
-                'title': _('renew selected certs'),
+                'title': _('Renew selected certs'),
                 'cert_count': cert_count,
                 'cancel_url': 'django_x509_cert_changelist',
                 'action': 'renew_cert'

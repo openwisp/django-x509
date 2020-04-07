@@ -17,7 +17,6 @@
 {% block content %}
     <form method="post">
         {% csrf_token %}
-        <h1>{% trans 'Are You Sure?' %}</h1>
         {% if ca_count %}
             {% blocktrans %}
                 <p>Are you sure you want to renew the selected CAs and their related certificates?</p>
