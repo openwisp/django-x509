@@ -622,3 +622,35 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                          generalized_datetime.strftime(generalized_time))
         self.assertEqual(datetime_to_string(utc_datetime),
                          utc_datetime.strftime(utc_time))
+
+    def test_renew(self):
+        ca = self._create_ca()
+        cert1 = self._create_cert(ca=ca, name='cert1')
+        cert2 = self._create_cert(ca=ca, name='cert2')
+        old_ca_cert = ca.certificate
+        old_ca_key = ca.private_key
+        old_ca_end = ca.validity_end
+        old_ca_serial_number = ca.serial_number
+        old_cert1_cert = cert1.certificate
+        old_cert1_key = cert1.private_key
+        old_cert1_serial_number = cert1.serial_number
+        old_cert1_end = cert1.validity_end
+        old_cert2_cert = cert2.certificate
+        old_cert2_key = cert2.private_key
+        old_cert2_serial_number = cert2.serial_number
+        old_cert2_end = cert2.validity_end
+        ca.renew()
+        cert1.refresh_from_db()
+        cert2.refresh_from_db()
+        self.assertNotEqual(old_ca_cert, ca.certificate)
+        self.assertNotEqual(old_ca_key, ca.private_key)
+        self.assertLess(old_ca_end, ca.validity_end)
+        self.assertNotEqual(old_ca_serial_number, ca.serial_number)
+        self.assertNotEqual(old_cert1_cert, cert1.certificate)
+        self.assertNotEqual(old_cert1_key, cert1.private_key)
+        self.assertLess(old_cert1_end, cert1.validity_end)
+        self.assertNotEqual(old_cert1_serial_number, cert1.serial_number)
+        self.assertNotEqual(old_cert2_cert, cert2.certificate)
+        self.assertNotEqual(old_cert2_key, cert2.private_key)
+        self.assertLess(old_cert2_end, cert2.validity_end)
+        self.assertNotEqual(old_cert2_serial_number, cert2.serial_number)

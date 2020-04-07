@@ -190,7 +190,7 @@ class BaseX509(models.Model):
         if generate:
             # automatically determine serial number
             if not self.serial_number:
-                self.serial_number = uuid.uuid4().int
+                self.serial_number = self._generate_serial_number()
             self._generate()
             kwargs['force_insert'] = False
             super().save(*args, **kwargs)
@@ -429,6 +429,15 @@ class BaseX509(models.Model):
             ])
         return cert
 
+    def renew(self):
+        self._generate()
+        self.serial_number = self._generate_serial_number()
+        self.validity_end = self.__class__().validity_end
+        self.save()
+
+    def _generate_serial_number(self):
+        return uuid.uuid4().int
+
 
 class AbstractCa(BaseX509):
     """
@@ -448,6 +457,15 @@ class AbstractCa(BaseX509):
         return self.cert_set.filter(revoked=True,
                                     validity_start__lte=now,
                                     validity_end__gte=now)
+
+    def renew(self):
+        """
+        Renew the certificate, private key and
+        validity end date of a CA
+        """
+        super().renew()
+        for cert in self.cert_set.all():
+            cert.renew()
 
     @property
     def crl(self):
