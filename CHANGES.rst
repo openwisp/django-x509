@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.7.0 [2020-05-16]
+--------------------------
+
+- Added feature to renew certificates
+- Updated dependency to support cryptography 2.9
+
 Version 0.6.2 [2020-02-26]
 --------------------------
 
