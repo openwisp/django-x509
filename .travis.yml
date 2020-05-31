@@ -32,11 +32,13 @@ install:
   - python setup.py -q develop
 
 before_script:
-  - openwisp-utils-qa-checks --migrations-to-ignore 4 --migration-path ./django_x509/migrations/ --migration-module django_x509
+  - ./run-qa-checks
 
 script:
   - jslint django_x509/static/django-x509/js/*.js
   - coverage run --source=django_x509 runtests.py
+  # SAMPLE tests do not influence coverage, so we can speed up tests with --parallel
+  - SAMPLE_APP=1 ./runtests.py --parallel --keepdb
 
 after_success:
   coveralls

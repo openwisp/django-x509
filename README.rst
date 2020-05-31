@@ -3,9 +3,11 @@ django-x509
 
 .. image:: https://travis-ci.org/openwisp/django-x509.svg
    :target: https://travis-ci.org/openwisp/django-x509
+   :alt: Automated Test Build
 
 .. image:: https://coveralls.io/repos/openwisp/django-x509/badge.svg
-  :target: https://coveralls.io/r/openwisp/django-x509
+   :target: https://coveralls.io/r/openwisp/django-x509
+   :alt: Coverage
 
 .. image:: https://requires.io/github/openwisp/django-x509/requirements.svg?branch=master
    :target: https://requires.io/github/openwisp/django-x509/requirements/?branch=master
@@ -13,6 +15,9 @@ django-x509
 
 .. image:: https://badge.fury.io/py/django-x509.svg
    :target: http://badge.fury.io/py/django-x509
+   :alt: Pypi Version
+
+.. image:: https://github.com/openwisp/django-x509/tree/master/docs/demo_x509.gif
 
 ------------
 
@@ -327,34 +332,71 @@ be protected with authentication or not.
 Extending django-x509
 ---------------------
 
-*django-x509* provides a set of models and admin classes which can be imported,
-extended and reused by third party apps.
+One of the core values of the OpenWISP project is `Software Reusability <http://openwisp.io/docs/general/values.html#software-reusability-means-long-term-sustainability>`_,
+for this reason *django-x509* provides a set of base classes
+which can be imported, extended and reused to create derivative apps.
 
-To extend *django-x509*, **you MUST NOT** add it to ``settings.INSTALLED_APPS``,
-but you must create your own app (which goes into ``settings.INSTALLED_APPS``), import the
-base classes from django-x509 and add your customizations.
+In order to implement your custom version of *django-x509*,
+you need to perform the steps described in this section.
 
-In order to help django find the static files and templates of *django-x509*,
-you need to perform the steps described below.
+When in doubt, the code in the `test project <https://github.com/openwisp/django-x509/tree/master/tests/openwisp2/>`_
+and the `sample app <https://github.com/openwisp/django-x509/tree/master/tests/openwisp2/sample_x509/>`_
+will serve you as source of truth:
+just replicate and adapt that code to get a basic derivative of
+*django-x509* working.
 
-1. Install ``openwisp-utils``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Premise**: if you plan on using a customized version of this module,
+we suggest to start with it since the beginning, because migrating your data
+from the default module to your extended version may be time consuming.
 
-Install (and add to the requirement of your project) `openwisp-utils
-<https://github.com/openwisp/openwisp-utils>`_::
+1. Initialize your custom module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    pip install openwisp-utils
+The first thing you need to do is to create a new django app which will
+contain your custom version of *django-x509*.
 
-2. Add ``EXTENDED_APPS``
+A django app is nothing more than a
+`python package <https://docs.python.org/3/tutorial/modules.html#packages>`_
+(a directory of python scripts), in the following examples we'll call this django app
+``myx509``, but you can name it how you want::
+
+    django-admin startapp myx509
+
+Keep in mind that the command mentioned above must be called from a directory
+which is available in your `PYTHON_PATH <https://docs.python.org/3/using/cmdline.html#envvar-PYTHONPATH>`_
+so that you can then import the result into your project.
+
+Now you need to add ``myx509`` to ``INSTALLED_APPS`` in your ``settings.py``,
+ensuring also that ``django_x509`` has been removed:
+
+.. code-block:: python
+
+    INSTALLED_APPS = [
+        # ... other apps ...
+        # 'django_x509'  <-- comment out or delete this line
+        'myx509'
+    ]
+
+For more information about how to work with django projects and django apps,
+please refer to the `django documentation <https://docs.djangoproject.com/en/dev/intro/tutorial01/>`_.
+
+2. Install ``django-x509`` & ``openwisp-utils``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Install (and add to the requirement of your project)::
+
+    pip install django-x509 openwisp-utils
+
+3. Add ``EXTENDED_APPS``
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add the following to your ``settings.py``:
 
 .. code-block:: python
 
-    EXTENDED_APPS = ('django_x509',)
+    EXTENDED_APPS = ['django_x509']
 
-3. Add ``openwisp_utils.staticfiles.DependencyFinder``
+4. Add ``openwisp_utils.staticfiles.DependencyFinder``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add ``openwisp_utils.staticfiles.DependencyFinder`` to
@@ -368,7 +410,7 @@ Add ``openwisp_utils.staticfiles.DependencyFinder`` to
         'openwisp_utils.staticfiles.DependencyFinder',
     ]
 
-4. Add ``openwisp_utils.loaders.DependencyLoader``
+5. Add ``openwisp_utils.loaders.DependencyLoader``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add ``openwisp_utils.loaders.DependencyLoader`` to ``TEMPLATES`` in your ``settings.py``:
@@ -394,77 +436,178 @@ Add ``openwisp_utils.loaders.DependencyLoader`` to ``TEMPLATES`` in your ``setti
         }
     ]
 
-Extending models
-~~~~~~~~~~~~~~~~
+6. Inherit the AppConfig class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This example provides an example of how to extend the base models of
-*django-x509* by adding a relation to another django model named `Organization`.
+Please refer to the following files in the sample app of the test project:
+
+- `sample_x509/__init__.py <https://github.com/openwisp/django-x509/tree/master/tests/openwisp2/sample_x509/__init__.py>`_.
+- `sample_x509/apps.py <https://github.com/openwisp/django-x509/tree/master/tests/openwisp2/sample_x509/apps.py>`_.
+
+You have to replicate and adapt that code in your project.
+
+For more information regarding the concept of ``AppConfig`` please refer to
+the `"Applications" section in the django documentation <https://docs.djangoproject.com/en/dev/ref/applications/>`_.
+
+7. Create your custom models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here we provide an example of how to extend the base models of
+*django-x509*. We added a simple "details" field to the
+models for demostration of modification:
 
 .. code-block:: python
 
-    # models.py of your app
     from django.db import models
     from django_x509.base.models import AbstractCa, AbstractCert
 
-    # the model ``organizations.Organization`` is omitted for brevity
-    # if you are curious to see a real implementation, check out django-organizations
-
-
-    class OrganizationMixin(models.Model):
-        organization = models.ForeignKey('organizations.Organization')
+    class DetailsModel(models.Model):
+        details = models.CharField(max_length=64, blank=True, null=True)
 
         class Meta:
             abstract = True
 
-
-    class Ca(OrganizationMixin, AbstractCa):
+    class Ca(DetailsModel, AbstractCa):
+        """
+        Concrete Ca model
+        """
         class Meta(AbstractCa.Meta):
             abstract = False
 
-        def clean(self):
-            # your own validation logic here...
-            pass
-
-
-    class Cert(OrganizationMixin, AbstractCert):
-        ca = models.ForeignKey(Ca)
-
+    class Cert(DetailsModel, AbstractCert):
+        """
+        Concrete Cert model
+        """
         class Meta(AbstractCert.Meta):
             abstract = False
 
-        def clean(self):
-            # your own validation logic here...
-            pass
+You can add fields in a similar way in your ``models.py`` file.
 
-Extending the admin
-~~~~~~~~~~~~~~~~~~~
+**Note**: for doubts regarding how to use, extend or develop models please refer to
+the `"Models" section in the django documentation <https://docs.djangoproject.com/en/dev/topics/db/models/>`_.
 
-Following the previous `Organization` example, you can avoid duplicating the admin
-code by importing the base admin classes and registering your models with.
+8. Add swapper configurations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Once you have created the models, add the following to your ``settings.py``:
 
 .. code-block:: python
 
-    # admin.py of your app
+    # Setting models for swapper module
+    DJANGO_X509_CA_MODEL = 'myx509.Ca'
+    DJANGO_X509_CERT_MODEL = 'myx509.Cert'
+
+Substitute ``myx509`` with the name you chose in step 1.
+
+9. Create database migrations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Create and apply database migrations::
+
+    ./manage.py makemigrations
+    ./manage.py migrate
+
+For more information, refer to the
+`"Migrations" section in the django documentation <https://docs.djangoproject.com/en/dev/topics/migrations/>`_.
+
+10. Create the admin
+~~~~~~~~~~~~~~~~~~~~
+
+Refer to the `admin.py file of the sample app <https://github.com/openwisp/django-x509/tree/master/tests/openwisp2/sample_x509/admin.py>`_.
+
+To introduce changes to the admin, you can do it in two main ways which are described below.
+
+**Note**: for more information regarding how the django admin works, or how it can be customized,
+please refer to `"The django admin site" section in the django documentation <https://docs.djangoproject.com/en/dev/ref/contrib/admin/>`_.
+
+1. Monkey patching
+##################
+
+If the changes you need to add are relatively small, you can resort to monkey patching.
+
+For example:
+
+.. code-block:: python
+
+    from django_x509.admin import CaAdmin, CertAdmin
+
+    # CaAdmin.list_display.insert(1, 'my_custom_field') <-- your custom change example
+    # CertAdmin.list_display.insert(1, 'my_custom_field') <-- your custom change example
+
+2. Inheriting admin classes
+###########################
+
+If you need to introduce significant changes and/or you don't want to resort to
+monkey patching, you can proceed as follows:
+
+.. code-block:: python
+
     from django.contrib import admin
+    from swapper import load_model
 
-    from django_x509.base.admin import CaAdmin as BaseCaAdmin
-    from django_x509.base.admin import CertAdmin as BaseCertAdmin
+    from django_x509.base.admin import AbstractCaAdmin, AbstractCertAdmin
 
-    from .models import Ca, Cert
+    Ca = load_model('django_x509', 'Ca')
+    Cert = load_model('django_x509', 'Cert')
 
+    class CertAdmin(AbstractCertAdmin):
+        # add your changes here
 
-    class CaAdmin(BaseCaAdmin):
-        # extend/modify the default behaviour here
-        pass
-
-
-    class CertAdmin(BaseCertAdmin):
-        # extend/modify the default behaviour here
-        pass
-
+    class CaAdmin(AbstractCaAdmin):
+        # add your changes here
 
     admin.site.register(Ca, CaAdmin)
     admin.site.register(Cert, CertAdmin)
+
+11. Create root URL configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Please refer to the `urls.py <https://github.com/openwisp/django-x509/tree/master/tests/openwisp2/urls.py>`_
+file in the test project.
+
+For more information about URL configuration in django, please refer to the
+`"URL dispatcher" section in the django documentation <https://docs.djangoproject.com/en/dev/topics/http/urls/>`_.
+
+12. Import the automated tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When developing a custom application based on this module, it's a good
+idea to import and run the base tests too, so that you can be sure the changes
+you're introducing are not breaking some of the existing features of *django-x509*.
+
+In case you need to add breaking changes, you can overwrite the tests defined
+in the base classes to test your own behavior.
+
+.. code-block:: python
+
+    from django.test import TestCase
+    from django_x509.tests.base import TestX509Mixin
+    from django_x509.tests.test_admin import ModelAdminTests as BaseModelAdminTests
+    from django_x509.tests.test_ca import TestCa as BaseTestCa
+    from django_x509.tests.test_cert import TestCert as BaseTestCert
+
+    class ModelAdminTests(BaseModelAdminTests):
+        app_label = 'myx509'
+
+    class TestCert(BaseTestCert):
+        pass
+
+    class TestCa(BaseTestCa):
+        pass
+
+    del BaseModelAdminTests
+    del BaseTestCa
+    del BaseTestCert
+
+Now, you can then run tests with::
+
+    # the --parallel flag is optional
+    ./manage.py test --parallel myx509
+
+Substitute ``myx509`` with the name you chose in step 1.
+
+For more information about automated tests in django, please refer to
+`"Testing in Django" <https://docs.djangoproject.com/en/dev/topics/testing/>`_.
 
 Contributing
 ------------

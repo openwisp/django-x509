@@ -63,6 +63,7 @@ target/
 local_settings.py
 *.db
 *.tar.gz
+Pipfile
 
 # IDE specific files
 .idea

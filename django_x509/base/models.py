@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 
 import OpenSSL
+import swapper
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -153,7 +154,7 @@ class BaseX509(models.Model):
     modified = AutoLastModifiedField(_('modified'), editable=True)
     passphrase = models.CharField(max_length=64,
                                   blank=True,
-                                  help_text=_("Passphrase for the private key, if present"))
+                                  help_text=_('Passphrase for the private key, if present'))
 
     class Meta:
         abstract = True
@@ -239,9 +240,9 @@ class BaseX509(models.Model):
                     kwargs['passphrase'] = getattr(self, 'passphrase').encode('utf8')
                 load_pem(*args, **kwargs)
             except OpenSSL.crypto.Error as e:
-                error = 'OpenSSL error: <br>{0}'.format(str(e.args[0]).replace('), ', '), <br>').strip("[]"))
-                if "bad decrypt" in error:
-                    error = "<b>Incorrect Passphrase</b> <br>" + error
+                error = 'OpenSSL error: <br>{0}'.format(str(e.args[0]).replace('), ', '), <br>').strip('[]'))
+                if 'bad decrypt' in error:
+                    error = '<b>Incorrect Passphrase</b> <br>' + error
                     errors['passphrase'] = ValidationError(_(mark_safe(error)))
                     continue
                 errors[field] = ValidationError(_(mark_safe(error)))
@@ -284,13 +285,13 @@ class BaseX509(models.Model):
         cert.set_pubkey(key)
         cert = self._add_extensions(cert)
         cert.sign(issuer_key, str(self.digest))
-        self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8")
+        self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode('utf-8')
         key_args = (crypto.FILETYPE_PEM, key)
         key_kwargs = {}
         if self.passphrase:
             key_kwargs['passphrase'] = self.passphrase.encode('utf-8')
             key_kwargs['cipher'] = 'DES-EDE3-CBC'
-        self.private_key = crypto.dump_privatekey(*key_args, **key_kwargs).decode("utf-8")
+        self.private_key = crypto.dump_privatekey(*key_args, **key_kwargs).decode('utf-8')
 
     def _fill_subject(self, subject):
         """
@@ -491,7 +492,9 @@ class AbstractCert(BaseX509):
     """
     Abstract Cert model
     """
-    ca = models.ForeignKey('django_x509.Ca', on_delete=models.CASCADE, verbose_name=_('CA'))
+    ca = models.ForeignKey(swapper.get_model_name('django_x509', 'Ca'),
+                           on_delete=models.CASCADE,
+                           verbose_name=_('CA'))
     revoked = models.BooleanField(_('revoked'),
                                   default=False)
     revoked_at = models.DateTimeField(_('revoked at'),

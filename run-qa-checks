@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+openwisp-utils-qa-checks --migrations-to-ignore 4 \
+                               --migration-path ./django_x509/migrations/ \
+                               --migration-module django_x509
+
+
+echo ''
+echo 'Running checks for SAMPLE_APP'
+
+SAMPLE_APP=1 openwisp-utils-qa-checks --skip-isort \
+                        --skip-flake8 \
+                        --skip-checkmigrations \
+                        --skip-checkendline \
+                        --skip-checkcommit \
+                        --migration-path ./tests/openwisp2/sample_x509/migrations/ \
+                        --migration-module sample_x509

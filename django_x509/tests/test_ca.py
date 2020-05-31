@@ -5,19 +5,20 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from OpenSSL import crypto
+from swapper import load_model
 
 from .. import settings as app_settings
 from ..base.models import datetime_to_string, generalized_time, utc_time
-from ..models import Ca, Cert
 from . import TestX509Mixin
+
+Ca = load_model('django_x509', 'Ca')
+Cert = load_model('django_x509', 'Cert')
 
 
 class TestCa(TestX509Mixin, TestCase):
     """
     tests for Ca model
     """
-    ca_model = Ca
-    cert_model = Cert
 
     def _prepare_revoked(self):
         ca = self._create_ca()
@@ -276,7 +277,7 @@ WRyKPvMvJzWT
         ca = self._create_ca()
         c1 = self._create_cert(ca=ca)
         c2 = self._create_cert(ca=ca)
-        c3 = self._create_cert(ca=ca)  # noqa
+        self._create_cert(ca=ca)
         self.assertEqual(ca.get_revoked_certs().count(), 0)
         c1.revoke()
         self.assertEqual(ca.get_revoked_certs().count(), 1)
@@ -320,13 +321,13 @@ WRyKPvMvJzWT
 
     def test_crl_view_403(self):
         setattr(app_settings, 'CRL_PROTECTED', True)
-        ca, cert = self._prepare_revoked()
+        ca, _ = self._prepare_revoked()
         response = self.client.get(reverse('admin:crl', args=[ca.pk]))
         self.assertEqual(response.status_code, 403)
         setattr(app_settings, 'CRL_PROTECTED', False)
 
     def test_crl_view_404(self):
-        ca, cert = self._prepare_revoked()
+        self._prepare_revoked()
         response = self.client.get(reverse('admin:crl', args=[10]))
         self.assertEqual(response.status_code, 404)
 
