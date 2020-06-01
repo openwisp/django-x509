@@ -3,22 +3,34 @@ django-x509
 
 .. image:: https://travis-ci.org/openwisp/django-x509.svg
    :target: https://travis-ci.org/openwisp/django-x509
-   :alt: Automated Test Build
+   :alt: CI build status
 
 .. image:: https://coveralls.io/repos/openwisp/django-x509/badge.svg
    :target: https://coveralls.io/r/openwisp/django-x509
-   :alt: Coverage
+   :alt: Test Coverage
 
 .. image:: https://requires.io/github/openwisp/django-x509/requirements.svg?branch=master
    :target: https://requires.io/github/openwisp/django-x509/requirements/?branch=master
    :alt: Requirements Status
 
+.. image:: https://img.shields.io/gitter/room/nwjs/nw.js.svg
+   :target: https://gitter.im/openwisp/general
+   :alt: chat
+
 .. image:: https://badge.fury.io/py/django-x509.svg
    :target: http://badge.fury.io/py/django-x509
    :alt: Pypi Version
 
-.. image:: https://github.com/openwisp/django-x509/tree/master/docs/demo_x509.gif
+.. image:: https://pepy.tech/badge/django-x509
+   :target: https://pepy.tech/project/django-x509
+   :alt: downloads
 
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://pypi.org/project/black/
+   :alt: code style: black
+
+.. image:: https://github.com/openwisp/django-x509/raw/master/docs/demo_x509.gif
+   :alt: demo
 ------------
 
 Simple reusable django app implementing x509 PKI certificates management.
@@ -612,21 +624,12 @@ For more information about automated tests in django, please refer to
 Contributing
 ------------
 
-Please read the `OpenWISP contributing guidelines
-<http://openwisp.io/docs/developer/contributing.html>`_
-and also keep in mind the following:
+Please refer to the `OpenWISP contributing guidelines <http://openwisp.io/docs/developer/contributing.html>`_.
 
-1. Announce your intentions in the `OpenWISP Mailing List <https://groups.google.com/d/forum/openwisp>`_
-2. Fork this repo and install it
-3. Follow `PEP8, Style Guide for Python Code`_
-4. Write code
-5. Write tests for your code
-6. Ensure all tests pass
-7. Ensure test coverage does not decrease
-8. Document your changes
-9. Send pull request
+Support
+-------
 
-.. _PEP8, Style Guide for Python Code: http://www.python.org/dev/peps/pep-0008/
+See `OpenWISP Support Channels <http://openwisp.org/support.html>`_.
 
 Changelog
 ---------
@@ -637,8 +640,3 @@ License
 -------
 
 See `LICENSE <https://github.com/openwisp/django-x509/blob/master/LICENSE>`_.
-
-Support
--------
-
-See `OpenWISP Support Channels <http://openwisp.org/support.html>`_.

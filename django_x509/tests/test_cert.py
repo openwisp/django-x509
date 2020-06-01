@@ -152,10 +152,12 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         ca.private_key = self.import_ca_private_key
         ca.full_clean()
         ca.save()
-        cert = Cert(name='ImportCertTest',
-                    ca=ca,
-                    certificate=self.import_certificate,
-                    private_key=self.import_private_key)
+        cert = Cert(
+            name='ImportCertTest',
+            ca=ca,
+            certificate=self.import_certificate,
+            private_key=self.import_private_key,
+        )
         cert.full_clean()
         cert.save()
         x509 = cert.x509
@@ -178,9 +180,13 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         # verify field attribtues
         self.assertEqual(cert.key_length, '512')
         self.assertEqual(cert.digest, 'sha1')
-        start = timezone.make_aware(datetime.strptime('20151101000000Z', generalized_time))
+        start = timezone.make_aware(
+            datetime.strptime('20151101000000Z', generalized_time)
+        )
         self.assertEqual(cert.validity_start, start)
-        end = timezone.make_aware(datetime.strptime('21181102180025Z', generalized_time))
+        end = timezone.make_aware(
+            datetime.strptime('21181102180025Z', generalized_time)
+        )
         self.assertEqual(cert.validity_end, end)
         self.assertEqual(cert.country_code, '')
         self.assertEqual(cert.state, '')
@@ -193,9 +199,11 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         self.assertEqual(x509.get_version(), 2)
         cert.delete()
         # test auto name
-        cert = Cert(certificate=self.import_certificate,
-                    private_key=self.import_private_key,
-                    ca=ca)
+        cert = Cert(
+            certificate=self.import_certificate,
+            private_key=self.import_private_key,
+            ca=ca,
+        )
         cert.full_clean()
         cert.save()
         self.assertEqual(cert.name, '123456')
@@ -206,8 +214,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         ca.private_key = self.import_ca_private_key
         ca.full_clean()
         ca.save()
-        cert = Cert(name='ImportTest',
-                    ca=ca)
+        cert = Cert(name='ImportTest', ca=ca)
         cert.certificate = self.import_certificate
         try:
             cert.full_clean()
@@ -219,14 +226,16 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
 
     def test_import_wrong_ca(self):
         # test auto name
-        cert = Cert(certificate=self.import_certificate,
-                    private_key=self.import_private_key,
-                    ca=self._create_ca())
+        cert = Cert(
+            certificate=self.import_certificate,
+            private_key=self.import_private_key,
+            ca=self._create_ca(),
+        )
         try:
             cert.full_clean()
         except ValidationError as e:
             # verify error message
-            self.assertIn('CA doesn\'t match', str(e.message_dict['__all__'][0]))
+            self.assertIn("CA doesn't match", str(e.message_dict['__all__'][0]))
         else:
             self.fail('ValidationError not raised')
 
@@ -251,17 +260,18 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         e = cert.x509.get_extension(1)
         self.assertEqual(e.get_short_name().decode(), 'keyUsage')
         self.assertEqual(e.get_data(), b'\x03\x02\x07\x80')
-        setattr(app_settings, 'CERT_KEYUSAGE_VALUE', 'digitalSignature, keyEncipherment')
+        setattr(
+            app_settings, 'CERT_KEYUSAGE_VALUE', 'digitalSignature, keyEncipherment'
+        )
 
     def test_subject_key_identifier(self):
         cert = self._create_cert()
         e = cert.x509.get_extension(2)
         self.assertEqual(e.get_short_name().decode(), 'subjectKeyIdentifier')
         self.assertEqual(e.get_critical(), False)
-        e2 = crypto.X509Extension(b'subjectKeyIdentifier',
-                                  False,
-                                  b'hash',
-                                  subject=cert.x509)
+        e2 = crypto.X509Extension(
+            b'subjectKeyIdentifier', False, b'hash', subject=cert.x509
+        )
         self.assertEqual(e.get_data(), e2.get_data())
 
     def test_authority_key_identifier(self):
@@ -269,24 +279,22 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         e = cert.x509.get_extension(3)
         self.assertEqual(e.get_short_name().decode(), 'authorityKeyIdentifier')
         self.assertEqual(e.get_critical(), False)
-        e2 = crypto.X509Extension(b'authorityKeyIdentifier',
-                                  False,
-                                  b'keyid:always,issuer:always',
-                                  issuer=cert.ca.x509)
+        e2 = crypto.X509Extension(
+            b'authorityKeyIdentifier',
+            False,
+            b'keyid:always,issuer:always',
+            issuer=cert.ca.x509,
+        )
         self.assertEqual(e.get_data(), e2.get_data())
 
     def test_extensions(self):
         extensions = [
+            {'name': 'nsCertType', 'critical': False, 'value': 'client'},
             {
-                "name": "nsCertType",
-                "critical": False,
-                "value": "client"
+                'name': 'extendedKeyUsage',
+                'critical': True,  # critical just for testing purposes
+                'value': 'clientAuth',
             },
-            {
-                "name": "extendedKeyUsage",
-                "critical": True,  # critical just for testing purposes
-                "value": "clientAuth"
-            }
         ]
         cert = self._create_cert(extensions=extensions)
         e1 = cert.x509.get_extension(4)
@@ -309,9 +317,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
             self.fail('ValidationError not raised')
 
     def test_extensions_error2(self):
-        extensions = [
-            {"wrong": "wrong"}
-        ]
+        extensions = [{'wrong': 'wrong'}]
         try:
             self._create_cert(extensions=extensions)
         except ValidationError as e:
@@ -354,11 +360,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         ca.full_clean()
         ca.save()
 
-        Cert.objects.create(
-            ca=ca,
-            common_name='TestCert1',
-            name='TestCert1',
-        )
+        Cert.objects.create(ca=ca, common_name='TestCert1', name='TestCert1')
 
     def test_import_cert_validation_error(self):
         certificate = self.import_certificate[20:]
@@ -369,18 +371,21 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         ca.full_clean()
         ca.save()
         try:
-            cert = Cert(name='TestCertValidation',
-                        ca=ca,
-                        certificate=certificate,
-                        private_key=private_key)
+            cert = Cert(
+                name='TestCertValidation',
+                ca=ca,
+                certificate=certificate,
+                private_key=private_key,
+            )
             cert.full_clean()
         except ValidationError as e:
             # cryptography 2.4 and 2.6 have different error message formats
             error_msg = str(e.message_dict['certificate'][0])
             self.assertTrue(
-                "('PEM routines', 'PEM_read_bio', 'no start line')" in error_msg  # cryptography 2.4+
-                or
-                "('PEM routines', 'get_name', 'no start line')" in error_msg  # cryptography 2.6+
+                "('PEM routines', 'PEM_read_bio', 'no start line')"
+                in error_msg  # cryptography 2.4+
+                or "('PEM routines', 'get_name', 'no start line')"
+                in error_msg  # cryptography 2.6+
             )
         else:
             self.fail('ValidationError not raised')
@@ -394,18 +399,21 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         ca.full_clean()
         ca.save()
         try:
-            cert = Cert(name='TestKeyValidation',
-                        ca=ca,
-                        certificate=certificate,
-                        private_key=private_key)
+            cert = Cert(
+                name='TestKeyValidation',
+                ca=ca,
+                certificate=certificate,
+                private_key=private_key,
+            )
             cert.full_clean()
         except ValidationError as e:
             # cryptography 2.4 and 2.6 have different error message formats
             error_msg = str(e.message_dict['private_key'][0])
             self.assertTrue(
-                "('PEM routines', 'PEM_read_bio', 'no start line')" in error_msg  # cryptography 2.4+
-                or
-                "('PEM routines', 'get_name', 'no start line')" in error_msg  # cryptography 2.6+
+                "('PEM routines', 'PEM_read_bio', 'no start line')"
+                in error_msg  # cryptography 2.4+
+                or "('PEM routines', 'get_name', 'no start line')"
+                in error_msg  # cryptography 2.6+
             )
         else:
             self.fail('ValidationError not raised')
@@ -420,7 +428,10 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         try:
             self._create_cert(serial_number='notIntegers')
         except ValidationError as e:
-            self.assertEqual("Serial number must be an integer", str(e.message_dict['serial_number'][0]))
+            self.assertEqual(
+                'Serial number must be an integer',
+                str(e.message_dict['serial_number'][0]),
+            )
 
     def test_serial_number_clash(self):
         ca = Ca(name='TestSerialClash')
@@ -430,15 +441,19 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         cert = self._create_cert(serial_number=123456, ca=ca)
         cert.full_clean()
         cert.save()
-        _cert = Cert(name='TestClash',
-                     ca=ca,
-                     certificate=self.import_certificate,
-                     private_key=self.import_private_key)
+        _cert = Cert(
+            name='TestClash',
+            ca=ca,
+            certificate=self.import_certificate,
+            private_key=self.import_private_key,
+        )
         try:
             _cert.full_clean()
         except ValidationError as e:
-            self.assertEqual("Certificate with this CA and Serial number already exists.",
-                             str(e.message_dict['__all__'][0]))
+            self.assertEqual(
+                'Certificate with this CA and Serial number already exists.',
+                str(e.message_dict['__all__'][0]),
+            )
 
     def test_import_cert_with_passphrase(self):
         ca = Ca(name='ImportTest')

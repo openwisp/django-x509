@@ -5,19 +5,13 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('django_x509', '0002_certificate'),
-    ]
+    dependencies = [('django_x509', '0002_certificate')]
 
     operations = [
         migrations.RenameField(
-            model_name='ca',
-            old_name='organization',
-            new_name='organization_name',
+            model_name='ca', old_name='organization', new_name='organization_name'
         ),
         migrations.RenameField(
-            model_name='cert',
-            old_name='organization',
-            new_name='organization_name',
+            model_name='cert', old_name='organization', new_name='organization_name'
         ),
     ]

@@ -55,6 +55,7 @@ target/
 
 # editors
 *.komodoproject
+.vscode
 
 # other
 *.DS_Store*

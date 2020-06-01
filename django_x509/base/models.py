@@ -24,7 +24,7 @@ KEY_LENGTH_CHOICES = (
     ('512', '512'),
     ('1024', '1024'),
     ('2048', '2048'),
-    ('4096', '4096')
+    ('4096', '4096'),
 )
 
 DIGEST_CHOICES = (
@@ -47,8 +47,9 @@ SIGNATURE_MAPPING = {
 
 def datetime_to_string(datetime_):
     """
-    Converts datetime.datetime object to UTCTime/GeneralizedTime string following RFC5280.
-    (Returns string encoded in UTCtime for dates through year 2049, otherwise in GeneralizedTime format)
+    Converts datetime.datetime object to UTCTime/GeneralizedTime string
+    following RFC5280. (Returns string encoded in UTCtime for dates through year
+    2049, otherwise in GeneralizedTime format)
     """
     if datetime_.year < 2050:
         return datetime_.strftime(utc_time)
@@ -107,54 +108,70 @@ class BaseX509(models.Model):
     """
     Abstract Cert class, shared between Ca and Cert
     """
+
     name = models.CharField(max_length=64)
     notes = models.TextField(blank=True)
-    key_length = models.CharField(_('key length'),
-                                  help_text=_('bits'),
-                                  blank=True,
-                                  choices=KEY_LENGTH_CHOICES,
-                                  default=default_key_length,
-                                  max_length=6)
-    digest = models.CharField(_('digest algorithm'),
-                              help_text=_('bits'),
-                              blank=True,
-                              choices=DIGEST_CHOICES,
-                              default=default_digest_algorithm,
-                              max_length=8)
-    validity_start = models.DateTimeField(blank=True,
-                                          null=True,
-                                          default=default_validity_start)
-    validity_end = models.DateTimeField(blank=True,
-                                        null=True,
-                                        default=default_cert_validity_end)
+    key_length = models.CharField(
+        _('key length'),
+        help_text=_('bits'),
+        blank=True,
+        choices=KEY_LENGTH_CHOICES,
+        default=default_key_length,
+        max_length=6,
+    )
+    digest = models.CharField(
+        _('digest algorithm'),
+        help_text=_('bits'),
+        blank=True,
+        choices=DIGEST_CHOICES,
+        default=default_digest_algorithm,
+        max_length=8,
+    )
+    validity_start = models.DateTimeField(
+        blank=True, null=True, default=default_validity_start
+    )
+    validity_end = models.DateTimeField(
+        blank=True, null=True, default=default_cert_validity_end
+    )
     country_code = models.CharField(max_length=2, blank=True)
     state = models.CharField(_('state or province'), max_length=64, blank=True)
     city = models.CharField(_('city'), max_length=64, blank=True)
     organization_name = models.CharField(_('organization'), max_length=64, blank=True)
-    organizational_unit_name = models.CharField(_('organizational unit name'),
-                                                max_length=64, blank=True)
+    organizational_unit_name = models.CharField(
+        _('organizational unit name'), max_length=64, blank=True
+    )
     email = models.EmailField(_('email address'), blank=True)
     common_name = models.CharField(_('common name'), max_length=63, blank=True)
-    extensions = JSONField(_('extensions'),
-                           default=list,
-                           blank=True,
-                           help_text=_('additional x509 certificate extensions'),
-                           load_kwargs={'object_pairs_hook': collections.OrderedDict},
-                           dump_kwargs={'indent': 4})
+    extensions = JSONField(
+        _('extensions'),
+        default=list,
+        blank=True,
+        help_text=_('additional x509 certificate extensions'),
+        load_kwargs={'object_pairs_hook': collections.OrderedDict},
+        dump_kwargs={'indent': 4},
+    )
     # serial_number is set to CharField as a UUID integer is too big for a
     # PositiveIntegerField and an IntegerField on SQLite
-    serial_number = models.CharField(_('serial number'),
-                                     help_text=_('leave blank to determine automatically'),
-                                     blank=True,
-                                     null=True,
-                                     max_length=48)
-    certificate = models.TextField(blank=True, help_text='certificate in X.509 PEM format')
-    private_key = models.TextField(blank=True, help_text='private key in X.509 PEM format')
+    serial_number = models.CharField(
+        _('serial number'),
+        help_text=_('leave blank to determine automatically'),
+        blank=True,
+        null=True,
+        max_length=48,
+    )
+    certificate = models.TextField(
+        blank=True, help_text='certificate in X.509 PEM format'
+    )
+    private_key = models.TextField(
+        blank=True, help_text='private key in X.509 PEM format'
+    )
     created = AutoCreatedField(_('created'), editable=True)
     modified = AutoLastModifiedField(_('modified'), editable=True)
-    passphrase = models.CharField(max_length=64,
-                                  blank=True,
-                                  help_text=_('Passphrase for the private key, if present'))
+    passphrase = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text=_('Passphrase for the private key, if present'),
+    )
 
     class Meta:
         abstract = True
@@ -173,12 +190,15 @@ class BaseX509(models.Model):
 
     def clean(self):
         # when importing, both public and private must be present
-        if (
-            (self.certificate and not self.private_key) or
-            (self.private_key and not self.certificate)
+        if (self.certificate and not self.private_key) or (
+            self.private_key and not self.certificate
         ):
-            raise ValidationError(_('When importing an existing certificate, both'
-                                    'keys (private and public) must be present'))
+            raise ValidationError(
+                _(
+                    'When importing an existing certificate, both'
+                    'keys (private and public) must be present'
+                )
+            )
         if self.serial_number:
             self._validate_serial_number()
         self._verify_extension_format()
@@ -220,9 +240,11 @@ class BaseX509(models.Model):
         returns an instance of OpenSSL.crypto.PKey
         """
         if self.private_key:
-            return crypto.load_privatekey(crypto.FILETYPE_PEM,
-                                          self.private_key,
-                                          passphrase=getattr(self, 'passphrase').encode('utf-8'))
+            return crypto.load_privatekey(
+                crypto.FILETYPE_PEM,
+                self.private_key,
+                passphrase=getattr(self, 'passphrase').encode('utf-8'),
+            )
 
     def _validate_pem(self):
         """
@@ -240,7 +262,9 @@ class BaseX509(models.Model):
                     kwargs['passphrase'] = getattr(self, 'passphrase').encode('utf8')
                 load_pem(*args, **kwargs)
             except OpenSSL.crypto.Error as e:
-                error = 'OpenSSL error: <br>{0}'.format(str(e.args[0]).replace('), ', '), <br>').strip('[]'))
+                error = 'OpenSSL error: <br>{0}'.format(
+                    str(e.args[0]).replace('), ', '), <br>').strip('[]')
+                )
                 if 'bad decrypt' in error:
                     error = '<b>Incorrect Passphrase</b> <br>' + error
                     errors['passphrase'] = ValidationError(_(mark_safe(error)))
@@ -257,7 +281,9 @@ class BaseX509(models.Model):
         try:
             int(self.serial_number)
         except ValueError:
-            raise ValidationError({'serial_number': _('Serial number must be an integer')})
+            raise ValidationError(
+                {'serial_number': _('Serial number must be an integer')}
+            )
 
     def _generate(self):
         """
@@ -285,13 +311,17 @@ class BaseX509(models.Model):
         cert.set_pubkey(key)
         cert = self._add_extensions(cert)
         cert.sign(issuer_key, str(self.digest))
-        self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode('utf-8')
+        self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode(
+            'utf-8'
+        )
         key_args = (crypto.FILETYPE_PEM, key)
         key_kwargs = {}
         if self.passphrase:
             key_kwargs['passphrase'] = self.passphrase.encode('utf-8')
             key_kwargs['cipher'] = 'DES-EDE3-CBC'
-        self.private_key = crypto.dump_privatekey(*key_args, **key_kwargs).decode('utf-8')
+        self.private_key = crypto.dump_privatekey(*key_args, **key_kwargs).decode(
+            'utf-8'
+        )
 
     def _fill_subject(self, subject):
         """
@@ -305,7 +335,7 @@ class BaseX509(models.Model):
             'organization_name': 'organizationName',
             'organizational_unit_name': 'organizationalUnitName',
             'email': 'emailAddress',
-            'common_name': 'commonName'
+            'common_name': 'commonName',
         }
         # set x509 subject attributes only if not empty strings
         for model_attr, subject_attr in attr_map.items():
@@ -364,8 +394,10 @@ class BaseX509(models.Model):
         try:
             store_ctx.verify_certificate()
         except crypto.X509StoreContextError as e:
-            raise ValidationError(_("CA doesn't match, got the "
-                                    "following error from pyOpenSSL: \"%s\"") % e.args[0][2])
+            raise ValidationError(
+                _("CA doesn't match, got the " 'following error from pyOpenSSL: "%s"')
+                % e.args[0][2]
+            )
 
     def _verify_extension_format(self):
         """
@@ -393,41 +425,58 @@ class BaseX509(models.Model):
             ext_value = 'CA:TRUE'
             if pathlen is not None:
                 ext_value = '{0}, pathlen:{1}'.format(ext_value, pathlen)
-            ext.append(crypto.X509Extension(b'basicConstraints',
-                                            app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
-                                            bytes(str(ext_value), 'utf8')))
-            ext.append(crypto.X509Extension(b'keyUsage',
-                                            app_settings.CA_KEYUSAGE_CRITICAL,
-                                            bytes(str(app_settings.CA_KEYUSAGE_VALUE), 'utf8')))
+            ext.append(
+                crypto.X509Extension(
+                    b'basicConstraints',
+                    app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
+                    bytes(str(ext_value), 'utf8'),
+                )
+            )
+            ext.append(
+                crypto.X509Extension(
+                    b'keyUsage',
+                    app_settings.CA_KEYUSAGE_CRITICAL,
+                    bytes(str(app_settings.CA_KEYUSAGE_VALUE), 'utf8'),
+                )
+            )
             issuer_cert = cert
         # prepare extensions for end-entity certs
         else:
-            ext.append(crypto.X509Extension(b'basicConstraints',
-                                            False,
-                                            b'CA:FALSE'))
-            ext.append(crypto.X509Extension(b'keyUsage',
-                                            app_settings.CERT_KEYUSAGE_CRITICAL,
-                                            bytes(str(app_settings.CERT_KEYUSAGE_VALUE), 'utf8')))
+            ext.append(crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'))
+            ext.append(
+                crypto.X509Extension(
+                    b'keyUsage',
+                    app_settings.CERT_KEYUSAGE_CRITICAL,
+                    bytes(str(app_settings.CERT_KEYUSAGE_VALUE), 'utf8'),
+                )
+            )
             issuer_cert = self.ca.x509
-        ext.append(crypto.X509Extension(b'subjectKeyIdentifier',
-                                        False,
-                                        b'hash',
-                                        subject=cert))
+        ext.append(
+            crypto.X509Extension(b'subjectKeyIdentifier', False, b'hash', subject=cert)
+        )
         cert.add_extensions(ext)
         # authorityKeyIdentifier must be added after
         # the other extensions have been already added
-        cert.add_extensions([
-            crypto.X509Extension(b'authorityKeyIdentifier',
-                                 False,
-                                 b'keyid:always,issuer:always',
-                                 issuer=issuer_cert)
-        ])
+        cert.add_extensions(
+            [
+                crypto.X509Extension(
+                    b'authorityKeyIdentifier',
+                    False,
+                    b'keyid:always,issuer:always',
+                    issuer=issuer_cert,
+                )
+            ]
+        )
         for ext in self.extensions:
-            cert.add_extensions([
-                crypto.X509Extension(bytes(str(ext['name']), 'utf8'),
-                                     bool(ext['critical']),
-                                     bytes(str(ext['value']), 'utf8'))
-            ])
+            cert.add_extensions(
+                [
+                    crypto.X509Extension(
+                        bytes(str(ext['name']), 'utf8'),
+                        bool(ext['critical']),
+                        bytes(str(ext['value']), 'utf8'),
+                    )
+                ]
+            )
         return cert
 
     def renew(self):
@@ -444,6 +493,7 @@ class AbstractCa(BaseX509):
     """
     Abstract Ca model
     """
+
     class Meta:
         abstract = True
         verbose_name = _('CA')
@@ -455,9 +505,9 @@ class AbstractCa(BaseX509):
         (does not include expired certificates)
         """
         now = timezone.now()
-        return self.cert_set.filter(revoked=True,
-                                    validity_start__lte=now,
-                                    validity_end__gte=now)
+        return self.cert_set.filter(
+            revoked=True, validity_start__lte=now, validity_end__gte=now
+        )
 
     def renew(self):
         """
@@ -492,15 +542,16 @@ class AbstractCert(BaseX509):
     """
     Abstract Cert model
     """
-    ca = models.ForeignKey(swapper.get_model_name('django_x509', 'Ca'),
-                           on_delete=models.CASCADE,
-                           verbose_name=_('CA'))
-    revoked = models.BooleanField(_('revoked'),
-                                  default=False)
-    revoked_at = models.DateTimeField(_('revoked at'),
-                                      blank=True,
-                                      null=True,
-                                      default=None)
+
+    ca = models.ForeignKey(
+        swapper.get_model_name('django_x509', 'Ca'),
+        on_delete=models.CASCADE,
+        verbose_name=_('CA'),
+    )
+    revoked = models.BooleanField(_('revoked'), default=False)
+    revoked_at = models.DateTimeField(
+        _('revoked at'), blank=True, null=True, default=None
+    )
 
     def __str__(self):
         return self.name

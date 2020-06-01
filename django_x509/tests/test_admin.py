@@ -19,78 +19,86 @@ class MockSuperUser:
 request = MessagingRequest()
 request.user = MockSuperUser()
 
-ca_fields = ['operation_type',
-             'name',
-             'notes',
-             'key_length',
-             'digest',
-             'validity_start',
-             'validity_end',
-             'country_code',
-             'state',
-             'city',
-             'organization_name',
-             'organizational_unit_name',
-             'email',
-             'common_name',
-             'extensions',
-             'serial_number',
-             'certificate',
-             'private_key',
-             'passphrase']
+ca_fields = [
+    'operation_type',
+    'name',
+    'notes',
+    'key_length',
+    'digest',
+    'validity_start',
+    'validity_end',
+    'country_code',
+    'state',
+    'city',
+    'organization_name',
+    'organizational_unit_name',
+    'email',
+    'common_name',
+    'extensions',
+    'serial_number',
+    'certificate',
+    'private_key',
+    'passphrase',
+]
 
-cert_fields = ['operation_type',
-               'name',
-               'ca',
-               'notes',
-               'key_length',
-               'digest',
-               'validity_start',
-               'validity_end',
-               'country_code',
-               'state',
-               'city',
-               'organization_name',
-               'organizational_unit_name',
-               'email',
-               'common_name',
-               'extensions',
-               'serial_number',
-               'certificate',
-               'private_key',
-               'passphrase']
+cert_fields = [
+    'operation_type',
+    'name',
+    'ca',
+    'notes',
+    'key_length',
+    'digest',
+    'validity_start',
+    'validity_end',
+    'country_code',
+    'state',
+    'city',
+    'organization_name',
+    'organizational_unit_name',
+    'email',
+    'common_name',
+    'extensions',
+    'serial_number',
+    'certificate',
+    'private_key',
+    'passphrase',
+]
 
-ca_readonly = ['key_length',
-               'digest',
-               'validity_start',
-               'validity_end',
-               'country_code',
-               'state',
-               'city',
-               'organization_name',
-               'organizational_unit_name',
-               'email',
-               'common_name',
-               'serial_number',
-               'certificate',
-               'private_key',
-               'created',
-               'modified']
+ca_readonly = [
+    'key_length',
+    'digest',
+    'validity_start',
+    'validity_end',
+    'country_code',
+    'state',
+    'city',
+    'organization_name',
+    'organizational_unit_name',
+    'email',
+    'common_name',
+    'serial_number',
+    'certificate',
+    'private_key',
+    'created',
+    'modified',
+]
 
-cert_readonly = ['revoked',
-                 'revoked_at',
-                 'created',
-                 'modified',
-                 'created',
-                 'modified',
-                 'created',
-                 'modified',
-                 'created',
-                 'modified',
-                 'created',
-                 'modified',
-                 'created',
-                 'modified']
+cert_readonly = [
+    'revoked',
+    'revoked_at',
+    'created',
+    'modified',
+    'created',
+    'modified',
+    'created',
+    'modified',
+    'created',
+    'modified',
+    'created',
+    'modified',
+    'created',
+    'modified',
+]
 
 
 class ModelAdminTests(TestCase):
@@ -161,11 +169,16 @@ class ModelAdminTests(TestCase):
         ma = self.cert_admin(Cert, self.site)
         self.assertEqual(ma.get_readonly_fields(request), cert_readonly)
         ca_readonly.append('ca')
-        self.assertEqual(ma.get_readonly_fields(request, self.cert), tuple(ca_readonly + cert_readonly))
+        self.assertEqual(
+            ma.get_readonly_fields(request, self.cert),
+            tuple(ca_readonly + cert_readonly),
+        )
 
     def test_ca_url(self):
         ma = self.cert_admin(Cert, self.site)
-        self.assertEqual(ma.ca_url(self.cert), f'<a href="/admin/{self.app_label}/ca/1/change/"></a>')
+        self.assertEqual(
+            ma.ca_url(self.cert), f'<a href="/admin/{self.app_label}/ca/1/change/"></a>'
+        )
 
     def test_revoke_action(self):
         ma = self.cert_admin(Cert, self.site)
@@ -176,8 +189,8 @@ class ModelAdminTests(TestCase):
 
     def test_renew_ca_action(self):
         req = deepcopy(request)
-        ca = Ca.objects.create(name="test_ca")
-        cert = Cert.objects.create(name="test_cert", ca=ca)
+        ca = Ca.objects.create(name='test_ca')
+        cert = Cert.objects.create(name='test_cert', ca=ca)
         old_ca_cert = ca.certificate
         old_ca_key = ca.private_key
         old_ca_end = ca.validity_end
@@ -187,14 +200,10 @@ class ModelAdminTests(TestCase):
         old_cert_end = cert.validity_end
         old_cert_serial_number = cert.serial_number
         ma = self.ca_admin(Ca, self.site)
-        req.POST.update({
-            'post': None
-        })
+        req.POST.update({'post': None})
         r = ma.renew_ca(req, [ca])
         self.assertEqual(r.status_code, 200)
-        req.POST.update({
-            'post': 'yes'
-        })
+        req.POST.update({'post': 'yes'})
         ma.renew_ca(req, [ca])
         message = req.get_message_strings()
         cert.refresh_from_db()
@@ -207,13 +216,15 @@ class ModelAdminTests(TestCase):
         self.assertNotEqual(old_cert_key, cert.private_key)
         self.assertNotEqual(old_cert_cert, cert.certificate)
         self.assertEqual(len(message), 1)
-        self.assertEqual(message[0],
-                         '1 CA and its related certificates have been successfully renewed')
+        self.assertEqual(
+            message[0],
+            '1 CA and its related certificates have been successfully renewed',
+        )
 
     def test_renew_cert_action(self):
         req = deepcopy(request)
-        ca = Ca.objects.create(name="test_ca")
-        cert = Cert.objects.create(name="test_cert", ca=ca)
+        ca = Ca.objects.create(name='test_ca')
+        cert = Cert.objects.create(name='test_cert', ca=ca)
         old_ca_cert = ca.certificate
         old_ca_key = ca.private_key
         old_ca_end = ca.validity_end
@@ -223,14 +234,10 @@ class ModelAdminTests(TestCase):
         old_cert_end = cert.validity_end
         old_cert_serial_number = cert.serial_number
         ma = self.cert_admin(Cert, self.site)
-        req.POST.update({
-            'post': None
-        })
+        req.POST.update({'post': None})
         r = ma.renew_cert(req, [cert])
         self.assertEqual(r.status_code, 200)
-        req.POST.update({
-            'post': 'yes'
-        })
+        req.POST.update({'post': 'yes'})
         ma.renew_cert(req, [cert])
         message = req.get_message_strings()
         self.assertNotEqual(old_cert_serial_number, cert.serial_number)
