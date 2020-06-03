@@ -29,14 +29,20 @@ django-x509
    :target: https://pypi.org/project/black/
    :alt: code style: black
 
+------------
+
 .. image:: https://github.com/openwisp/django-x509/raw/master/docs/demo_x509.gif
    :alt: demo
+
 ------------
 
 Simple reusable django app implementing x509 PKI certificates management.
 
 **Want to help OpenWISP?** `Find out how to help us grow here
 <http://openwisp.io/docs/general/help-us.html>`_.
+
+.. image:: https://raw.githubusercontent.com/openwisp/openwisp2-docs/master/assets/design/openwisp-logo-black.svg
+  :target: http://openwisp.org
 
 ------------
 
