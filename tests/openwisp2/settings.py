@@ -61,9 +61,6 @@ TEMPLATES = [
     }
 ]
 
-DJANGO_X509_CA_MODEL = 'django_x509.Ca'
-DJANGO_X509_CERT_MODEL = 'django_x509.Cert'
-
 if os.environ.get('SAMPLE_APP', False):
     INSTALLED_APPS.remove('django_x509')
     EXTENDED_APPS = ['django_x509']
