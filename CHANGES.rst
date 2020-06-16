@@ -1,10 +1,16 @@
 Changelog
 =========
 
+Version 0.8.0 [unreleased]
+--------------------------
+
+- Added swapper;
+  **breaking change**: systems using django-x509 as a library must set ``DJANGO_X509_CA_MODEL`` & ``DJANGO_X509_CERT_MODEL`` values when upgrading or an exception will be raised
+
 Version 0.7.0 [2020-05-16]
 --------------------------
 
-- Added possibility to renew CAs and certificates 
+- Added possibility to renew CAs and certificates
 - Updated dependency to support cryptography 2.9
 
 Version 0.6.2 [2020-02-26]
