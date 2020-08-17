@@ -1,5 +1,5 @@
 language: python
-dist: xenial
+dist: focal
 
 python:
   - "3.7"
@@ -13,8 +13,9 @@ addons:
       - travis-ci/sqlite3
 
 env:
-  - DJANGO="django>=2.2,<3.0"
-  - DJANGO="django>=3.0,<3.1"
+  - DJANGO="django~=2.2"
+  - DJANGO="django~=3.0"
+  - DJANGO="django~=3.1"
 
 branches:
   only:

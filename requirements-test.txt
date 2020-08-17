@@ -1,2 +1,2 @@
 coveralls
-openwisp-utils[qa]>=0.4.0
+openwisp-utils[qa]~=0.6.0
