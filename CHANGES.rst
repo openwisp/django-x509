@@ -1,11 +1,14 @@
 Changelog
 =========
 
-Version 0.8.0 [unreleased]
+Version 0.8.0 [2020-08-18]
 --------------------------
 
 - Added swapper;
   **breaking change**: systems using django-x509 as a library must set ``DJANGO_X509_CA_MODEL`` & ``DJANGO_X509_CERT_MODEL`` values when upgrading or an exception will be raised
+- Add support for django 0.3.1
+- Add support for cryptography 3.0.0
+- Improved extending django-x509 documentation.
 
 Version 0.7.0 [2020-05-16]
 --------------------------
