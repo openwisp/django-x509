@@ -5,6 +5,11 @@ python:
   - "3.7"
   - "3.6"
 
+notifications:
+  # will post a summary as comment on github in case of failure
+  webhooks: https://www.travisbuddy.com/
+  on_success: never
+
 addons:
   apt:
     packages:
@@ -30,10 +35,9 @@ install:
   - pip install $DJANGO
   - python setup.py -q develop
 
-before_script:
-  - ./run-qa-checks
-
 script:
+  # check is done here to allow travis buddy to include a detailed failure summary
+  - ./run-qa-checks
   - coverage run --source=django_x509 runtests.py
   # SAMPLE tests do not influence coverage, so we can speed up tests with --parallel
   - SAMPLE_APP=1 ./runtests.py --parallel --keepdb
