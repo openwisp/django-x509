@@ -666,3 +666,18 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertNotEqual(old_cert2_key, cert2.private_key)
         self.assertLess(old_cert2_end, cert2.validity_end)
         self.assertNotEqual(old_cert2_serial_number, cert2.serial_number)
+
+    def test_ca_common_name_length(self):
+        common_name = (
+            'this is a very very very very very very'
+            ' very very very very very very long name'
+        )
+        with self.assertRaises(ValidationError) as context_manager:
+            self._create_ca(common_name=common_name)
+
+        msg = (
+            f'Ensure this value has at most 64 characters (it has {len(common_name)}).'
+        )
+        message_dict = context_manager.exception.message_dict
+        self.assertIn('common_name', message_dict)
+        self.assertEqual(message_dict['common_name'][0], msg)
