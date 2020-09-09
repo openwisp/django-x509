@@ -141,7 +141,7 @@ class BaseX509(models.Model):
         _('organizational unit name'), max_length=64, blank=True
     )
     email = models.EmailField(_('email address'), blank=True)
-    common_name = models.CharField(_('common name'), max_length=63, blank=True)
+    common_name = models.CharField(_('common name'), max_length=64, blank=True)
     extensions = JSONField(
         _('extensions'),
         default=list,
