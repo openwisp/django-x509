@@ -1,6 +1,16 @@
 Changelog
 =========
 
+Version 0.9.0 [2020-09-18]
+--------------------------
+
+Changes
+~~~~~~~
+
+- Models: updated ``max_length`` of ``common_name`` (``Ca`` and ``Cert``)
+  to from ``63`` to ``64``, following conventions about maximum length of
+  common names and hostnames
+
 Version 0.8.0 [2020-08-18]
 --------------------------
 
@@ -15,7 +25,7 @@ Changes
 
 - **Breaking change**: systems using django-x509 as a library must set ``DJANGO_X509_CA_MODEL``
   & ``DJANGO_X509_CERT_MODEL`` values in their settings.py when upgrading or an exception like the following one will be raised:
-  
+
   ``django.core.exceptions.ImproperlyConfigured: Could not find django_x509.Ca!``
 - Added support for django 3.1
 - Added support for cryptography 3.0.0
