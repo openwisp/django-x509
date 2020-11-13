@@ -3,7 +3,6 @@ from django.conf.urls import url
 from django.contrib.admin import ModelAdmin
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
-from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ngettext
@@ -50,7 +49,7 @@ class BaseAdmin(ModelAdmin):
     ]
 
     class Media:
-        css = {'all': (static('django-x509/css/admin.css'),)}
+        css = {'all': ('django-x509/css/admin.css',)}
 
     def __init__(self, *args, **kwargs):
         self.readonly_fields += ('created', 'modified')
