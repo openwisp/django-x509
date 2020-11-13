@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Version 0.9.1 [2020-11-13]
+--------------------------
+
+- [deps] Updated cryptography minimum version to 3.2 for security reasons
+  The version range has also been relaxed to avoid having to update it too often,
+  future versions up to but excluding 4.0 will be accepted
+- [fix] Removed ``static()`` call from admin media
+- [tests] Updated openwisp-utils[qa] to 0.7
+
 Version 0.9.0 [2020-09-18]
 --------------------------
 
