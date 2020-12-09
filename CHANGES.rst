@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 0.9.2 [2020-12-09]
+--------------------------
+
+- [deps] Pinned django-model-utils>=4.0.0,<4.1.0
+- [deps] Pin cryptography to ~=3.2 because version 3.3
+  contains backward incompatible changes
+
 Version 0.9.1 [2020-11-13]
 --------------------------
 
