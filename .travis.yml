@@ -1,6 +1,10 @@
 language: python
 dist: focal
 
+arch:
+  - amd64
+  - ppc64le
+
 python:
   - "3.7"
   - "3.6"
@@ -17,6 +21,10 @@ addons:
     sources:
       - travis-ci/sqlite3
 
+jobs:
+  exclude:
+    - arch: ppc64le
+      python: 3.7
 env:
   - DJANGO="django~=2.2"
   - DJANGO="django~=3.0"
