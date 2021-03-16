@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 0.9.3 [2021-03-16]
+--------------------------
+
+- [deps] Updated pyopenssl range to allow 20.0.x
+- [deps] Removed django-model-utils in favour of openwisp-utils
+  which centralizes several dependencies used by all the OpenWISP modules
+  (including ``django-model-utils``)
+
 Version 0.9.2 [2020-12-09]
 --------------------------
 
