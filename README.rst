@@ -1,8 +1,8 @@
 django-x509
 ===========
 
-.. image:: https://travis-ci.org/openwisp/django-x509.svg
-   :target: https://travis-ci.org/openwisp/django-x509
+.. image:: https://github.com/openwisp/django-x509/workflows/Django-x509%20Build/badge.svg?branch=master
+   :target: https://github.com/openwispdjango-x509/actions?query=workflow%3A"Django-x509+Build"
    :alt: CI build status
 
 .. image:: https://coveralls.io/repos/openwisp/django-x509/badge.svg
