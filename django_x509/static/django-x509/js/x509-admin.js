@@ -17,7 +17,7 @@ django.jQuery(function ($) {
     });
     var operationType = $('.field-operation_type select');
     // enable switcher only in add forms
-    if (!operationType.length || $('form .deletelink-box').length > 0) {
+    if (!operationType.length || $('form .deletelink-box').length > 0 || $('input[name=_popup]').length > 0) {
         $('.field-operation_type').hide();
         return;
     }
