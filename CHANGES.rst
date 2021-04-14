@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 0.9.4 [2021-04-14]
+--------------------------
+
+- [fix] Fixed rendering of CA and cert edit pages when in popup mode
+  (`issue #113 <https://github.com/openwisp/django-x509/issues/113>`_)
+- [fix] Fixed dependency version definition (minor fix)
+- [deps] Set min cryptography version to 3.4, allow any higher 3.x
+
 Version 0.9.3 [2021-03-16]
 --------------------------
 
