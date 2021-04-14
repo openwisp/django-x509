@@ -19,6 +19,8 @@ jobs:
         python-version:
           - 3.6
           - 3.7
+          - 3.8
+          - 3.9
         django-version:
           - django~=2.2.0
           - django~=3.0.0
@@ -36,7 +38,7 @@ jobs:
 
     - name: Install python dependencies
       run: pip install -U "pip==20.2.4" setuptools wheel
-        
+
     - name: Install npm dependencies
       run: sudo npm install -g jslint
 
@@ -55,7 +57,7 @@ jobs:
       run: |
         coverage run --source=django_x509 runtests.py
         SAMPLE_APP=1 ./runtests.py --parallel --keepdb
-      
+
     - name: Upload Coverage
       run: coveralls --service=github
       env:
