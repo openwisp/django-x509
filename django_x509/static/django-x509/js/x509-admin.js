@@ -15,9 +15,11 @@ django.jQuery(function ($) {
             range.select();
         }
     });
+    var changePopupPage = new RegExp(/\d\/change\/\?/);
+    var url = window.location.href;
     var operationType = $('.field-operation_type select');
     // enable switcher only in add forms
-    if (!operationType.length || $('form .deletelink-box').length > 0) {
+    if (!operationType.length || $('form .deletelink-box').length > 0 || changePopupPage.test(url)) {
         $('.field-operation_type').hide();
         return;
     }
