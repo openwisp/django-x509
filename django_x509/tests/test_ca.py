@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
@@ -13,12 +14,19 @@ from . import TestX509Mixin
 
 Ca = load_model('django_x509', 'Ca')
 Cert = load_model('django_x509', 'Cert')
+User = get_user_model()
 
 
 class TestCa(TestX509Mixin, TestCase):
     """
     tests for Ca model
     """
+
+    def setUp(self):
+        User.objects.create_superuser(
+            username='admin', password='tester', email='admin@admin.com'
+        )
+        self.client.login(username='admin', password='tester')
 
     def _prepare_revoked(self):
         ca = self._create_ca()
