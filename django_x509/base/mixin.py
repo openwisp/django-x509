@@ -9,11 +9,9 @@ class CrlDownloadMixin:
     def crl_view(self, request, pk):
         authenticated = request.user.is_authenticated
         authenticated = authenticated() if callable(authenticated) else authenticated
-        if app_settings.CRL_PROTECTED or not authenticated:
+        if app_settings.CRL_PROTECTED and not authenticated:
             return HttpResponse(_('Forbidden'), status=403, content_type='text/plain')
         instance = get_object_or_404(self.model, pk=pk)
-        response = HttpResponse(
+        return HttpResponse(
             instance.crl, status=200, content_type='application/x-pem-file'
         )
-        response['Content-Disposition'] = f'attachment; filename={pk}.crl'
-        return response
