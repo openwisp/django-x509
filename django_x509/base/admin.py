@@ -1,14 +1,13 @@
 from django import forms
 from django.conf.urls import url
 from django.contrib.admin import ModelAdmin
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ngettext
 from django.utils.translation import ugettext_lazy as _
 
-from django_x509 import settings as app_settings
+from .mixin import CrlDownloadMixin
 
 
 class X509Form(forms.ModelForm):
@@ -97,7 +96,7 @@ class BaseAdmin(ModelAdmin):
         return context
 
 
-class AbstractCaAdmin(BaseAdmin):
+class AbstractCaAdmin(BaseAdmin, CrlDownloadMixin):
     list_filter = ['key_length', 'digest', 'created']
     fields = [
         'operation_type',
@@ -131,16 +130,6 @@ class AbstractCaAdmin(BaseAdmin):
         return [
             url(r'^x509/ca/(?P<pk>[^/]+).crl$', self.crl_view, name='crl')
         ] + super().get_urls()
-
-    def crl_view(self, request, pk):
-        authenticated = request.user.is_authenticated
-        authenticated = authenticated() if callable(authenticated) else authenticated
-        if app_settings.CRL_PROTECTED and not authenticated:
-            return HttpResponse(_('Forbidden'), status=403, content_type='text/plain')
-        instance = get_object_or_404(self.model, pk=pk)
-        return HttpResponse(
-            instance.crl, status=200, content_type='application/x-pem-file'
-        )
 
     def renew_ca(self, request, queryset):
         if request.POST.get('post'):
