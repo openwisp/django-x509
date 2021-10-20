@@ -76,7 +76,7 @@ Project goals
 Dependencies
 ------------
 
-* Python >= 3.6
+* Python >= 3.7
 * OpenSSL
 
 Install stable version from pypi
