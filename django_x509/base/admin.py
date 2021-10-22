@@ -5,8 +5,8 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
-from django.utils.translation import ugettext_lazy as _
 
 from django_x509 import settings as app_settings
 

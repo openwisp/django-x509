@@ -1,4 +1,4 @@
-django>=2.2.0,<3.2.0
+django>=3.0.0,<=4.0a1
 openwisp-utils~=0.7.2
 jsonfield>=3.1.0,<4.0.0
 cryptography~=3.4
