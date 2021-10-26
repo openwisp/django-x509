@@ -1,5 +1,5 @@
 from django import forms
-from django.conf.urls import url
+from django.conf.urls import path
 from django.contrib.admin import ModelAdmin
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -129,7 +129,7 @@ class AbstractCaAdmin(BaseAdmin):
 
     def get_urls(self):
         return [
-            url(r'^x509/ca/(?P<pk>[^/]+).crl$', self.crl_view, name='crl')
+            path('x509/ca/(?P<pk>[^/]+).crl', self.crl_view, name='crl')
         ] + super().get_urls()
 
     def crl_view(self, request, pk):
