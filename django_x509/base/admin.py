@@ -1,9 +1,8 @@
 from django import forms
-from django.conf.urls import path
 from django.contrib.admin import ModelAdmin
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
