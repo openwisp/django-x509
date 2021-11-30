@@ -128,7 +128,7 @@ class AbstractCaAdmin(BaseAdmin):
 
     def get_urls(self):
         return [
-            path('x509/ca/(?P<pk>[^/]+).crl', self.crl_view, name='crl')
+            path('x509/ca/<int:pk>.crl', self.crl_view, name='crl')
         ] + super().get_urls()
 
     def crl_view(self, request, pk):
