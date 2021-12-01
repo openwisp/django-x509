@@ -9,9 +9,9 @@ django-x509
    :target: https://coveralls.io/r/openwisp/django-x509
    :alt: Test Coverage
 
-.. image:: https://requires.io/github/openwisp/django-x509/requirements.svg?branch=master
-   :target: https://requires.io/github/openwisp/django-x509/requirements/?branch=master
-   :alt: Requirements Status
+.. image:: https://img.shields.io/librariesio/release/github/openwisp/django-x509
+   :target: https://libraries.io/github/openwisp/django-x509#repository_dependencies
+   :alt: Dependency monitoring
 
 .. image:: https://img.shields.io/gitter/room/nwjs/nw.js.svg
    :target: https://gitter.im/openwisp/general
