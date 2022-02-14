@@ -291,6 +291,8 @@ class BaseX509(models.Model):
         generates a new x509 certificate (CA or end-entity)
         """
         key = crypto.PKey()
+        if not self.key_length:
+            return
         key.generate_key(crypto.TYPE_RSA, int(self.key_length))
         cert = crypto.X509()
         subject = self._fill_subject(cert.get_subject())
@@ -310,6 +312,8 @@ class BaseX509(models.Model):
         cert.set_issuer(issuer)
         cert.set_pubkey(key)
         cert = self._add_extensions(cert)
+        if not self.digest:
+            return
         cert.sign(issuer_key, str(self.digest))
         self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode(
             'utf-8'
