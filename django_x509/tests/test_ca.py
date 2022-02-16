@@ -683,6 +683,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(message_dict['common_name'][0], msg)
 
     def test_ca_without_key_length_and_digest_algo(self):
-
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as e:
             self._create_ca(key_length=None, digest=None)
+        self.assertIn('key_length', e.exception.error_dict)
+        self.assertIn('digest', e.exception.error_dict)
