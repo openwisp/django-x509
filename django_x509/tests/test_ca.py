@@ -681,3 +681,8 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         message_dict = context_manager.exception.message_dict
         self.assertIn('common_name', message_dict)
         self.assertEqual(message_dict['common_name'][0], msg)
+
+    def test_ca_without_key_length_and_digest_algo(self):
+
+        with self.assertRaises(ValidationError):
+            self._create_ca(key_length=None, digest=None)
