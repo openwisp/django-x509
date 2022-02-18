@@ -33,9 +33,7 @@ class Migration(migrations.Migration):
                 (
                     'key_length',
                     models.CharField(
-                        blank=True,
                         choices=[
-                            ('', ''),
                             ('512', '512'),
                             ('1024', '1024'),
                             ('2048', '2048'),
@@ -50,9 +48,7 @@ class Migration(migrations.Migration):
                 (
                     'digest',
                     models.CharField(
-                        blank=True,
                         choices=[
-                            ('', ''),
                             ('sha1', 'SHA1'),
                             ('sha224', 'SHA224'),
                             ('sha256', 'SHA256'),
@@ -191,9 +187,7 @@ class Migration(migrations.Migration):
                 (
                     'key_length',
                     models.CharField(
-                        blank=True,
                         choices=[
-                            ('', ''),
                             ('512', '512'),
                             ('1024', '1024'),
                             ('2048', '2048'),
@@ -208,9 +202,7 @@ class Migration(migrations.Migration):
                 (
                     'digest',
                     models.CharField(
-                        blank=True,
                         choices=[
-                            ('', ''),
                             ('sha1', 'SHA1'),
                             ('sha224', 'SHA224'),
                             ('sha256', 'SHA256'),
@@ -380,9 +372,7 @@ class Migration(migrations.Migration):
                 (
                     'key_length',
                     models.CharField(
-                        blank=True,
                         choices=[
-                            ('', ''),
                             ('512', '512'),
                             ('1024', '1024'),
                             ('2048', '2048'),
@@ -397,9 +387,7 @@ class Migration(migrations.Migration):
                 (
                     'digest',
                     models.CharField(
-                        blank=True,
                         choices=[
-                            ('', ''),
                             ('sha1', 'SHA1'),
                             ('sha224', 'SHA224'),
                             ('sha256', 'SHA256'),
