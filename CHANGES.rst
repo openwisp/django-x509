@@ -8,6 +8,7 @@ Version 0.9.4 [2021-04-14]
   (`issue #113 <https://github.com/openwisp/django-x509/issues/113>`_)
 - [fix] Fixed dependency version definition (minor fix)
 - [deps] Set min cryptography version to 3.4, allow any higher 3.x
+- [deps] Added support for Python ``3.8`` and ``3.9``
 
 Version 0.9.3 [2021-03-16]
 --------------------------
