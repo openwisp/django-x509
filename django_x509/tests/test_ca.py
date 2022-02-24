@@ -683,7 +683,12 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(message_dict['common_name'][0], msg)
 
     def test_ca_without_key_length_and_digest_algo(self):
-        with self.assertRaises(ValidationError) as context_manager:
-            self._create_ca(key_length=None, digest=None)
-        self.assertIn('key_length', context_manager.exception.error_dict)
-        self.assertIn('digest', context_manager.exception.error_dict)
+        try:
+            self._create_ca(key_length='', digest='')
+        except ValidationError as e:
+            self.assertIn('key_length', e.error_dict)
+            self.assertIn('digest', e.error_dict)
+        except Exception as e:
+            self.fail(f'Got exception: {e}')
+        else:
+            self.fail('ValidationError not raised as expected')
