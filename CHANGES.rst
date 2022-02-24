@@ -1,6 +1,24 @@
 Changelog
 =========
 
+Version 1.0.0 [2022-02-25]
+--------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fixed `bug in admin <https://github.com/openwisp/django-x509/issues/119>`_
+  for creating CA with blank ``key_length`` and ``digest`` fields
+
+Changes
+~~~~~~~
+
+- Dropped support for Python ``3.6``
+- Added support for Python ``3.8`` and ``3.9``
+- Added support for Django ``3.2.x`` and ``4.0.x``
+- Bumped ``cryptography~=36.0.0``
+- Bumped ``pyopenssl~=21.0.0``
+
 Version 0.9.4 [2021-04-14]
 --------------------------
 
