@@ -20,7 +20,6 @@ generalized_time = '%Y%m%d%H%M%SZ'
 utc_time = '%y%m%d%H%M%SZ'
 
 KEY_LENGTH_CHOICES = (
-    ('', ''),
     ('512', '512'),
     ('1024', '1024'),
     ('2048', '2048'),
@@ -28,7 +27,6 @@ KEY_LENGTH_CHOICES = (
 )
 
 DIGEST_CHOICES = (
-    ('', ''),
     ('sha1', 'SHA1'),
     ('sha224', 'SHA224'),
     ('sha256', 'SHA256'),
@@ -114,7 +112,6 @@ class BaseX509(models.Model):
     key_length = models.CharField(
         _('key length'),
         help_text=_('bits'),
-        blank=True,
         choices=KEY_LENGTH_CHOICES,
         default=default_key_length,
         max_length=6,
@@ -122,7 +119,6 @@ class BaseX509(models.Model):
     digest = models.CharField(
         _('digest algorithm'),
         help_text=_('bits'),
-        blank=True,
         choices=DIGEST_CHOICES,
         default=default_digest_algorithm,
         max_length=8,
