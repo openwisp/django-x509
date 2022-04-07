@@ -24,7 +24,14 @@ class BaseAdmin(ModelAdmin):
     ModelAdmin for TimeStampedEditableModel
     """
 
-    list_display = ['name', 'key_length', 'digest', 'created', 'modified']
+    list_display = [
+        'name',
+        'key_length',
+        'digest',
+        'validity_end',
+        'created',
+        'modified',
+    ]
     search_fields = ['name', 'serial_number', 'common_name']
     actions_on_bottom = True
     save_on_top = True
