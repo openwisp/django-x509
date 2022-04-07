@@ -154,20 +154,17 @@ class AbstractCaAdmin(BaseAdmin):
             for ca in queryset:
                 ca.renew()
                 renewed_rows += 1
-            message = (
-                ngettext(
-                    (
-                        '%(renewed_rows)d CA and its related certificates have '
-                        'been successfully renewed'
-                    ),
-                    (
-                        '%(renewed_rows)d CAs and their related '
-                        'certificates have been successfully renewed'
-                    ),
-                    renewed_rows,
-                )
-                % {'renewed_rows': renewed_rows}
-            )
+            message = ngettext(
+                (
+                    '%(renewed_rows)d CA and its related certificates have '
+                    'been successfully renewed'
+                ),
+                (
+                    '%(renewed_rows)d CAs and their related '
+                    'certificates have been successfully renewed'
+                ),
+                renewed_rows,
+            ) % {'renewed_rows': renewed_rows}
             self.message_user(request, message)
         else:
             data = dict()
@@ -252,14 +249,11 @@ class AbstractCertAdmin(BaseAdmin):
             for cert in queryset:
                 cert.renew()
                 renewed_rows += 1
-            message = (
-                ngettext(
-                    '%(renewed_rows)d Certificate has been successfully renewed',
-                    '%(renewed_rows)d Certificates have been successfully renewed',
-                    renewed_rows,
-                )
-                % {'renewed_rows': renewed_rows}
-            )
+            message = ngettext(
+                '%(renewed_rows)d Certificate has been successfully renewed',
+                '%(renewed_rows)d Certificates have been successfully renewed',
+                renewed_rows,
+            ) % {'renewed_rows': renewed_rows}
             self.message_user(request, message)
         else:
             return render(
