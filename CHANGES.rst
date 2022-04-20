@@ -1,6 +1,20 @@
 Changelog
 =========
 
+Version 1.1.0 [2022-04-20]
+--------------------------
+
+Features
+~~~~~~~~
+
+- Added ``validity_end`` to admin list of ``Ca`` and ``Cert``
+
+Changes
+~~~~~~~
+
+- Removed test dependency on coveralls (it's defined in openwisp-utils)
+- Reformatted code with the latest version of the black formatter
+
 Version 1.0.0 [2022-02-25]
 --------------------------
 
