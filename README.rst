@@ -2,7 +2,7 @@ django-x509
 ===========
 
 .. image:: https://github.com/openwisp/django-x509/workflows/Django-x509%20Build/badge.svg?branch=master
-   :target: https://github.com/openwispdjango-x509/actions?query=workflow%3A"Django-x509+Build%22"
+   :target: https://github.com/openwisp/django-x509/actions?query=workflow%3A"Django-x509+Build%22"
    :alt: CI build status
 
 .. image:: https://coveralls.io/repos/openwisp/django-x509/badge.svg
