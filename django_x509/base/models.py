@@ -191,7 +191,7 @@ class BaseX509(models.Model):
         ):
             raise ValidationError(
                 _(
-                    'When importing an existing certificate, both'
+                    'When importing an existing certificate, both '
                     'keys (private and public) must be present'
                 )
             )
