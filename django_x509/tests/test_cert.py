@@ -379,14 +379,8 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
             )
             cert.full_clean()
         except ValidationError as e:
-            # cryptography 2.4 and 2.6 have different error message formats
             error_msg = str(e.message_dict['certificate'][0])
-            self.assertTrue(
-                "('PEM routines', 'PEM_read_bio', 'no start line')"
-                in error_msg  # cryptography 2.4+
-                or "('PEM routines', 'get_name', 'no start line')"
-                in error_msg  # cryptography 2.6+
-            )
+            self.assertTrue("('PEM routines', '', 'no start line')" in error_msg)
         else:
             self.fail('ValidationError not raised')
 
@@ -407,14 +401,8 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
             )
             cert.full_clean()
         except ValidationError as e:
-            # cryptography 2.4 and 2.6 have different error message formats
             error_msg = str(e.message_dict['private_key'][0])
-            self.assertTrue(
-                "('PEM routines', 'PEM_read_bio', 'no start line')"
-                in error_msg  # cryptography 2.4+
-                or "('PEM routines', 'get_name', 'no start line')"
-                in error_msg  # cryptography 2.6+
-            )
+            self.assertTrue("('DECODER routines', '', 'unsupported')" in error_msg)
         else:
             self.fail('ValidationError not raised')
 
