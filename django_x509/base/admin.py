@@ -217,6 +217,7 @@ class AbstractCertAdmin(BaseAdmin):
         'modified',
     ]
     actions = ['revoke_action', 'renew_cert']
+    autocomplete_fields = ['ca']
 
     class Media:
         js = ('admin/js/jquery.init.js', 'django-x509/js/x509-admin.js')
