@@ -2,6 +2,5 @@
 django>=3.2.18,!=4.0.*,<4.3
 openwisp-utils @ https://github.com/openwisp/openwisp-utils/tarball/master
 jsonfield>=3.1.0,<4.0.0
-cryptography~=41.0.1
-# TODO: Update when cryptography 23.3.0 is realsed
-pyopenssl @ https://github.com/pyca/pyopenssl/tarball/5134ca1fc2ca29fefea89dcf6bce2a1234c5ca12
+cryptography~=42.0.2
+pyOpenSSL~=24.0.0
