@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -680,3 +681,32 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self.fail(f'Got exception: {e}')
         else:
             self.fail('ValidationError not raised as expected')
+
+    def test_import_with_various_signature_algorithms(self):
+        algorithms = [
+            'ecdsa-with-SHA1',
+            'ecdsa-with-SHA256',
+            'ecdsa-with-SHA384',
+            'ecdsa-with-SHA512',
+            'dsaWithSHA1',
+            'dsaWithSHA256',
+            'ed25519',
+            'ed448',
+        ]
+
+        for algo in algorithms:
+            cert_mock = MagicMock()
+            cert_mock.get_signature_algorithm.return_value = algo.encode()
+            cert_mock.get_pubkey.return_value.bits.return_value = '384'
+            cert_mock.get_notBefore.return_value.decode.return_value = '20240101000000Z'
+
+            with patch(
+                'django_x509.base.models.crypto.load_certificate',
+                return_value=cert_mock,
+            ):
+                ca = self._create_ca()
+
+                try:
+                    ca.full_clean()
+                except ValidationError as e:
+                    self.fail(f"Unexpected ValidationError for {algo}: {e}")

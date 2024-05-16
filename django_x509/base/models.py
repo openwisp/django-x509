@@ -32,6 +32,14 @@ DIGEST_CHOICES = (
     ('sha256', 'SHA256'),
     ('sha384', 'SHA384'),
     ('sha512', 'SHA512'),
+    ('ecdsa-with-sha1', 'ECDSA with SHA1'),
+    ('ecdsa-with-sha256', 'ECDSA with SHA256'),
+    ('ecdsa-with-sha384', 'ECDSA with SHA384'),
+    ('ecdsa-with-sha512', 'ECDSA with SHA512'),
+    ('dsaWithSHA1', 'DSA with SHA1'),
+    ('dsaWithSHA256', 'DSA with SHA256'),
+    ('ed25519', 'Ed25519'),
+    ('ed448', 'Ed448'),
 )
 
 SIGNATURE_MAPPING = {
@@ -40,6 +48,15 @@ SIGNATURE_MAPPING = {
     'sha256WithRSAEncryption': 'sha256',
     'sha384WithRSAEncryption': 'sha384',
     'sha512WithRSAEncryption': 'sha512',
+    'ecdsa-with-SHA384': 'sha384',
+    'ecdsa-with-SHA1': 'sha1',
+    'ecdsa-with-SHA256': 'sha256',
+    'ecdsa-with-SHA384': 'sha384',
+    'ecdsa-with-SHA512': 'sha512',
+    'dsaWithSHA1': 'sha1',
+    'dsaWithSHA256': 'sha256',
+    'ed25519': 'ed25519',
+    'ed448': 'ed448',
 }
 
 
@@ -121,7 +138,7 @@ class BaseX509(models.Model):
         help_text=_('bits'),
         choices=DIGEST_CHOICES,
         default=default_digest_algorithm,
-        max_length=8,
+        max_length=20,
     )
     validity_start = models.DateTimeField(
         blank=True, null=True, default=default_validity_start
