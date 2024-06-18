@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.admin import ModelAdmin
+from django.contrib.admin import ModelAdmin, action
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import path, reverse
@@ -148,6 +148,7 @@ class AbstractCaAdmin(BaseAdmin):
             instance.crl, status=200, content_type='application/x-pem-file'
         )
 
+    @action(description=_('Renew selected CAs'), permissions=['change'])
     def renew_ca(self, request, queryset):
         if request.POST.get('post'):
             renewed_rows = 0
@@ -182,8 +183,6 @@ class AbstractCaAdmin(BaseAdmin):
                     data, ca_count=ca_count, cert_count=cert_count
                 ),
             )
-
-    renew_ca.short_description = _('Renew selected CAs')
 
 
 class AbstractCertAdmin(BaseAdmin):
@@ -230,6 +229,7 @@ class AbstractCertAdmin(BaseAdmin):
 
     ca_url.short_description = 'CA'
 
+    @action(description=_('Revoke selected certificates'), permissions=['change'])
     def revoke_action(self, request, queryset):
         rows = 0
         for cert in queryset:
@@ -242,8 +242,7 @@ class AbstractCertAdmin(BaseAdmin):
         message = '{0} revoked.'.format(bit)
         self.message_user(request, _(message))
 
-    revoke_action.short_description = _('Revoke selected certificates')
-
+    @action(description=_('Renew selected certificates'), permissions=['change'])
     def renew_cert(self, request, queryset):
         if request.POST.get('post'):
             renewed_rows = 0
@@ -262,8 +261,6 @@ class AbstractCertAdmin(BaseAdmin):
                 'admin/django_x509/renew_confirmation.html',
                 context=self.get_context(queryset, cert_count=len(queryset)),
             )
-
-    renew_cert.short_description = _('Renew selected certificates')
 
 
 # For backward compatibility
