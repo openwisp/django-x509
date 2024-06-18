@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib import messages
 from django.contrib.admin import ModelAdmin, action
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -166,7 +167,7 @@ class AbstractCaAdmin(BaseAdmin):
                 ),
                 renewed_rows,
             ) % {'renewed_rows': renewed_rows}
-            self.message_user(request, message)
+            self.message_user(request, message, level=messages.SUCCESS)
         else:
             data = dict()
             ca_count = 0
@@ -240,7 +241,7 @@ class AbstractCertAdmin(BaseAdmin):
         else:
             bit = '{0} certificates were'.format(rows)
         message = '{0} revoked.'.format(bit)
-        self.message_user(request, _(message))
+        self.message_user(request, _(message), level=messages.SUCCESS)
 
     @action(description=_('Renew selected certificates'), permissions=['change'])
     def renew_cert(self, request, queryset):
@@ -254,7 +255,7 @@ class AbstractCertAdmin(BaseAdmin):
                 '%(renewed_rows)d Certificates have been successfully renewed',
                 renewed_rows,
             ) % {'renewed_rows': renewed_rows}
-            self.message_user(request, message)
+            self.message_user(request, message, level=messages.SUCCESS)
         else:
             return render(
                 request,
