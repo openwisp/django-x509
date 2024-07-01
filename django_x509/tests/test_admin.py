@@ -2,11 +2,15 @@ from copy import deepcopy
 
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
+from openwisp_utils.tests import AdminActionPermTestMixin
 from swapper import load_model
 
 from . import MessagingRequest
 
+User = get_user_model()
 Ca = load_model('django_x509', 'Ca')
 Cert = load_model('django_x509', 'Cert')
 
@@ -101,7 +105,7 @@ cert_readonly = [
 ]
 
 
-class ModelAdminTests(TestCase):
+class ModelAdminTests(AdminActionPermTestMixin, TestCase):
     app_label = 'django_x509'
     ca_admin = admin.site._registry[Ca].__class__
     cert_admin = admin.site._registry[Cert].__class__
@@ -187,6 +191,22 @@ class ModelAdminTests(TestCase):
         self.assertEqual(len(m), 1)
         self.assertEqual(str(m[0]), '1 certificate was revoked.')
 
+    def test_revoke_action_perms(self):
+        user = User.objects.create(
+            username='tester', email='tester@openwisp.org', is_staff=True
+        )
+        cert = Cert.objects.create(
+            name='test_cert', ca=Ca.objects.create(name='test_ca')
+        )
+        self._test_action_permission(
+            path=reverse(f'admin:{self.app_label}_cert_changelist'),
+            action='revoke_action',
+            user=user,
+            obj=cert,
+            message='1 certificate was revoked.',
+            required_perms=['change'],
+        )
+
     def test_renew_ca_action(self):
         req = deepcopy(request)
         ca = Ca.objects.create(name='test_ca')
@@ -221,6 +241,24 @@ class ModelAdminTests(TestCase):
             '1 CA and its related certificates have been successfully renewed',
         )
 
+    def test_renew_ca_action_perms(self):
+        """
+        This test verifies that only users with change permission
+        can perform the renew operation for CAs and certificates.
+        """
+        user = User.objects.create(
+            username='tester', email='tester@openwisp.org', is_staff=True
+        )
+        ca = Ca.objects.create(name='test_ca')
+        self._test_action_permission(
+            path=reverse(f'admin:{self.app_label}_ca_changelist'),
+            action='renew_ca',
+            user=user,
+            obj=ca,
+            message='1 CA and its related certificates have been successfully renewed',
+            required_perms=['change'],
+        )
+
     def test_renew_cert_action(self):
         req = deepcopy(request)
         ca = Ca.objects.create(name='test_ca')
@@ -250,3 +288,19 @@ class ModelAdminTests(TestCase):
         self.assertEqual(old_ca_serial_number, ca.serial_number)
         self.assertEqual(len(message), 1)
         self.assertEqual(message[0], '1 Certificate has been successfully renewed')
+
+    def test_renew_cert_action_perms(self):
+        user = User.objects.create(
+            username='tester', email='tester@openwisp.org', is_staff=True
+        )
+        cert = Cert.objects.create(
+            name='test_cert', ca=Ca.objects.create(name='test_ca')
+        )
+        self._test_action_permission(
+            path=reverse(f'admin:{self.app_label}_cert_changelist'),
+            action='renew_cert',
+            user=user,
+            obj=cert,
+            message='1 Certificate has been successfully renewed',
+            required_perms=['change'],
+        )
