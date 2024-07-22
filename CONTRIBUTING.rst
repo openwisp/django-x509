@@ -1,5 +1,1 @@
-Contributing
-============
-
-Thanks for your interest! Just `follow the guidelines
-<https://github.com/openwisp/django-x509#contributing>`_ and submit a PR.
+Please refer to the `OpenWISP Contribution Guidelines <http://openwisp.io/docs/developer/contributing.html>`_.
