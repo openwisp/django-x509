@@ -35,17 +35,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install python dependencies
-      run: pip install -U "pip==20.2.4" setuptools wheel
-
-    - name: Install npm dependencies
-      run: sudo npm install -g jslint
-
-    - name: Install test dependencies
-      run: pip install -U -r requirements-test.txt
-
-    - name: Install django-x509
+    - name: Install Dependencies
+      id: deps
       run: |
+        pip install -U "pip==20.2.4" setuptools wheel
+        sudo npm install -g jslint
+        pip install -U -r requirements-test.txt
         pip install -U -e .
         pip install ${{ matrix.django-version }}
 
@@ -53,11 +48,13 @@ jobs:
       run: ./run-qa-checks
 
     - name: Tests
+      if: ${{ !cancelled() && steps.deps.conclusion == 'success' }}
       run: |
         coverage run --source=django_x509 runtests.py
         SAMPLE_APP=1 ./runtests.py --parallel --keepdb
 
     - name: Upload Coverage
+      if: ${{ success() }}
       run: coveralls --service=github
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
