@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Version 1.1.1 [2024-07-26]
+--------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Ensure that admin actions are only executed if the user has the
+  necessary permission.
+
 Version 1.1.0 [2022-04-20]
 --------------------------
 
