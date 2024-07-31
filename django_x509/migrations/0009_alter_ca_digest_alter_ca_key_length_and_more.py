@@ -5,7 +5,6 @@ import django_x509.base.models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('django_x509', '0008_common_name_max_length'),
     ]

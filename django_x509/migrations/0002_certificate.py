@@ -6,7 +6,6 @@ import django_x509.base.models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [('django_x509', '0001_initial')]
 
     operations = [

@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [('django_x509', '0006_passphrase_field')]
 
     operations = [

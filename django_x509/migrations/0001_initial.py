@@ -11,7 +11,6 @@ import django_x509.base.models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = []

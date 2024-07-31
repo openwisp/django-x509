@@ -1,0 +1,22 @@
+[tool.coverage.run]
+source = ["django_x509"]
+parallel = true
+concurrency = ["multiprocessing"]
+omit = [
+    "django_x509/__init__.py",
+    "*/tests/*"
+]
+
+[tool.docstrfmt]
+extend_exclude = ["**/*.py"]
+
+[tool.isort]
+known_third_party = ["django"]
+known_first_party = ["django_x509"]
+default_section = "THIRDPARTY"
+line_length = 88
+multi_line_output = 3
+use_parentheses = true
+include_trailing_comma = true
+force_grid_wrap = 0
+skip = ["migrations"]

@@ -10,7 +10,6 @@ import model_utils.fields
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = []

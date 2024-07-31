@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [('django_x509', '0002_certificate')]
 
     operations = [
