@@ -1,15 +1,3 @@
-[tool.coverage.run]
-parallel = true
-omit = [
-    "/*/__init__.py",
-    "/*/tests*",
-    "/tests",
-    "/setup.py",
-    "/*/migrations/*",
-]
-source = ["django_x509"]
-concurrency = ["multiprocessing"]
-
 [tool.docstrfmt]
 extend_exclude = ["**/*.py"]
 
