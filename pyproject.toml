@@ -1,9 +1,9 @@
 [tool.coverage.run]
 parallel = true
 omit = [
-    "/*/test*",
-    "/tests",
     "/*/__init__.py",
+    "/*/tests*",
+    "/tests",
     "/setup.py",
     "/*/migrations/*",
 ]
