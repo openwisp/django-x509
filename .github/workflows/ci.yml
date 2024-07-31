@@ -52,8 +52,11 @@ jobs:
     - name: Tests
       if: ${{ !cancelled() && steps.deps.conclusion == 'success' }}
       run: |
-        coverage run --source=django_x509 runtests.py
+        coverage run runtests.py --parallel
         SAMPLE_APP=1 ./runtests.py --parallel --keepdb
+        coverage combine
+        coverage xml
+        coverage report
 
     - name: Upload Coverage
       if: ${{ success() }}

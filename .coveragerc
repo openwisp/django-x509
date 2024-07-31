@@ -5,3 +5,5 @@ omit =
     /*/__init__.py
     /setup.py
     /*/migrations/*
+source = django_x509
+parallel = true
