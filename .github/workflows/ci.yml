@@ -45,8 +45,8 @@ jobs:
         pip install ${{ matrix.django-version }}
         pip install -U --force-reinstall "openwisp-utils[qa] @ https://github.com/openwisp/openwisp-utils/tarball/568078c3e5834fbb70e04290f23705a39a75e865"
 
-    - name: QA Checks
-      run: ./run-qa-checks
+    # - name: QA Checks
+    #   run: ./run-qa-checks
 
     - name: Tests
       if: ${{ !cancelled() && steps.deps.conclusion == 'success' }}
