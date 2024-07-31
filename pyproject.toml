@@ -1,0 +1,25 @@
+[tool.coverage.run]
+parallel = true
+omit = [
+    "/*/test*",
+    "/tests",
+    "/*/__init__.py",
+    "/setup.py",
+    "/*/migrations/*",
+]
+source = ["django_x509"]
+concurrency = ["multiprocessing"]
+
+[tool.docstrfmt]
+extend_exclude = ["**/*.py"]
+
+[tool.isort]
+known_third_party = ["django"]
+known_first_party = ["django_x509"]
+default_section = "THIRDPARTY"
+line_length = 88
+multi_line_output = 3
+use_parentheses = true
+include_trailing_comma = true
+force_grid_wrap = 0
+skip = ["migrations"]
