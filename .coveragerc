@@ -1,0 +1,10 @@
+[run]
+parallel = true
+concurrency = multiprocessing
+source = django_x509
+omit =
+    /*/test*
+    /tests
+    /*/__init__.py
+    /setup.py
+    /*/migrations/*
