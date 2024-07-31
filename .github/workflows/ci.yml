@@ -38,7 +38,7 @@ jobs:
     - name: Install Dependencies
       id: deps
       run: |
-        pip install -U "pip==20.2.4" setuptools wheel
+        pip install -U pip setuptools wheel
         sudo npm install -g jslint
         pip install -U -r requirements-test.txt
         pip install -U -e .
