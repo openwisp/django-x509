@@ -1,10 +1,24 @@
 Changelog
 =========
 
-Version 1.2.0 [unreleased]
+Version 1.2.0 [2024-08-14]
 --------------------------
 
-WIP
+Changes
+~~~~~~~
+
+- Admin actions require model permissions to perform operation.
+
+Dependencies
+++++++++++++
+
+- Bumped ``openwisp-utils~=1.1.0``.
+- Bumped ``cryptography~=43.0.0``.
+- Bumped ``pyOpenSSL~=24.2.1``.
+- Added support for Django ``4.2``.
+- Dropped support for Django < ``3.2``.
+- Added support for Python ``3.10``.
+- Dropped support for Python ``3.7``.
 
 Version 1.1.0 [2022-04-20]
 --------------------------
