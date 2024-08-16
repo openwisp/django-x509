@@ -1,1 +1,1 @@
-openwisp-utils[qa] @ https://github.com/openwisp/openwisp-utils/tarball/master
+openwisp-utils[qa]~=1.1.0
