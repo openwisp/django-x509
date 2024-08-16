@@ -1,6 +1,6 @@
 # Does not supports Django 4.0.0
-django>=3.2.18,!=4.0.0.a,<5.1
-openwisp-utils @ https://github.com/openwisp/openwisp-utils/tarball/master
+django>=3.2.18,!=4.0.*,<5.1
+openwisp-utils~=1.1.0
 jsonfield>=3.1.0,<4.0.0
 cryptography~=43.0.0
 pyOpenSSL~=24.2.1
