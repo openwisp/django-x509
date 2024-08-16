@@ -1,5 +1,5 @@
 # Does not supports Django 4.0.0
-django>=3.2.18,!=4.0.*,<4.3
+django>=3.2.18,!=4.0.*,<5.2
 openwisp-utils~=1.1.0
 jsonfield>=3.1.0,<4.0.0
 cryptography~=43.0.0
