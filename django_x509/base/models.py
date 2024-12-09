@@ -203,14 +203,14 @@ class BaseX509(models.Model):
         generate = False
         if not self.pk and not self.certificate and not self.private_key:
             generate = True
-        super().save(*args, **kwargs)
+            
         if generate:
             # automatically determine serial number
             if not self.serial_number:
                 self.serial_number = self._generate_serial_number()
             self._generate()
-            kwargs['force_insert'] = False
-            super().save(*args, **kwargs)
+            
+        super().save(*args, **kwargs)
 
     @cached_property
     def x509(self):
