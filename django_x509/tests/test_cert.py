@@ -6,8 +6,6 @@ from django.utils import timezone
 from OpenSSL import crypto
 from swapper import load_model
 
-# CaptureQueriesContext is a context manager used to capture the number of database queries executed within its block.
-from django.test.utils import CaptureQueriesContext
 
 from .. import settings as app_settings
 from ..base.models import generalized_time
@@ -84,24 +82,12 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
 """
 
     def test_new(self):
-        # Capture queries before optimization
-        #connection argument is a reference to a database connection object (global variable).
-        with CaptureQueriesContext(connection) as queries_before:
-            cert_before =self._create_cert()
-        number_queries_before=len(queries_before)
-        
-        # Capture queries after optimization
-        with CaptureQueriesContext(connection) as queries_after:
+        with self.assertNumQueries(3):  # 3 query to be made
             cert = self._create_cert()
-        number_queries_after=len(queries_after)
-        
-         # Assert that the number of queries has decreased due to the optimization
-        self.assertLess(number_queries_after,number_queries_before)
-        
-        self.assertNotEqual(cert_before.certificate, '')
-        self.assertNotEqual(cert_before.private_key, '')
-        x509 = cert_before.x509
-        self.assertEqual(x509.get_serial_number(), cert_before.serial_number)
+        self.assertNotEqual(cert.certificate, '')
+        self.assertNotEqual(cert.private_key, '')
+        x509 = cert.x509
+        self.assertEqual(x509.get_serial_number(), cert.serial_number)
         subject = x509.get_subject()
         # check subject
         self.assertEqual(subject.countryName, cert.country_code)
