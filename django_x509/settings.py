@@ -21,3 +21,4 @@ CERT_KEYUSAGE_VALUE = getattr(
     settings, 'DJANGO_X509_CERT_KEYUSAGE_VALUE', 'digitalSignature, keyEncipherment'
 )  # noqa
 CRL_PROTECTED = getattr(settings, 'DJANGO_X509_CRL_PROTECTED', False)
+DJANGO_X509_CA_MODEL = 'django_x509.Ca'  # Adjust the model if necessary
