@@ -203,8 +203,6 @@ class BaseX509(models.Model):
         generate = False
         if not self.pk and not self.certificate and not self.private_key:
             generate = True
-            
-        if generate:
             # automatically determine serial number
             if not self.serial_number:
                 self.serial_number = self._generate_serial_number()
