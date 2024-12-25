@@ -68,3 +68,5 @@ Pipfile
 
 # IDE specific files
 .idea
+
+venv/
