@@ -82,6 +82,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
 """
 
     def test_new(self):
+        #added assertNumQueries to check the number of queries made
         with self.assertNumQueries(3):  # 3 query to be made
             cert = self._create_cert()
         self.assertNotEqual(cert.certificate, '')

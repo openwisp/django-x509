@@ -201,6 +201,7 @@ class BaseX509(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and not self.certificate and not self.private_key:
+            #removed these lines and any reference to the generate variable
             if not self.serial_number:
                 self.serial_number = self._generate_serial_number()
             self._generate()
