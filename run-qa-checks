@@ -2,11 +2,11 @@
 
 set -e
 
-jslint django_x509/static/django-x509/js/*.js
-
 openwisp-qa-check --migrations-to-ignore 4 \
                   --migration-path ./django_x509/migrations/ \
-                  --migration-module django_x509
+                  --migration-module django_x509 \
+                  --csslinter \
+                  --jslinter
 
 echo ''
 echo 'Running checks for SAMPLE_APP'

@@ -53,7 +53,7 @@ jobs:
       id: deps
       run: |
         pip install -U pip setuptools wheel
-        sudo npm install -g jslint
+        sudo npm install -g prettier
         pip install -U -r requirements-test.txt
         pip install -U -e .
         pip install ${{ matrix.django-version }}
