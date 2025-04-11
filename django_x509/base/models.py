@@ -200,14 +200,11 @@ class BaseX509(models.Model):
         self._verify_extension_format()
 
     def save(self, *args, **kwargs):
-        generate = False
-        if not self.pk and not self.certificate and not self.private_key:
-            generate = True
-            # automatically determine serial number
+        if self._state.adding and not self.certificate and not self.private_key:
+            # auto generate serial number
             if not self.serial_number:
                 self.serial_number = self._generate_serial_number()
             self._generate()
-            
         super().save(*args, **kwargs)
 
     @cached_property
