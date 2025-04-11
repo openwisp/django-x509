@@ -1,5 +1,5 @@
-# Does not supports Django 4.0.0
-django>=3.2.18,!=4.0.*,<5.2
+# Supports Django 4.2 through 5.2, including release candidates
+django>=4.2.0,<=5.3.0
 openwisp-utils @ https://github.com/openwisp/openwisp-utils/tarball/1.2
 jsonfield>=3.1.0,<4.0.0
 cryptography~=43.0.3
