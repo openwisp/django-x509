@@ -1,8 +1,8 @@
 django-x509
 ===========
 
-.. image:: https://github.com/openwisp/django-x509/workflows/Django-x509%20Build/badge.svg?branch=master
-    :target: https://github.com/openwisp/django-x509/actions?query=workflow%3A"Django-x509+Build%22"
+.. image:: https://github.com/openwisp/django-x509/actions/workflows/ci.yml/badge.svg
+    :target: https://github.com/openwisp/django-x509/actions/workflows/ci.yml
     :alt: CI build status
 
 .. image:: https://coveralls.io/repos/openwisp/django-x509/badge.svg
@@ -79,7 +79,7 @@ Project goals
 Dependencies
 ------------
 
-- Python >= 3.8
+- Python >= 3.9
 - OpenSSL
 
 Install stable version from pypi

@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 from OpenSSL import crypto
+from openwisp_utils.tests import AssertNumQueriesSubTestMixin
 from swapper import load_model
 
 from .. import settings as app_settings
@@ -14,7 +15,7 @@ Ca = load_model('django_x509', 'Ca')
 Cert = load_model('django_x509', 'Cert')
 
 
-class TestCert(TestX509Mixin, TestCase):
+class TestCert(AssertNumQueriesSubTestMixin, TestX509Mixin, TestCase):
     """
     tests for Cert model
     """
@@ -81,7 +82,8 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
 """
 
     def test_new(self):
-        cert = self._create_cert()
+        with self.assertNumQueries(3):
+            cert = self._create_cert()
         self.assertNotEqual(cert.certificate, '')
         self.assertNotEqual(cert.private_key, '')
         x509 = cert.x509
