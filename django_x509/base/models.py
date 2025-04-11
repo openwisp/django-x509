@@ -2,8 +2,33 @@ import collections
 import uuid
 from datetime import datetime, timedelta
 
-import OpenSSL
 import swapper
+from cryptography import x509
+from cryptography.exceptions import InvalidKey, UnsupportedAlgorithm
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.serialization import (
+    BestAvailableEncryption,
+    NoEncryption,
+)
+from cryptography.x509 import (
+    AuthorityKeyIdentifier,
+    BasicConstraints,
+    CertificateBuilder,
+    CertificateRevocationListBuilder,
+    Extension,
+    ExtensionNotFound,
+    ExtensionOID,
+    ExtensionType,
+    KeyUsage,
+    Name,
+    NameAttribute,
+    NameOID,
+    RevokedCertificateBuilder,
+    SubjectKeyIdentifier,
+)
+from cryptography.x509.oid import CRLEntryExtensionOID, ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -12,7 +37,6 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
-from OpenSSL import crypto
 
 from .. import settings as app_settings
 
@@ -210,31 +234,48 @@ class BaseX509(models.Model):
     @cached_property
     def x509(self):
         """
-        returns an instance of OpenSSL.crypto.X509
+        Returns an instance of cryptography.x509.Certificate
         """
         if self.certificate:
-            return crypto.load_certificate(crypto.FILETYPE_PEM, self.certificate)
+            return x509.load_pem_x509_certificate(
+                self.certificate.encode('utf-8'), backend=default_backend()
+            )
 
     @cached_property
     def x509_text(self):
         """
-        returns a text dump of the information
+        Returns a text dump of the information
         contained in the x509 certificate
         """
-        if self.certificate:
-            text = crypto.dump_certificate(crypto.FILETYPE_TEXT, self.x509)
-            return text.decode('utf-8')
+        if not self.certificate:
+            return None
+
+        cert = self.x509
+        lines = [
+            f'Subject: {cert.subject.rfc4514_string()}',
+            f'Issuer: {cert.issuer.rfc4514_string()}',
+            f'Serial Number: {cert.serial_number}',
+            f'Not Before: {cert.not_valid_before}',
+            f'Not After: {cert.not_valid_after}',
+            f'Signature Algorithm: {cert.signature_hash_algorithm.name}',
+            'Extensions:',
+        ]
+
+        for ext in cert.extensions:
+            lines.append(f'  - {ext.oid._name or ext.oid.dotted_string}: {ext.value}')
+
+        return '\n'.join(lines)
 
     @cached_property
     def pkey(self):
         """
-        returns an instance of OpenSSL.crypto.PKey
+        Returns an instance of cryptography private key
         """
         if self.private_key:
-            return crypto.load_privatekey(
-                crypto.FILETYPE_PEM,
-                self.private_key,
-                passphrase=getattr(self, 'passphrase').encode('utf-8'),
+            return serialization.load_pem_private_key(
+                self.private_key.encode('utf-8'),
+                password=getattr(self, 'passphrase', None).encode('utf-8') or None,
+                backend=default_backend(),
             )
 
     def _validate_pem(self):
@@ -243,24 +284,29 @@ class BaseX509(models.Model):
         validates certificate and private key
         """
         errors = {}
-        for field in ['certificate', 'private_key']:
-            method_name = 'load_{0}'.format(field.replace('_', ''))
-            load_pem = getattr(crypto, method_name)
-            try:
-                args = (crypto.FILETYPE_PEM, getattr(self, field))
-                kwargs = {}
-                if method_name == 'load_privatekey':
-                    kwargs['passphrase'] = getattr(self, 'passphrase').encode('utf8')
-                load_pem(*args, **kwargs)
-            except OpenSSL.crypto.Error as e:
-                error = 'OpenSSL error: <br>{0}'.format(
-                    str(e.args[0]).replace('), ', '), <br>').strip('[]')
-                )
-                if 'bad decrypt' in error:
-                    error = '<b>Incorrect Passphrase</b> <br>' + error
-                    errors['passphrase'] = ValidationError(_(mark_safe(error)))
-                    continue
-                errors[field] = ValidationError(_(mark_safe(error)))
+        # Validate certificate
+        try:
+            x509.load_pem_x509_certificate(self.certificate.encode('utf-8'))
+        except Exception as e:
+            errors['certificate'] = ValidationError(
+                _(mark_safe(f'Certificate error:<br>{str(e)}'))
+            )
+
+        # Validate private key
+        try:
+            serialization.load_pem_private_key(
+                self.private_key.encode('utf-8'),
+                password=getattr(self, 'passphrase', None).encode('utf-8')
+                if getattr(self, 'passphrase', None)
+                else None,
+            )
+        except ValueError as e:
+            error = f'<b>Incorrect Passphrase</b><br>{str(e)}'
+            errors['passphrase'] = ValidationError(_(mark_safe(error)))
+        except (InvalidKey, UnsupportedAlgorithm) as e:
+            errors['private_key'] = ValidationError(
+                _(mark_safe(f'Private key error:<br>{str(e)}'))
+            )
         if errors:
             raise ValidationError(errors)
 
@@ -281,61 +327,74 @@ class BaseX509(models.Model):
         (internal use only)
         generates a new x509 certificate (CA or end-entity)
         """
-        key = crypto.PKey()
-        key.generate_key(crypto.TYPE_RSA, int(self.key_length))
-        cert = crypto.X509()
-        subject = self._fill_subject(cert.get_subject())
-        cert.set_version(0x2)  # version 3 (0 indexed counting)
-        cert.set_subject(subject)
-        cert.set_serial_number(int(self.serial_number))
-        cert.set_notBefore(bytes(str(datetime_to_string(self.validity_start)), 'utf8'))
-        cert.set_notAfter(bytes(str(datetime_to_string(self.validity_end)), 'utf8'))
-        # generating certificate for CA
-        if not hasattr(self, 'ca'):
-            issuer = cert.get_subject()
-            issuer_key = key
-        # generating certificate issued by a CA
-        else:
-            issuer = self.ca.x509.get_subject()
-            issuer_key = self.ca.pkey
-        cert.set_issuer(issuer)
-        cert.set_pubkey(key)
-        cert = self._add_extensions(cert)
-        cert.sign(issuer_key, str(self.digest))
-        self.certificate = crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode(
-            'utf-8'
+        # Generate RSA private key
+        key = rsa.generate_private_key(
+            public_exponent=65537, key_size=int(self.key_length)
         )
-        key_args = (crypto.FILETYPE_PEM, key)
-        key_kwargs = {}
-        if self.passphrase:
-            key_kwargs['passphrase'] = self.passphrase.encode('utf-8')
-            key_kwargs['cipher'] = 'DES-EDE3-CBC'
-        self.private_key = crypto.dump_privatekey(*key_args, **key_kwargs).decode(
-            'utf-8'
+        public_key = key.public_key()
+
+        # Fill subject and issuer
+        subject = self._fill_subject()
+        if not hasattr(self, 'ca'):
+            issuer = subject
+            issuer_key = key
+        else:
+            issuer = self.ca.x509.issuer
+            issuer_key = self.ca.pkey
+
+        # Build certificate
+        builder = x509.CertificateBuilder()
+        builder = builder.subject_name(subject)
+        builder = builder.issuer_name(issuer)
+        builder = builder.public_key(public_key)
+        builder = builder.serial_number(int(self.serial_number))
+        builder = builder.not_valid_before(self.validity_start)
+        builder = builder.not_valid_after(self.validity_end)
+        builder = self._build_extensions(
+            builder, public_key, self.ca.x509 if hasattr(self, 'ca') else None
         )
 
-    def _fill_subject(self, subject):
+        # Sign certificate
+        cert = builder.sign(
+            private_key=issuer_key, algorithm=getattr(hashes, self.digest.upper())()
+        )
+
+        # Store PEM-encoded certificate
+        self.certificate = cert.public_bytes(serialization.Encoding.PEM).decode('utf-8')
+
+        # Store PEM-encoded private key
+        if self.passphrase:
+            encryption = BestAvailableEncryption(self.passphrase.encode('utf-8'))
+        else:
+            encryption = NoEncryption()
+        self.private_key = key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=encryption,
+        ).decode('utf-8')
+
+    def _fill_subject(self):
         """
         (internal use only)
-        fills OpenSSL.crypto.X509Name object
+        returns a cryptography.x509.Name object
         """
         attr_map = {
-            'country_code': 'countryName',
-            'state': 'stateOrProvinceName',
-            'city': 'localityName',
-            'organization_name': 'organizationName',
-            'organizational_unit_name': 'organizationalUnitName',
-            'email': 'emailAddress',
-            'common_name': 'commonName',
+            'country_code': NameOID.COUNTRY_NAME,
+            'state': NameOID.STATE_OR_PROVINCE_NAME,
+            'city': NameOID.LOCALITY_NAME,
+            'organization_name': NameOID.ORGANIZATION_NAME,
+            'organizational_unit_name': NameOID.ORGANIZATIONAL_UNIT_NAME,
+            'email': NameOID.EMAIL_ADDRESS,
+            'common_name': NameOID.COMMON_NAME,
         }
-        # set x509 subject attributes only if not empty strings
-        for model_attr, subject_attr in attr_map.items():
+
+        name_attributes = []
+        for model_attr, oid in attr_map.items():
             value = getattr(self, model_attr)
             if value:
-                # coerce value to string, allow these fields to be redefined
-                # as foreign keys by subclasses without losing compatibility
-                setattr(subject, subject_attr, str(value))
-        return subject
+                name_attributes.append(x509.NameAttribute(oid, str(value)))
+
+        return x509.Name(name_attributes)
 
     def _import(self):
         """
@@ -346,30 +405,41 @@ class BaseX509(models.Model):
         # when importing an end entity certificate
         if hasattr(self, 'ca'):
             self._verify_ca()
-        self.key_length = str(cert.get_pubkey().bits())
-        # this line might fail if a certificate with
-        # an unsupported signature algorithm is imported
-        algorithm = cert.get_signature_algorithm().decode('utf8')
-        self.digest = SIGNATURE_MAPPING[algorithm]
-        not_before = cert.get_notBefore().decode('utf8')
-        self.validity_start = datetime.strptime(not_before, generalized_time)
-        self.validity_start = timezone.make_aware(self.validity_start)
-        not_after = cert.get_notAfter().decode('utf8')
-        self.validity_end = datetime.strptime(not_after, generalized_time)
-        self.validity_end.replace(tzinfo=timezone.tzinfo())
-        self.validity_end = timezone.make_aware(self.validity_end)
-        subject = cert.get_subject()
-        self.country_code = subject.countryName or ''
-        # allow importing from legacy systems which use invalid country codes
+
+        # Use cryptography to extract the public key and key length
+        public_key = cert.public_key()  # This gets the public key from the certificate
+        if isinstance(public_key, rsa.RSAPublicKey):
+            self.key_length = public_key.key_size
+        else:
+            raise ValueError("Unsupported key type")
+
+        # The signature algorithm handling remains the same
+        algorithm = cert.signature_algorithm_oid._name  # Use the cryptography API for signature algorithm
+        self.digest = SIGNATURE_MAPPING.get(algorithm)
+
+        # Handle validity period
+        not_before = cert.not_valid_before
+        self.validity_start = timezone.make_aware(not_before)
+        not_after = cert.not_valid_after
+        self.validity_end = timezone.make_aware(not_after)
+
+        def get_attr_for_oid(attr):
+            attr_list = subject.get_attributes_for_oid(attr)
+            return attr_list[0].value if attr_list else ''
+
+        # Extract subject details
+        subject = cert.subject
+        self.country_code = get_attr_for_oid(NameOID.COUNTRY_NAME)
         if len(self.country_code) > 2:
             self.country_code = ''
-        self.state = subject.stateOrProvinceName or ''
-        self.city = subject.localityName or ''
-        self.organization_name = subject.organizationName or ''
-        self.organizational_unit_name = subject.organizationalUnitName or ''
-        self.email = subject.emailAddress or ''
-        self.common_name = subject.commonName or ''
-        self.serial_number = cert.get_serial_number()
+        self.state = get_attr_for_oid(NameOID.STATE_OR_PROVINCE_NAME)
+        self.city = get_attr_for_oid(NameOID.LOCALITY_NAME)
+        self.organization_name = get_attr_for_oid(NameOID.ORGANIZATION_NAME)
+        self.organizational_unit_name = get_attr_for_oid(NameOID.ORGANIZATIONAL_UNIT_NAME)
+        self.email = get_attr_for_oid(NameOID.EMAIL_ADDRESS)
+        self.common_name = get_attr_for_oid(NameOID.COMMON_NAME)
+        self.serial_number = cert.serial_number
+
         if not self.name:
             self.name = self.common_name or str(self.serial_number)
 
@@ -379,15 +449,19 @@ class BaseX509(models.Model):
         verifies the current x509 is signed
         by the associated CA
         """
-        store = crypto.X509Store()
-        store.add_cert(self.ca.x509)
-        store_ctx = crypto.X509StoreContext(store, self.x509)
+        cert = self.x509
+        ca_cert = self.ca.x509
+
         try:
-            store_ctx.verify_certificate()
-        except crypto.X509StoreContextError as e:
+            ca_cert.public_key().verify(
+                cert.signature,
+                cert.tbs_certificate_bytes,
+                padding.PKCS1v15(),
+                cert.signature_hash_algorithm,
+            )
+        except Exception as e:
             raise ValidationError(
-                _("CA doesn't match, got the " 'following error from pyOpenSSL: "%s"')
-                % e.args[0][2]
+                _("CA doesn't match, certificate verification failed: “%s”") % str(e)
             )
 
     def _verify_extension_format(self):
@@ -404,71 +478,77 @@ class BaseX509(models.Model):
             if not ('name' in ext and 'critical' in ext and 'value' in ext):
                 raise ValidationError(msg)
 
-    def _add_extensions(self, cert):
+    def _build_extensions(self, cert_builder, public_key, issuer_cert=None):
         """
         (internal use only)
-        adds x509 extensions to ``cert``
+        returns a list of extensions to be
+        added to the certificate builder
         """
-        ext = []
-        # prepare extensions for CA
-        if not hasattr(self, 'ca'):
-            pathlen = app_settings.CA_BASIC_CONSTRAINTS_PATHLEN
-            ext_value = 'CA:TRUE'
-            if pathlen is not None:
-                ext_value = '{0}, pathlen:{1}'.format(ext_value, pathlen)
-            ext.append(
-                crypto.X509Extension(
-                    b'basicConstraints',
-                    app_settings.CA_BASIC_CONSTRAINTS_CRITICAL,
-                    bytes(str(ext_value), 'utf8'),
-                )
-            )
-            ext.append(
-                crypto.X509Extension(
-                    b'keyUsage',
-                    app_settings.CA_KEYUSAGE_CRITICAL,
-                    bytes(str(app_settings.CA_KEYUSAGE_VALUE), 'utf8'),
-                )
-            )
-            issuer_cert = cert
-        # prepare extensions for end-entity certs
-        else:
-            ext.append(crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'))
-            ext.append(
-                crypto.X509Extension(
-                    b'keyUsage',
-                    app_settings.CERT_KEYUSAGE_CRITICAL,
-                    bytes(str(app_settings.CERT_KEYUSAGE_VALUE), 'utf8'),
-                )
-            )
-            issuer_cert = self.ca.x509
-        ext.append(
-            crypto.X509Extension(b'subjectKeyIdentifier', False, b'hash', subject=cert)
+        extensions = []
+
+        # CA or EE?
+        is_ca = not hasattr(self, 'ca')
+        pathlen = app_settings.CA_BASIC_CONSTRAINTS_PATHLEN if is_ca else None
+
+        # basicConstraints
+        basic_constraints = BasicConstraints(ca=is_ca, path_length=pathlen)
+        critical = app_settings.CA_BASIC_CONSTRAINTS_CRITICAL if is_ca else False
+        extensions.append((basic_constraints, critical))
+
+        # keyUsage
+        key_usage_value = (
+            app_settings.CA_KEYUSAGE_VALUE
+            if is_ca
+            else app_settings.CERT_KEYUSAGE_VALUE
         )
-        cert.add_extensions(ext)
-        # authorityKeyIdentifier must be added after
-        # the other extensions have been already added
-        cert.add_extensions(
-            [
-                crypto.X509Extension(
-                    b'authorityKeyIdentifier',
-                    False,
-                    b'keyid:always,issuer:always',
-                    issuer=issuer_cert,
-                )
-            ]
+        key_usage_critical = (
+            app_settings.CA_KEYUSAGE_CRITICAL
+            if is_ca
+            else app_settings.CERT_KEYUSAGE_CRITICAL
         )
+
+        key_usage = KeyUsage(
+            digital_signature='digitalSignature' in key_usage_value,
+            key_encipherment='keyEncipherment' in key_usage_value,
+            content_commitment='nonRepudiation' in key_usage_value,
+            data_encipherment='dataEncipherment' in key_usage_value,
+            key_agreement='keyAgreement' in key_usage_value,
+            key_cert_sign='keyCertSign' in key_usage_value,
+            crl_sign='cRLSign' in key_usage_value,
+            encipher_only=False,
+            decipher_only=False,
+        )
+        extensions.append((key_usage, key_usage_critical))
+
+        # subjectKeyIdentifier
+        ski = SubjectKeyIdentifier.from_public_key(public_key)
+        extensions.append((ski, False))
+
+        # authorityKeyIdentifier
+        if issuer_cert:
+            authority_key_id = AuthorityKeyIdentifier.from_issuer_public_key(
+                issuer_cert.public_key()
+            )
+            extensions.append((authority_key_id, False))
+
+        # Custom extensions defined in self.extensions
         for ext in self.extensions:
-            cert.add_extensions(
-                [
-                    crypto.X509Extension(
-                        bytes(str(ext['name']), 'utf8'),
-                        bool(ext['critical']),
-                        bytes(str(ext['value']), 'utf8'),
-                    )
-                ]
+            ext_oid = ExtensionOID._map.get(ext['name']) or ext['name']
+            extensions.append(
+                (
+                    x509.UnrecognizedExtension(
+                        x509.ObjectIdentifier(ext_oid),
+                        str(ext['value']).encode('utf-8'),
+                    ),
+                    bool(ext['critical']),
+                )
             )
-        return cert
+
+        # Add to the builder
+        for ext_value, is_critical in extensions:
+            cert_builder = cert_builder.add_extension(ext_value, critical=is_critical)
+
+        return cert_builder
 
     def renew(self):
         self._generate()
@@ -512,18 +592,29 @@ class AbstractCa(BaseX509):
     @property
     def crl(self):
         """
-        Returns up to date CRL of this CA
+        Returns up-to-date CRL of this CA using cryptography
         """
-        revoked_certs = self.get_revoked_certs()
-        crl = crypto.CRL()
-        now_str = datetime_to_string(timezone.now())
-        for cert in revoked_certs:
-            revoked = crypto.Revoked()
-            revoked.set_serial(bytes(str(cert.serial_number), 'utf8'))
-            revoked.set_reason(b'unspecified')
-            revoked.set_rev_date(bytes(str(now_str), 'utf8'))
-            crl.add_revoked(revoked)
-        return crl.export(self.x509, self.pkey, days=1, digest=b'sha256')
+        now = timezone.now()
+        builder = CertificateRevocationListBuilder()
+        builder = builder.issuer_name(self.x509.subject)
+        builder = builder.last_update(now)
+        builder = builder.next_update(now + timedelta(days=1))
+
+        for cert in self.get_revoked_certs():
+            revoked_cert = (
+                RevokedCertificateBuilder()
+                .serial_number(int(cert.serial_number))
+                .revocation_date(now)
+                .add_extension(
+                    x509.CRLReason(x509.ReasonFlags.unspecified),
+                    critical=False,
+                )
+                .build()
+            )
+            builder = builder.add_revoked_certificate(revoked_cert)
+
+        crl = builder.sign(private_key=self.pkey, algorithm=hashes.SHA256())
+        return crl.public_bytes(serialization.Encoding.PEM).decode("utf-8")
 
 
 AbstractCa._meta.get_field('validity_end').default = default_ca_validity_end

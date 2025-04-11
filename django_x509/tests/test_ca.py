@@ -1,10 +1,22 @@
 from datetime import datetime, timedelta
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509 import (
+    CertificateBuilder,
+    ExtensionOID,
+    load_pem_x509_certificate,
+    load_pem_x509_crl,
+)
+from cryptography.x509.extensions import AuthorityKeyIdentifier, SubjectKeyIdentifier
+from cryptography.x509.name import NameAttribute
+from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
-from OpenSSL import crypto
 from swapper import load_model
 
 from .. import settings as app_settings
@@ -22,8 +34,8 @@ class TestCa(TestX509Mixin, TestCase):
 
     def _prepare_revoked(self):
         ca = self._create_ca()
-        crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
-        self.assertIsNone(crl.get_revoked())
+        crl = load_pem_x509_crl(ca.crl.encode('utf-8'))
+        self.assertIsNone(crl.revoked_certificates)
         cert = self._create_cert(ca=ca)
         cert.revoke()
         return (ca, cert)
@@ -60,42 +72,56 @@ WRyKPvMvJzWT
         ca = self._create_ca()
         self.assertNotEqual(ca.certificate, '')
         self.assertNotEqual(ca.private_key, '')
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
-        self.assertEqual(int(cert.get_serial_number()), int(ca.serial_number))
-        subject = cert.get_subject()
-        self.assertEqual(subject.countryName, ca.country_code)
-        self.assertEqual(subject.stateOrProvinceName, ca.state)
-        self.assertEqual(subject.localityName, ca.city)
-        self.assertEqual(subject.organizationName, ca.organization_name)
-        self.assertEqual(subject.emailAddress, ca.email)
-        self.assertEqual(subject.commonName, ca.common_name)
-        issuer = cert.get_issuer()
-        self.assertEqual(issuer.countryName, ca.country_code)
-        self.assertEqual(issuer.stateOrProvinceName, ca.state)
-        self.assertEqual(issuer.localityName, ca.city)
-        self.assertEqual(issuer.organizationName, ca.organization_name)
-        self.assertEqual(issuer.emailAddress, ca.email)
-        self.assertEqual(issuer.commonName, ca.common_name)
-        # ensure version is 3
-        self.assertEqual(cert.get_version(), 2)
-        # basic constraints
-        e = cert.get_extension(0)
-        self.assertEqual(e.get_critical(), 1)
-        self.assertEqual(e.get_short_name().decode(), 'basicConstraints')
-        self.assertEqual(e.get_data(), b'0\x06\x01\x01\xff\x02\x01\x00')
+
+        cert = x509.load_pem_x509_certificate(
+            ca.certificate.encode('utf-8'), default_backend()
+        )
+        self.assertEqual(cert.serial_number, int(ca.serial_number))
+
+        subject = cert.subject
+        issuer = cert.issuer
+
+        def get_attr(name, oid):
+            return subject.get_attributes_for_oid(oid)[0].value
+
+        self.assertEqual(get_attr('countryName', NameOID.COUNTRY_NAME), ca.country_code)
+        self.assertEqual(
+            get_attr('stateOrProvinceName', NameOID.STATE_OR_PROVINCE_NAME), ca.state
+        )
+        self.assertEqual(get_attr('localityName', NameOID.LOCALITY_NAME), ca.city)
+        self.assertEqual(
+            get_attr('organizationName', NameOID.ORGANIZATION_NAME),
+            ca.organization_name,
+        )
+        self.assertEqual(get_attr('emailAddress', NameOID.EMAIL_ADDRESS), ca.email)
+        self.assertEqual(get_attr('commonName', NameOID.COMMON_NAME), ca.common_name)
+
+        # issuer is self for a CA
+        self.assertEqual(issuer, subject)
+
+        # ensure version is 3 (represented as integer 2)
+        self.assertEqual(cert.version.name, 'v3')
+
+        # check basic constraints extension
+        ext = cert.extensions.get_extension_for_class(x509.BasicConstraints)
+        self.assertTrue(ext.critical)
+        self.assertTrue(ext.value.ca)
 
     def test_x509_property(self):
         ca = self._create_ca()
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
-        self.assertEqual(ca.x509.get_subject(), cert.get_subject())
-        self.assertEqual(ca.x509.get_issuer(), cert.get_issuer())
+        cert = x509.load_pem_x509_certificate(
+            ca.certificate.encode('utf-8'), default_backend()
+        )
+
+        self.assertEqual(ca.x509.subject, cert.subject)
+        self.assertEqual(ca.x509.issuer, cert.issuer)
 
     def test_x509_property_none(self):
         self.assertIsNone(Ca().x509)
 
     def test_pkey_property(self):
         ca = self._create_ca()
-        self.assertIsInstance(ca.pkey, crypto.PKey)
+        self.assertIsInstance(ca.pkey, rsa.RSAPrivateKey)
 
     def test_pkey_property_none(self):
         self.assertIsNone(Ca().pkey)
@@ -224,26 +250,39 @@ WRyKPvMvJzWT
 
     def test_subject_key_identifier(self):
         ca = self._create_ca()
-        e = ca.x509.get_extension(2)
-        self.assertEqual(e.get_short_name().decode(), 'subjectKeyIdentifier')
-        self.assertEqual(e.get_critical(), False)
-        e2 = crypto.X509Extension(
-            b'subjectKeyIdentifier', False, b'hash', subject=ca.x509
+
+        # Get the subject key identifier extension
+        ext = ca.x509.extensions.get_extension_for_oid(
+            ExtensionOID.SUBJECT_KEY_IDENTIFIER
         )
-        self.assertEqual(e.get_data(), e2.get_data())
+        self.assertEqual(ext.oid, ExtensionOID.SUBJECT_KEY_IDENTIFIER)
+        self.assertFalse(ext.critical)
+
+        # Generate a new subject key identifier using the certificate's subject public key
+        public_key = ca.x509.public_key()
+        e2 = SubjectKeyIdentifier(public_key)
+
+        # Compare the extensions' data
+        self.assertEqual(ext.value, e2)
 
     def test_authority_key_identifier(self):
         ca = self._create_ca()
-        e = ca.x509.get_extension(3)
-        self.assertEqual(e.get_short_name().decode(), 'authorityKeyIdentifier')
-        self.assertEqual(e.get_critical(), False)
-        e2 = crypto.X509Extension(
-            b'authorityKeyIdentifier',
-            False,
-            b'keyid:always,issuer:always',
-            issuer=ca.x509,
+
+        # Get the authority key identifier extension
+        ext = ca.x509.extensions.get_extension_for_oid(
+            ExtensionOID.AUTHORITY_KEY_IDENTIFIER
         )
-        self.assertEqual(e.get_data(), e2.get_data())
+        self.assertEqual(ext.oid, ExtensionOID.AUTHORITY_KEY_IDENTIFIER)
+        self.assertFalse(ext.critical)
+
+        # Generate the authority key identifier using the issuer's public key
+        issuer_public_key = ca.x509.issuer_public_key()
+        e2 = AuthorityKeyIdentifier.from_issuer_subject_key_identifier(
+            issuer_public_key
+        )
+
+        # Compare the extensions' data
+        self.assertEqual(ext.value, e2)
 
     def test_extensions(self):
         extensions = [
@@ -305,21 +344,39 @@ WRyKPvMvJzWT
 
     def test_crl(self):
         ca, cert = self._prepare_revoked()
-        crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
-        revoked_list = crl.get_revoked()
+
+        # Load the CRL
+        crl = load_pem_x509_crl(ca.crl.encode('utf-8'))
+
+        # Get the revoked certificates list
+        revoked_list = crl.revoked_certificates
+
         self.assertIsNotNone(revoked_list)
         self.assertEqual(len(revoked_list), 1)
-        self.assertEqual(int(revoked_list[0].get_serial()), cert.serial_number)
+
+        # Get the serial number from the revoked certificate and compare
+        revoked_cert = revoked_list[0]
+        self.assertEqual(revoked_cert.serial_number, cert.serial_number)
 
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
+
+        # Simulate a GET request and obtain the CRL in response
         response = self.client.get(reverse('admin:crl', args=[ca.pk]))
         self.assertEqual(response.status_code, 200)
-        crl = crypto.load_crl(crypto.FILETYPE_PEM, response.content)
-        revoked_list = crl.get_revoked()
+
+        # Load the CRL from the response content
+        crl = load_pem_x509_crl(response.content)
+
+        # Get the revoked certificates list
+        revoked_list = crl.revoked_certificates
+
         self.assertIsNotNone(revoked_list)
         self.assertEqual(len(revoked_list), 1)
-        self.assertEqual(int(revoked_list[0].get_serial()), cert.serial_number)
+
+        # Get the serial number from the revoked certificate and compare
+        revoked_cert = revoked_list[0]
+        self.assertEqual(revoked_cert.serial_number, cert.serial_number)
 
     def test_crl_view_403(self):
         setattr(app_settings, 'CRL_PROTECTED', True)
@@ -335,7 +392,7 @@ WRyKPvMvJzWT
 
     def test_x509_text(self):
         ca = self._create_ca()
-        text = crypto.dump_certificate(crypto.FILETYPE_TEXT, ca.x509)
+        text = ca.x509.public_bytes(serialization.Encoding.PEM)
         self.assertEqual(ca.x509_text, text.decode('utf-8'))
 
     def test_x509_import_exception_fixed(self):
@@ -400,9 +457,12 @@ KQV8C/ciDV+lIw2yBmlCNvUmy7GAsHSZM+C8y29+GFR7an6WV+xa
     def test_fill_subject_non_strings(self):
         ca1 = self._create_ca()
         ca2 = Ca(name='ca', organization_name=ca1)
-        x509 = crypto.X509()
-        subject = ca2._fill_subject(x509.get_subject())
-        self.assertEqual(subject.organizationName, 'Test CA')
+        x509 = CertificateBuilder()
+        subject = ca2._fill_subject(x509.subject)
+        self.assertEqual(
+            subject.get_attributes_for_oid(NameAttribute("organizationName"))[0].value,
+            'Test CA',
+        )
 
     # this certificate has an invalid country code
     problematic_certificate = """-----BEGIN CERTIFICATE-----
@@ -500,8 +560,8 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
     def test_create_old_serial_ca(self):
         ca = self._create_ca(serial_number=3)
         self.assertEqual(int(ca.serial_number), 3)
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
-        self.assertEqual(int(cert.get_serial_number()), int(ca.serial_number))
+        cert = load_pem_x509_certificate(ca.certificate.encode('utf-8'))
+        self.assertEqual(int(cert.serial_number), int(ca.serial_number))
 
     def test_bad_serial_number_ca(self):
         try:
@@ -515,47 +575,45 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
     def test_import_ca_key_with_passphrase(self):
         ca = Ca(name='ImportTest')
         ca.certificate = """-----BEGIN CERTIFICATE-----
-MIICrzCCAhigAwIBAgIJANCybYj5LwUWMA0GCSqGSIb3DQEBCwUAMG8xCzAJBgNV
-BAYTAklOMQwwCgYDVQQIDANhc2QxDDAKBgNVBAcMA2FzZDEMMAoGA1UECgwDYXNk
-MQwwCgYDVQQLDANhc2QxDDAKBgNVBAMMA2FzZDEaMBgGCSqGSIb3DQEJARYLYXNk
-QGFzZC5hc2QwHhcNMTgwODI5MjExMDQ1WhcNMTkwODI5MjExMDQ1WjBvMQswCQYD
-VQQGEwJJTjEMMAoGA1UECAwDYXNkMQwwCgYDVQQHDANhc2QxDDAKBgNVBAoMA2Fz
-ZDEMMAoGA1UECwwDYXNkMQwwCgYDVQQDDANhc2QxGjAYBgkqhkiG9w0BCQEWC2Fz
-ZEBhc2QuYXNkMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDBuDdlU20Ydie8
-tmbq2hn8Ski6aSH2IyVVMxUj3+i6QZmoJ4sZzcAMCLPIkCAxby5pP0V6/DSqjxTL
-ShYy/7QMCovmj3O+23eYR/JGNAfsk6uDsWJL6OLHTNdx19mL0NioeFNEUJt14Cbz
-uqUizT7UdONLer0UK4uP2sE09Eo4cQIDAQABo1MwUTAdBgNVHQ4EFgQURUEc1+ho
-on8xaoSU+HU6CRkn0/owHwYDVR0jBBgwFoAURUEc1+hoon8xaoSU+HU6CRkn0/ow
-DwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOBgQB2zU8qtkXVM25yrL9s
-FC5oSqTky2c9KI/hwdsSronSvwaMoASgfl7UjzXlovq9FWZpNSVZ06wetkJVjq5N
-Xn3APftPSmKw0J1tzUfZuvq8Z8q6uXQ4B2+BsiCkG/PwXizbKDc29yzXsXTL4+cQ
-J7RrWKwDUi/GKVvqc+JjgsQ/nA==
------END CERTIFICATE-----
-
+        MIICrzCCAhigAwIBAgIJANCybYj5LwUWMA0GCSqGSIb3DQEBCwUAMG8xCzAJBgNV
+        BAYTAklOMQwwCgYDVQQIDANhc2QxDDAKBgNVBAcMA2FzZDEMMAoGA1UECgwDYXNk
+        MQwwCgYDVQQLDANhc2QxDDAKBgNVBAMMA2FzZDEaMBgGCSqGSIb3DQEJARYLYXNk
+        QGFzZC5hc2QwHhcNMTgwODI5MjExMDQ1WhcNMTkwODI5MjExMDQ1WjBvMQswCQYD
+        VQQGEwJJTjEMMAoGA1UECAwDYXNkMQwwCgYDVQQHDANhc2QxDDAKBgNVBAoMA2Fz
+        ZDEMMAoGA1UECwwDYXNkMQwwCgYDVQQDDANhc2QxGjAYBgkqhkiG9w0BCQEWC2Fz
+        ZEBhc2QuYXNkMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDBuDdlU20Ydie8
+        tmbq2hn8Ski6aSH2IyVVMxUj3+i6QZmoJ4sZzcAMCLPIkCAxby5pP0V6/DSqjxTL
+        ShYy/7QMCovmj3O+23eYR/JGNAfsk6uDsWJL6OLHTNdx19mL0NioeFNEUJt14Cbz
+        uqUizT7UdONLer0UK4uP2sE09Eo4cQIDAQABo1MwUTAdBgNVHQ4EFgQURUEc1+ho
+        on8xaoSU+HU6CRkn0/owHwYDVR0jBBgwFoAURUEc1+hoon8xaoSU+HU6CRkn0/ow
+        DwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOBgQB2zU8qtkXVM25yrL9s
+        FC5oSqTky2c9KI/hwdsSronSvwaMoASgfl7UjzXlovq9FWZpNSVZ06wetkJVjq5N
+        Xn3APftPSmKw0J1tzUfZuvq8Z8q6uXQ4B2+BsiCkG/PwXizbKDc29yzXsXTL4+cQ
+        J7RrWKwDUi/GKVvqc+JjgsQ/nA==
+        -----END CERTIFICATE-----
         """
         ca.private_key = """-----BEGIN RSA PRIVATE KEY-----
-Proc-Type: 4,ENCRYPTED
-DEK-Info: DES-EDE3-CBC,D7DDAD38C7462384
-
-CUEPD7buBQqv/uipFz/tXYURNcQrY5HKU904IVsKbM233KPA6qU6IaRF6RRxxUtE
-ejrmY2es9ZmU63gO/G/16E0CxzWhm3G2pOBsWHsBGGYcMpqZ842E3NoWimfQuRyO
-E7TtMKW+Jdl6mzkw8s/KkSeGkGvZFKrclSN37CtkexRn4cXQkhNgPztyeRaQjIBM
-SveP2qbODU+lr8g2oUjx05Ftcv1zJin85tzifJlQyaQz8ozKYtHA/RSpLEFZ19HG
-mXn4Rvvai8r2zhdqfT/0/G6dABDrhQLxQhPE2MrY0hAlr7DnDrYNQQ/QyGoiAdcR
-ee7QUDNfDnjzU6k/EjYPU1827/Kw8R4al8yDtVcUqfDuEsKabot+krEx4IZ5LOk9
-PkcSW8UR0cIm7QE2BzQEzaZKQIpVwjSsSKm+RcFktiCKVun3Sps+GtXBr+AmF5Na
-r6xeg+j9kz8lT8F5lnpFTk6c8cD8GDCRiLsFzPo652BQ24dAEPvsSbYmKwr1gEe8
-tfsARqOuvSafQNzqBYFV7abFr8DFiE1Kghk6d6x2u7qVREvOh0RYHRWqsTRf4MMn
-WlEnL9zfYST9Ur3gJgBOH2WHboDlQZu1k7yoLMfiGTQSQ2/xg1zS+5IWxt4tg029
-B+f39N5zyDjuGFYcf3J6J4zybHmvdSAa62qxnkeDIbLz4axTU8+hNNOWxIsAh5vs
-OO8quCk6DE4j4u3Yzk7810dkJtliwboQiTlitEbCjiyjkOrabIICKMte8nhylZX6
-BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
------END RSA PRIVATE KEY-----
+        Proc-Type: 4,ENCRYPTED
+        DEK-Info: DES-EDE3-CBC,D7DDAD38C7462384
+        CUEPD7buBQqv/uipFz/tXYURNcQrY5HKU904IVsKbM233KPA6qU6IaRF6RRxxUtE
+        ejrmY2es9ZmU63gO/G/16E0CxzWhm3G2pOBsWHsBGGYcMpqZ842E3NoWimfQuRyO
+        E7TtMKW+Jdl6mzkw8s/KkSeGkGvZFKrclSN37CtkexRn4cXQkhNgPztyeRaQjIBM
+        SveP2qbODU+lr8g2oUjx05Ftcv1zJin85tzifJlQyaQz8ozKYtHA/RSpLEFZ19HG
+        mXn4Rvvai8r2zhdqfT/0/G6dABDrhQLxQhPE2MrY0hAlr7DnDrYNQQ/QyGoiAdcR
+        ee7QUDNfDnjzU6k/EjYPU1827/Kw8R4al8yDtVcUqfDuEsKabot+krEx4IZ5LOk9
+        PkcSW8UR0cIm7QE2BzQEzaZKQIpVwjSsSKm+RcFktiCKVun3Sps+GtXBr+AmF5Na
+        r6xeg+j9kz8lT8F5lnpFTk6c8cD8GDCRiLsFzPo652BQ24dAEPvsSbYmKwr1gEe8
+        tfsARqOuvSafQNzqBYFV7abFr8DFiE1Kghk6d6x2u7qVREvOh0RYHRWqsTRf4MMn
+        WlEnL9zfYST9Ur3gJgBOH2WHboDlQZu1k7yoLMfiGTQSQ2/xg1zS+5IWxt4tg029
+        B+f39N5zyDjuGFYcf3J6J4zybHmvdSAa62qxnkeDIbLz4axTU8+hNNOWxIsAh5vs
+        OO8quCk6DE4j4u3Yzk7810dkJtliwboQiTlitEbCjiyjkOrabIICKMte8nhylZX6
+        BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
+        -----END RSA PRIVATE KEY-----
         """
         ca.passphrase = 'test123'
         ca.full_clean()
         ca.save()
-        self.assertIsInstance(ca.pkey, crypto.PKey)
+        self.assertIsInstance(ca.pkey, rsa.RSAPrivateKey)
 
     def test_import_ca_key_with_incorrect_passphrase(self):
         ca = Ca(name='ImportTest')
@@ -610,7 +668,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         ca = self._create_ca(passphrase='123')
         ca.full_clean()
         ca.save()
-        self.assertIsInstance(ca.pkey, crypto.PKey)
+        self.assertIsInstance(ca.pkey, rsa.RSAPrivateKey)
 
     def test_datetime_to_string(self):
         generalized_datetime = datetime(2050, 1, 1, 0, 0, 0, 0)
