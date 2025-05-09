@@ -136,7 +136,9 @@ class AbstractCaAdmin(BaseAdmin):
 
     def get_urls(self):
         return [
-            path('x509/ca/<int:pk>.crl', self.crl_view, name='crl')
+            path('<int:pk>.crl', self.crl_view, name='crl'),
+            # old URL path, deprecated, will be removed in future versions
+            path('x509/ca/<int:pk>.crl', self.crl_view, name='deprecated_crl'),
         ] + super().get_urls()
 
     def crl_view(self, request, pk):

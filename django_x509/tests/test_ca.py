@@ -20,6 +20,8 @@ class TestCa(TestX509Mixin, TestCase):
     tests for Ca model
     """
 
+    app_label = Ca._meta.app_label
+
     def _prepare_revoked(self):
         ca = self._create_ca()
         crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
@@ -313,7 +315,13 @@ WRyKPvMvJzWT
 
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
-        response = self.client.get(reverse('admin:crl', args=[ca.pk]))
+        path = reverse('admin:crl', args=[ca.pk])
+        self.assertEqual(path, f'/admin/{self.app_label}/ca/{ca.pk}.crl')
+        deprecated_path = reverse('admin:deprecated_crl', args=[ca.pk])
+        self.assertEqual(
+            deprecated_path, f'/admin/{self.app_label}/ca/x509/ca/{ca.pk}.crl'
+        )
+        response = self.client.get(path)
         self.assertEqual(response.status_code, 200)
         crl = crypto.load_crl(crypto.FILETYPE_PEM, response.content)
         revoked_list = crl.get_revoked()
