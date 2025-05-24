@@ -10,8 +10,8 @@ from cryptography.x509 import (
     load_pem_x509_certificate,
     load_pem_x509_crl,
 )
-from cryptography.x509.extensions import AuthorityKeyIdentifier, SubjectKeyIdentifier
-from cryptography.x509.name import NameAttribute
+from cryptography.x509.extensions import AuthorityKeyIdentifier, SubjectKeyIdentifier, \
+    KeyUsage, BasicConstraints
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -206,47 +206,110 @@ WRyKPvMvJzWT
 
     def test_basic_constraints_not_critical(self):
         setattr(app_settings, 'CA_BASIC_CONSTRAINTS_CRITICAL', False)
-        ca = self._create_ca()
-        e = ca.x509.get_extension(0)
-        self.assertEqual(e.get_critical(), 0)
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_CRITICAL', True)
+        try:
+            ca = self._create_ca()
+            
+            basic_constraints_ext = ca.x509.extensions.get_extension_for_oid(
+                x509.ExtensionOID.BASIC_CONSTRAINTS
+            )
+            self.assertFalse(basic_constraints_ext.critical)
+            self.assertEqual(basic_constraints_ext.oid._name, 'basicConstraints')
+            self.assertIsInstance(
+                obj=basic_constraints_ext.value,
+                cls=BasicConstraints,
+            )
+        finally:
+            setattr(app_settings, 'CA_BASIC_CONSTRAINTS_CRITICAL', True)
 
     def test_basic_constraints_pathlen(self):
         setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 2)
-        ca = self._create_ca()
-        e = ca.x509.get_extension(0)
-        self.assertEqual(e.get_data(), b'0\x06\x01\x01\xff\x02\x01\x02')
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)
+        try:
+            ca = self._create_ca()
+            
+            basic_constraints_ext = ca.x509.extensions.get_extension_for_oid(
+                x509.ExtensionOID.BASIC_CONSTRAINTS
+            )
+            
+            self.assertEqual(basic_constraints_ext.value, BasicConstraints(
+                ca=True,
+                path_length=2,
+            ))
+        finally:
+            setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)
 
     def test_basic_constraints_pathlen_none(self):
         setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', None)
-        ca = self._create_ca()
-        e = ca.x509.get_extension(0)
-        self.assertEqual(e.get_data(), b'0\x03\x01\x01\xff')
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)
+        try:
+            ca = self._create_ca()
+            basic_constraints_ext = ca.x509.extensions.get_extension_for_oid(
+                x509.ExtensionOID.BASIC_CONSTRAINTS
+            )
+            
+            self.assertEqual(basic_constraints_ext.value, BasicConstraints(
+                ca=True,
+                path_length=None,
+            ))
+        finally:
+            setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)
 
     def test_keyusage(self):
         ca = self._create_ca()
-        e = ca.x509.get_extension(1)
-        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
-        self.assertEqual(e.get_critical(), True)
-        self.assertEqual(e.get_data(), b'\x03\x02\x01\x06')
+        
+        ext = ca.x509.extensions.get_extension_for_oid(
+            ExtensionOID.KEY_USAGE
+        )
+        self.assertEqual(ext.oid, ExtensionOID.KEY_USAGE)
+        self.assertTrue(ext.critical)
+        
+        self.assertEqual(ext.value, KeyUsage(
+            digital_signature=False,
+            content_commitment=False,
+            key_encipherment=False,
+            data_encipherment=False,
+            key_agreement=False,
+            key_cert_sign=True,
+            crl_sign=True,
+            encipher_only=False,
+            decipher_only=False,
+        ))
 
     def test_keyusage_not_critical(self):
         setattr(app_settings, 'CA_KEYUSAGE_CRITICAL', False)
-        ca = self._create_ca()
-        e = ca.x509.get_extension(1)
-        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
-        self.assertEqual(e.get_critical(), False)
-        setattr(app_settings, 'CA_KEYUSAGE_CRITICAL', True)
+        try:
+            ca = self._create_ca()
+            
+            ext = ca.x509.extensions.get_extension_for_oid(
+                ExtensionOID.KEY_USAGE
+            )
+            self.assertEqual(ext.oid, ExtensionOID.KEY_USAGE)
+            self.assertFalse(ext.critical)
+        finally:
+            setattr(app_settings, 'CA_KEYUSAGE_CRITICAL', True)
 
     def test_keyusage_value(self):
         setattr(app_settings, 'CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign, keyAgreement')
-        ca = self._create_ca()
-        e = ca.x509.get_extension(1)
-        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
-        self.assertEqual(e.get_data(), b'\x03\x02\x01\x0e')
-        setattr(app_settings, 'CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign')
+        try:
+            ca = self._create_ca()
+            
+            ext = ca.x509.extensions.get_extension_for_oid(
+                ExtensionOID.KEY_USAGE
+            )
+            self.assertEqual(ext.oid, ExtensionOID.KEY_USAGE)
+            self.assertTrue(ext.critical)
+            
+            self.assertEqual(ext.value, KeyUsage(
+                digital_signature=False,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=True,
+                key_cert_sign=True,
+                crl_sign=True,
+                encipher_only=False,
+                decipher_only=False,
+            ))
+        finally:
+            setattr(app_settings, 'CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign')
 
     def test_subject_key_identifier(self):
         ca = self._create_ca()
@@ -260,7 +323,7 @@ WRyKPvMvJzWT
 
         # Generate a new subject key identifier using the certificate's subject public key
         public_key = ca.x509.public_key()
-        e2 = SubjectKeyIdentifier(public_key)
+        e2 = SubjectKeyIdentifier.from_public_key(public_key)
 
         # Compare the extensions' data
         self.assertEqual(ext.value, e2)
@@ -380,10 +443,12 @@ WRyKPvMvJzWT
 
     def test_crl_view_403(self):
         setattr(app_settings, 'CRL_PROTECTED', True)
-        ca, _ = self._prepare_revoked()
-        response = self.client.get(reverse('admin:crl', args=[ca.pk]))
-        self.assertEqual(response.status_code, 403)
-        setattr(app_settings, 'CRL_PROTECTED', False)
+        try:
+            ca, _ = self._prepare_revoked()
+            response = self.client.get(reverse('admin:crl', args=[ca.pk]))
+            self.assertEqual(response.status_code, 403)
+        finally:
+            setattr(app_settings, 'CRL_PROTECTED', False)
 
     def test_crl_view_404(self):
         self._prepare_revoked()
@@ -391,9 +456,35 @@ WRyKPvMvJzWT
         self.assertEqual(response.status_code, 404)
 
     def test_x509_text(self):
-        ca = self._create_ca()
-        text = ca.x509.public_bytes(serialization.Encoding.PEM)
-        self.assertEqual(ca.x509_text, text.decode('utf-8'))
+        ca_cert = self._create_ca()
+        self.assertIn(
+            member=f'Subject: {ca_cert.x509.subject.rfc4514_string()}\n',
+            container=ca_cert.x509_text,
+        )
+        self.assertIn(
+            member=f'Issuer: {ca_cert.x509.issuer.rfc4514_string()}\n',
+            container=ca_cert.x509_text,
+        )
+        self.assertIn(
+            member=f'Serial Number: {ca_cert.x509.serial_number}\n',
+            container=ca_cert.x509_text,
+        )
+        self.assertIn(
+            member=f'Not Before: {ca_cert.x509.not_valid_before_utc}\n',
+            container=ca_cert.x509_text,
+        )
+        self.assertIn(
+            member=f'Not After: {ca_cert.x509.not_valid_after_utc}\n',
+            container=ca_cert.x509_text,
+        )
+        self.assertIn(
+            member=f'Signature Algorithm: {ca_cert.x509.signature_hash_algorithm.name}\n',
+            container=ca_cert.x509_text,
+        )
+        self.assertIn(
+            member=f'Extensions:\n',
+            container=ca_cert.x509_text,
+        )
 
     def test_x509_import_exception_fixed(self):
         certificate = """-----BEGIN CERTIFICATE-----
@@ -458,9 +549,9 @@ KQV8C/ciDV+lIw2yBmlCNvUmy7GAsHSZM+C8y29+GFR7an6WV+xa
         ca1 = self._create_ca()
         ca2 = Ca(name='ca', organization_name=ca1)
         x509 = CertificateBuilder()
-        subject = ca2._fill_subject(x509.subject)
+        subject = ca2._fill_subject()
         self.assertEqual(
-            subject.get_attributes_for_oid(NameAttribute("organizationName"))[0].value,
+            subject.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)[0].value,
             'Test CA',
         )
 
@@ -537,8 +628,10 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
             ca.private_key = private_key
             ca.full_clean()
         except ValidationError as e:
-            error_msg = str(e.message_dict['certificate'][0])
-            self.assertTrue("('PEM routines', '', 'no start line')" in error_msg)
+            self.assertIn(
+                member="Unable to load PEM file.",
+                container=str(e.message_dict['certificate'][0]),
+            )
         else:
             self.fail('ValidationError not raised')
 
