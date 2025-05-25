@@ -255,8 +255,8 @@ class BaseX509(models.Model):
             f'Subject: {cert.subject.rfc4514_string()}',
             f'Issuer: {cert.issuer.rfc4514_string()}',
             f'Serial Number: {cert.serial_number}',
-            f'Not Before: {cert.not_valid_before}',
-            f'Not After: {cert.not_valid_after}',
+            f'Not Before: {cert.not_valid_before_utc}',
+            f'Not After: {cert.not_valid_after_utc}',
             f'Signature Algorithm: {cert.signature_hash_algorithm.name}',
             'Extensions:',
         ]
