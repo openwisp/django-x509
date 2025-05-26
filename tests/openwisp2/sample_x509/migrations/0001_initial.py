@@ -16,52 +16,52 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Ca',
+            name="Ca",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
-                ('name', models.CharField(max_length=64)),
-                ('notes', models.TextField(blank=True)),
+                ("name", models.CharField(max_length=64)),
+                ("notes", models.TextField(blank=True)),
                 (
-                    'key_length',
+                    "key_length",
                     models.CharField(
                         choices=[
-                            ('512', '512'),
-                            ('1024', '1024'),
-                            ('2048', '2048'),
-                            ('4096', '4096'),
+                            ("512", "512"),
+                            ("1024", "1024"),
+                            ("2048", "2048"),
+                            ("4096", "4096"),
                         ],
                         default=django_x509.base.models.default_key_length,
-                        help_text='bits',
+                        help_text="bits",
                         max_length=6,
-                        verbose_name='key length',
+                        verbose_name="key length",
                     ),
                 ),
                 (
-                    'digest',
+                    "digest",
                     models.CharField(
                         choices=[
-                            ('sha1', 'SHA1'),
-                            ('sha224', 'SHA224'),
-                            ('sha256', 'SHA256'),
-                            ('sha384', 'SHA384'),
-                            ('sha512', 'SHA512'),
+                            ("sha1", "SHA1"),
+                            ("sha224", "SHA224"),
+                            ("sha256", "SHA256"),
+                            ("sha384", "SHA384"),
+                            ("sha512", "SHA512"),
                         ],
                         default=django_x509.base.models.default_digest_algorithm,
-                        help_text='bits',
+                        help_text="bits",
                         max_length=8,
-                        verbose_name='digest algorithm',
+                        verbose_name="digest algorithm",
                     ),
                 ),
                 (
-                    'validity_start',
+                    "validity_start",
                     models.DateTimeField(
                         blank=True,
                         default=django_x509.base.models.default_validity_start,
@@ -69,153 +69,153 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    'validity_end',
+                    "validity_end",
                     models.DateTimeField(
                         blank=True,
                         default=django_x509.base.models.default_ca_validity_end,
                         null=True,
                     ),
                 ),
-                ('country_code', models.CharField(blank=True, max_length=2)),
+                ("country_code", models.CharField(blank=True, max_length=2)),
                 (
-                    'state',
+                    "state",
                     models.CharField(
-                        blank=True, max_length=64, verbose_name='state or province'
+                        blank=True, max_length=64, verbose_name="state or province"
                     ),
                 ),
                 (
-                    'city',
-                    models.CharField(blank=True, max_length=64, verbose_name='city'),
+                    "city",
+                    models.CharField(blank=True, max_length=64, verbose_name="city"),
                 ),
                 (
-                    'organization_name',
+                    "organization_name",
                     models.CharField(
-                        blank=True, max_length=64, verbose_name='organization'
+                        blank=True, max_length=64, verbose_name="organization"
                     ),
                 ),
                 (
-                    'organizational_unit_name',
+                    "organizational_unit_name",
                     models.CharField(
                         blank=True,
                         max_length=64,
-                        verbose_name='organizational unit name',
+                        verbose_name="organizational unit name",
                     ),
                 ),
                 (
-                    'email',
+                    "email",
                     models.EmailField(
-                        blank=True, max_length=254, verbose_name='email address'
+                        blank=True, max_length=254, verbose_name="email address"
                     ),
                 ),
                 (
-                    'common_name',
+                    "common_name",
                     models.CharField(
-                        blank=True, max_length=63, verbose_name='common name'
+                        blank=True, max_length=63, verbose_name="common name"
                     ),
                 ),
                 (
-                    'extensions',
+                    "extensions",
                     jsonfield.fields.JSONField(
                         blank=True,
                         default=list,
-                        dump_kwargs={'indent': 4},
-                        help_text='additional x509 certificate extensions',
-                        load_kwargs={'object_pairs_hook': collections.OrderedDict},
-                        verbose_name='extensions',
+                        dump_kwargs={"indent": 4},
+                        help_text="additional x509 certificate extensions",
+                        load_kwargs={"object_pairs_hook": collections.OrderedDict},
+                        verbose_name="extensions",
                     ),
                 ),
                 (
-                    'serial_number',
+                    "serial_number",
                     models.CharField(
                         blank=True,
-                        help_text='leave blank to determine automatically',
+                        help_text="leave blank to determine automatically",
                         max_length=48,
                         null=True,
-                        verbose_name='serial number',
+                        verbose_name="serial number",
                     ),
                 ),
                 (
-                    'certificate',
+                    "certificate",
                     models.TextField(
-                        blank=True, help_text='certificate in X.509 PEM format'
+                        blank=True, help_text="certificate in X.509 PEM format"
                     ),
                 ),
                 (
-                    'private_key',
+                    "private_key",
                     models.TextField(
-                        blank=True, help_text='private key in X.509 PEM format'
+                        blank=True, help_text="private key in X.509 PEM format"
                     ),
                 ),
                 (
-                    'created',
+                    "created",
                     model_utils.fields.AutoCreatedField(
                         default=django.utils.timezone.now,
                         editable=False,
-                        verbose_name='created',
+                        verbose_name="created",
                     ),
                 ),
                 (
-                    'modified',
+                    "modified",
                     model_utils.fields.AutoLastModifiedField(
                         default=django.utils.timezone.now,
                         editable=False,
-                        verbose_name='modified',
+                        verbose_name="modified",
                     ),
                 ),
                 (
-                    'passphrase',
+                    "passphrase",
                     models.CharField(
                         blank=True,
-                        help_text='Passphrase for the private key, if present',
+                        help_text="Passphrase for the private key, if present",
                         max_length=64,
                     ),
                 ),
-                ('details', models.CharField(blank=True, max_length=64, null=True)),
+                ("details", models.CharField(blank=True, max_length=64, null=True)),
             ],
             options={
-                'verbose_name': 'CA',
-                'verbose_name_plural': 'CAs',
-                'abstract': False,
+                "verbose_name": "CA",
+                "verbose_name_plural": "CAs",
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='CustomCert',
+            name="CustomCert",
             fields=[
-                ('name', models.CharField(max_length=64)),
-                ('notes', models.TextField(blank=True)),
+                ("name", models.CharField(max_length=64)),
+                ("notes", models.TextField(blank=True)),
                 (
-                    'key_length',
+                    "key_length",
                     models.CharField(
                         choices=[
-                            ('512', '512'),
-                            ('1024', '1024'),
-                            ('2048', '2048'),
-                            ('4096', '4096'),
+                            ("512", "512"),
+                            ("1024", "1024"),
+                            ("2048", "2048"),
+                            ("4096", "4096"),
                         ],
                         default=django_x509.base.models.default_key_length,
-                        help_text='bits',
+                        help_text="bits",
                         max_length=6,
-                        verbose_name='key length',
+                        verbose_name="key length",
                     ),
                 ),
                 (
-                    'digest',
+                    "digest",
                     models.CharField(
                         choices=[
-                            ('sha1', 'SHA1'),
-                            ('sha224', 'SHA224'),
-                            ('sha256', 'SHA256'),
-                            ('sha384', 'SHA384'),
-                            ('sha512', 'SHA512'),
+                            ("sha1", "SHA1"),
+                            ("sha224", "SHA224"),
+                            ("sha256", "SHA256"),
+                            ("sha384", "SHA384"),
+                            ("sha512", "SHA512"),
                         ],
                         default=django_x509.base.models.default_digest_algorithm,
-                        help_text='bits',
+                        help_text="bits",
                         max_length=8,
-                        verbose_name='digest algorithm',
+                        verbose_name="digest algorithm",
                     ),
                 ),
                 (
-                    'validity_start',
+                    "validity_start",
                     models.DateTimeField(
                         blank=True,
                         default=django_x509.base.models.default_validity_start,
@@ -223,184 +223,184 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    'validity_end',
+                    "validity_end",
                     models.DateTimeField(
                         blank=True,
                         default=django_x509.base.models.default_cert_validity_end,
                         null=True,
                     ),
                 ),
-                ('country_code', models.CharField(blank=True, max_length=2)),
+                ("country_code", models.CharField(blank=True, max_length=2)),
                 (
-                    'state',
+                    "state",
                     models.CharField(
-                        blank=True, max_length=64, verbose_name='state or province'
+                        blank=True, max_length=64, verbose_name="state or province"
                     ),
                 ),
                 (
-                    'city',
-                    models.CharField(blank=True, max_length=64, verbose_name='city'),
+                    "city",
+                    models.CharField(blank=True, max_length=64, verbose_name="city"),
                 ),
                 (
-                    'organization_name',
+                    "organization_name",
                     models.CharField(
-                        blank=True, max_length=64, verbose_name='organization'
+                        blank=True, max_length=64, verbose_name="organization"
                     ),
                 ),
                 (
-                    'organizational_unit_name',
+                    "organizational_unit_name",
                     models.CharField(
                         blank=True,
                         max_length=64,
-                        verbose_name='organizational unit name',
+                        verbose_name="organizational unit name",
                     ),
                 ),
                 (
-                    'email',
+                    "email",
                     models.EmailField(
-                        blank=True, max_length=254, verbose_name='email address'
+                        blank=True, max_length=254, verbose_name="email address"
                     ),
                 ),
                 (
-                    'common_name',
+                    "common_name",
                     models.CharField(
-                        blank=True, max_length=63, verbose_name='common name'
+                        blank=True, max_length=63, verbose_name="common name"
                     ),
                 ),
                 (
-                    'extensions',
+                    "extensions",
                     jsonfield.fields.JSONField(
                         blank=True,
                         default=list,
-                        dump_kwargs={'indent': 4},
-                        help_text='additional x509 certificate extensions',
-                        load_kwargs={'object_pairs_hook': collections.OrderedDict},
-                        verbose_name='extensions',
+                        dump_kwargs={"indent": 4},
+                        help_text="additional x509 certificate extensions",
+                        load_kwargs={"object_pairs_hook": collections.OrderedDict},
+                        verbose_name="extensions",
                     ),
                 ),
                 (
-                    'serial_number',
+                    "serial_number",
                     models.CharField(
                         blank=True,
-                        help_text='leave blank to determine automatically',
+                        help_text="leave blank to determine automatically",
                         max_length=48,
                         null=True,
-                        verbose_name='serial number',
+                        verbose_name="serial number",
                     ),
                 ),
                 (
-                    'certificate',
+                    "certificate",
                     models.TextField(
-                        blank=True, help_text='certificate in X.509 PEM format'
+                        blank=True, help_text="certificate in X.509 PEM format"
                     ),
                 ),
                 (
-                    'private_key',
+                    "private_key",
                     models.TextField(
-                        blank=True, help_text='private key in X.509 PEM format'
+                        blank=True, help_text="private key in X.509 PEM format"
                     ),
                 ),
                 (
-                    'created',
+                    "created",
                     model_utils.fields.AutoCreatedField(
                         default=django.utils.timezone.now,
                         editable=False,
-                        verbose_name='created',
+                        verbose_name="created",
                     ),
                 ),
                 (
-                    'modified',
+                    "modified",
                     model_utils.fields.AutoLastModifiedField(
                         default=django.utils.timezone.now,
                         editable=False,
-                        verbose_name='modified',
+                        verbose_name="modified",
                     ),
                 ),
                 (
-                    'passphrase',
+                    "passphrase",
                     models.CharField(
                         blank=True,
-                        help_text='Passphrase for the private key, if present',
+                        help_text="Passphrase for the private key, if present",
                         max_length=64,
                     ),
                 ),
-                ('revoked', models.BooleanField(default=False, verbose_name='revoked')),
+                ("revoked", models.BooleanField(default=False, verbose_name="revoked")),
                 (
-                    'revoked_at',
+                    "revoked_at",
                     models.DateTimeField(
-                        blank=True, default=None, null=True, verbose_name='revoked at'
+                        blank=True, default=None, null=True, verbose_name="revoked at"
                     ),
                 ),
-                ('details', models.CharField(blank=True, max_length=64, null=True)),
+                ("details", models.CharField(blank=True, max_length=64, null=True)),
                 (
-                    'fingerprint',
+                    "fingerprint",
                     models.CharField(
                         max_length=64, primary_key=True, serialize=False, unique=True
                     ),
                 ),
                 (
-                    'ca',
+                    "ca",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        to='sample_x509.Ca',
-                        verbose_name='CA',
+                        to="sample_x509.Ca",
+                        verbose_name="CA",
                     ),
                 ),
             ],
             options={
-                'verbose_name': 'certificate',
-                'verbose_name_plural': 'certificates',
-                'abstract': False,
-                'unique_together': {('ca', 'serial_number')},
+                "verbose_name": "certificate",
+                "verbose_name_plural": "certificates",
+                "abstract": False,
+                "unique_together": {("ca", "serial_number")},
             },
         ),
         migrations.CreateModel(
-            name='Cert',
+            name="Cert",
             fields=[
                 (
-                    'id',
+                    "id",
                     models.AutoField(
                         auto_created=True,
                         primary_key=True,
                         serialize=False,
-                        verbose_name='ID',
+                        verbose_name="ID",
                     ),
                 ),
-                ('name', models.CharField(max_length=64)),
-                ('notes', models.TextField(blank=True)),
+                ("name", models.CharField(max_length=64)),
+                ("notes", models.TextField(blank=True)),
                 (
-                    'key_length',
+                    "key_length",
                     models.CharField(
                         choices=[
-                            ('512', '512'),
-                            ('1024', '1024'),
-                            ('2048', '2048'),
-                            ('4096', '4096'),
+                            ("512", "512"),
+                            ("1024", "1024"),
+                            ("2048", "2048"),
+                            ("4096", "4096"),
                         ],
                         default=django_x509.base.models.default_key_length,
-                        help_text='bits',
+                        help_text="bits",
                         max_length=6,
-                        verbose_name='key length',
+                        verbose_name="key length",
                     ),
                 ),
                 (
-                    'digest',
+                    "digest",
                     models.CharField(
                         choices=[
-                            ('sha1', 'SHA1'),
-                            ('sha224', 'SHA224'),
-                            ('sha256', 'SHA256'),
-                            ('sha384', 'SHA384'),
-                            ('sha512', 'SHA512'),
+                            ("sha1", "SHA1"),
+                            ("sha224", "SHA224"),
+                            ("sha256", "SHA256"),
+                            ("sha384", "SHA384"),
+                            ("sha512", "SHA512"),
                         ],
                         default=django_x509.base.models.default_digest_algorithm,
-                        help_text='bits',
+                        help_text="bits",
                         max_length=8,
-                        verbose_name='digest algorithm',
+                        verbose_name="digest algorithm",
                     ),
                 ),
                 (
-                    'validity_start',
+                    "validity_start",
                     models.DateTimeField(
                         blank=True,
                         default=django_x509.base.models.default_validity_start,
@@ -408,129 +408,129 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    'validity_end',
+                    "validity_end",
                     models.DateTimeField(
                         blank=True,
                         default=django_x509.base.models.default_cert_validity_end,
                         null=True,
                     ),
                 ),
-                ('country_code', models.CharField(blank=True, max_length=2)),
+                ("country_code", models.CharField(blank=True, max_length=2)),
                 (
-                    'state',
+                    "state",
                     models.CharField(
-                        blank=True, max_length=64, verbose_name='state or province'
+                        blank=True, max_length=64, verbose_name="state or province"
                     ),
                 ),
                 (
-                    'city',
-                    models.CharField(blank=True, max_length=64, verbose_name='city'),
+                    "city",
+                    models.CharField(blank=True, max_length=64, verbose_name="city"),
                 ),
                 (
-                    'organization_name',
+                    "organization_name",
                     models.CharField(
-                        blank=True, max_length=64, verbose_name='organization'
+                        blank=True, max_length=64, verbose_name="organization"
                     ),
                 ),
                 (
-                    'organizational_unit_name',
+                    "organizational_unit_name",
                     models.CharField(
                         blank=True,
                         max_length=64,
-                        verbose_name='organizational unit name',
+                        verbose_name="organizational unit name",
                     ),
                 ),
                 (
-                    'email',
+                    "email",
                     models.EmailField(
-                        blank=True, max_length=254, verbose_name='email address'
+                        blank=True, max_length=254, verbose_name="email address"
                     ),
                 ),
                 (
-                    'common_name',
+                    "common_name",
                     models.CharField(
-                        blank=True, max_length=63, verbose_name='common name'
+                        blank=True, max_length=63, verbose_name="common name"
                     ),
                 ),
                 (
-                    'extensions',
+                    "extensions",
                     jsonfield.fields.JSONField(
                         blank=True,
                         default=list,
-                        dump_kwargs={'indent': 4},
-                        help_text='additional x509 certificate extensions',
-                        load_kwargs={'object_pairs_hook': collections.OrderedDict},
-                        verbose_name='extensions',
+                        dump_kwargs={"indent": 4},
+                        help_text="additional x509 certificate extensions",
+                        load_kwargs={"object_pairs_hook": collections.OrderedDict},
+                        verbose_name="extensions",
                     ),
                 ),
                 (
-                    'serial_number',
+                    "serial_number",
                     models.CharField(
                         blank=True,
-                        help_text='leave blank to determine automatically',
+                        help_text="leave blank to determine automatically",
                         max_length=48,
                         null=True,
-                        verbose_name='serial number',
+                        verbose_name="serial number",
                     ),
                 ),
                 (
-                    'certificate',
+                    "certificate",
                     models.TextField(
-                        blank=True, help_text='certificate in X.509 PEM format'
+                        blank=True, help_text="certificate in X.509 PEM format"
                     ),
                 ),
                 (
-                    'private_key',
+                    "private_key",
                     models.TextField(
-                        blank=True, help_text='private key in X.509 PEM format'
+                        blank=True, help_text="private key in X.509 PEM format"
                     ),
                 ),
                 (
-                    'created',
+                    "created",
                     model_utils.fields.AutoCreatedField(
                         default=django.utils.timezone.now,
                         editable=False,
-                        verbose_name='created',
+                        verbose_name="created",
                     ),
                 ),
                 (
-                    'modified',
+                    "modified",
                     model_utils.fields.AutoLastModifiedField(
                         default=django.utils.timezone.now,
                         editable=False,
-                        verbose_name='modified',
+                        verbose_name="modified",
                     ),
                 ),
                 (
-                    'passphrase',
+                    "passphrase",
                     models.CharField(
                         blank=True,
-                        help_text='Passphrase for the private key, if present',
+                        help_text="Passphrase for the private key, if present",
                         max_length=64,
                     ),
                 ),
-                ('revoked', models.BooleanField(default=False, verbose_name='revoked')),
+                ("revoked", models.BooleanField(default=False, verbose_name="revoked")),
                 (
-                    'revoked_at',
+                    "revoked_at",
                     models.DateTimeField(
-                        blank=True, default=None, null=True, verbose_name='revoked at'
+                        blank=True, default=None, null=True, verbose_name="revoked at"
                     ),
                 ),
-                ('details', models.CharField(blank=True, max_length=64, null=True)),
+                ("details", models.CharField(blank=True, max_length=64, null=True)),
                 (
-                    'ca',
+                    "ca",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        to='sample_x509.Ca',
-                        verbose_name='CA',
+                        to="sample_x509.Ca",
+                        verbose_name="CA",
                     ),
                 ),
             ],
             options={
-                'verbose_name': 'certificate',
-                'verbose_name_plural': 'certificates',
-                'abstract': False,
-                'unique_together': {('ca', 'serial_number')},
+                "verbose_name": "certificate",
+                "verbose_name_plural": "certificates",
+                "abstract": False,
+                "unique_together": {("ca", "serial_number")},
             },
         ),
     ]

@@ -572,12 +572,8 @@ For example:
 
     from django_x509.admin import CaAdmin, CertAdmin
 
-    CaAdmin.list_display.insert(
-        1, "my_custom_field"
-    )  # <-- your custom change example
-    CertAdmin.list_display.insert(
-        1, "my_custom_field"
-    )  # <-- your custom change example
+    CaAdmin.list_display.insert(1, "my_custom_field")  # <-- your custom change example
+    CertAdmin.list_display.insert(1, "my_custom_field")  # <-- your custom change example
 
 2. Inheriting admin classes
 +++++++++++++++++++++++++++

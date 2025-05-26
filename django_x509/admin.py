@@ -10,8 +10,8 @@ from swapper import load_model
 
 from .base.admin import AbstractCaAdmin, AbstractCertAdmin
 
-Ca = load_model('django_x509', 'Ca')
-Cert = load_model('django_x509', 'Cert')
+Ca = load_model("django_x509", "Ca")
+Cert = load_model("django_x509", "Cert")
 
 
 class CertAdmin(AbstractCertAdmin):

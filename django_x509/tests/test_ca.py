@@ -11,8 +11,8 @@ from .. import settings as app_settings
 from ..base.models import datetime_to_string, generalized_time, utc_time
 from . import TestX509Mixin
 
-Ca = load_model('django_x509', 'Ca')
-Cert = load_model('django_x509', 'Cert')
+Ca = load_model("django_x509", "Ca")
+Cert = load_model("django_x509", "Cert")
 
 
 class TestCa(TestX509Mixin, TestCase):
@@ -60,8 +60,8 @@ WRyKPvMvJzWT
 
     def test_new(self):
         ca = self._create_ca()
-        self.assertNotEqual(ca.certificate, '')
-        self.assertNotEqual(ca.private_key, '')
+        self.assertNotEqual(ca.certificate, "")
+        self.assertNotEqual(ca.private_key, "")
         cert = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
         self.assertEqual(int(cert.get_serial_number()), int(ca.serial_number))
         subject = cert.get_subject()
@@ -83,8 +83,8 @@ WRyKPvMvJzWT
         # basic constraints
         e = cert.get_extension(0)
         self.assertEqual(e.get_critical(), 1)
-        self.assertEqual(e.get_short_name().decode(), 'basicConstraints')
-        self.assertEqual(e.get_data(), b'0\x06\x01\x01\xff\x02\x01\x00')
+        self.assertEqual(e.get_short_name().decode(), "basicConstraints")
+        self.assertEqual(e.get_data(), b"0\x06\x01\x01\xff\x02\x01\x00")
 
     def test_x509_property(self):
         ca = self._create_ca()
@@ -117,7 +117,7 @@ WRyKPvMvJzWT
         self.assertEqual(ca.validity_start.second, 0)
 
     def test_import_ca(self):
-        ca = Ca(name='ImportTest')
+        ca = Ca(name="ImportTest")
         ca.certificate = self.import_certificate
         ca.private_key = self.import_private_key
         ca.full_clean()
@@ -126,37 +126,37 @@ WRyKPvMvJzWT
         # verify attributes
         self.assertEqual(cert.get_serial_number(), 123456)
         subject = cert.get_subject()
-        self.assertEqual(subject.countryName, 'US')
-        self.assertEqual(subject.stateOrProvinceName, 'CA')
-        self.assertEqual(subject.localityName, 'San Francisco')
-        self.assertEqual(subject.organizationName, 'ACME')
-        self.assertEqual(subject.emailAddress, 'contact@acme.com')
-        self.assertEqual(subject.commonName, 'importtest')
+        self.assertEqual(subject.countryName, "US")
+        self.assertEqual(subject.stateOrProvinceName, "CA")
+        self.assertEqual(subject.localityName, "San Francisco")
+        self.assertEqual(subject.organizationName, "ACME")
+        self.assertEqual(subject.emailAddress, "contact@acme.com")
+        self.assertEqual(subject.commonName, "importtest")
         issuer = cert.get_issuer()
-        self.assertEqual(issuer.countryName, 'US')
-        self.assertEqual(issuer.stateOrProvinceName, 'CA')
-        self.assertEqual(issuer.localityName, 'San Francisco')
-        self.assertEqual(issuer.organizationName, 'ACME')
-        self.assertEqual(issuer.emailAddress, 'contact@acme.com')
-        self.assertEqual(issuer.commonName, 'importtest')
+        self.assertEqual(issuer.countryName, "US")
+        self.assertEqual(issuer.stateOrProvinceName, "CA")
+        self.assertEqual(issuer.localityName, "San Francisco")
+        self.assertEqual(issuer.organizationName, "ACME")
+        self.assertEqual(issuer.emailAddress, "contact@acme.com")
+        self.assertEqual(issuer.commonName, "importtest")
         # verify field attribtues
-        self.assertEqual(ca.key_length, '512')
-        self.assertEqual(ca.digest, 'sha1')
+        self.assertEqual(ca.key_length, "512")
+        self.assertEqual(ca.digest, "sha1")
         start = timezone.make_aware(
-            datetime.strptime('20150101000000Z', generalized_time)
+            datetime.strptime("20150101000000Z", generalized_time)
         )
         self.assertEqual(ca.validity_start, start)
         end = timezone.make_aware(
-            datetime.strptime('20200101000000Z', generalized_time)
+            datetime.strptime("20200101000000Z", generalized_time)
         )
         self.assertEqual(ca.validity_end, end)
-        self.assertEqual(ca.country_code, 'US')
-        self.assertEqual(ca.state, 'CA')
-        self.assertEqual(ca.city, 'San Francisco')
-        self.assertEqual(ca.organization_name, 'ACME')
-        self.assertEqual(ca.email, 'contact@acme.com')
-        self.assertEqual(ca.common_name, 'importtest')
-        self.assertEqual(ca.name, 'ImportTest')
+        self.assertEqual(ca.country_code, "US")
+        self.assertEqual(ca.state, "CA")
+        self.assertEqual(ca.city, "San Francisco")
+        self.assertEqual(ca.organization_name, "ACME")
+        self.assertEqual(ca.email, "contact@acme.com")
+        self.assertEqual(ca.common_name, "importtest")
+        self.assertEqual(ca.name, "ImportTest")
         self.assertEqual(int(ca.serial_number), 123456)
         # ensure version is 3
         self.assertEqual(cert.get_version(), 3)
@@ -167,82 +167,82 @@ WRyKPvMvJzWT
         )
         ca.full_clean()
         ca.save()
-        self.assertEqual(ca.name, 'importtest')
+        self.assertEqual(ca.name, "importtest")
 
     def test_import_private_key_empty(self):
-        ca = Ca(name='ImportTest')
+        ca = Ca(name="ImportTest")
         ca.certificate = self.import_certificate
         try:
             ca.full_clean()
         except ValidationError as e:
             # verify error message
-            self.assertIn('importing an existing certificate', str(e))
+            self.assertIn("importing an existing certificate", str(e))
         else:
-            self.fail('ValidationError not raised')
+            self.fail("ValidationError not raised")
 
     def test_basic_constraints_not_critical(self):
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_CRITICAL', False)
+        setattr(app_settings, "CA_BASIC_CONSTRAINTS_CRITICAL", False)
         ca = self._create_ca()
         e = ca.x509.get_extension(0)
         self.assertEqual(e.get_critical(), 0)
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_CRITICAL', True)
+        setattr(app_settings, "CA_BASIC_CONSTRAINTS_CRITICAL", True)
 
     def test_basic_constraints_pathlen(self):
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 2)
+        setattr(app_settings, "CA_BASIC_CONSTRAINTS_PATHLEN", 2)
         ca = self._create_ca()
         e = ca.x509.get_extension(0)
-        self.assertEqual(e.get_data(), b'0\x06\x01\x01\xff\x02\x01\x02')
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)
+        self.assertEqual(e.get_data(), b"0\x06\x01\x01\xff\x02\x01\x02")
+        setattr(app_settings, "CA_BASIC_CONSTRAINTS_PATHLEN", 0)
 
     def test_basic_constraints_pathlen_none(self):
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', None)
+        setattr(app_settings, "CA_BASIC_CONSTRAINTS_PATHLEN", None)
         ca = self._create_ca()
         e = ca.x509.get_extension(0)
-        self.assertEqual(e.get_data(), b'0\x03\x01\x01\xff')
-        setattr(app_settings, 'CA_BASIC_CONSTRAINTS_PATHLEN', 0)
+        self.assertEqual(e.get_data(), b"0\x03\x01\x01\xff")
+        setattr(app_settings, "CA_BASIC_CONSTRAINTS_PATHLEN", 0)
 
     def test_keyusage(self):
         ca = self._create_ca()
         e = ca.x509.get_extension(1)
-        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
+        self.assertEqual(e.get_short_name().decode(), "keyUsage")
         self.assertEqual(e.get_critical(), True)
-        self.assertEqual(e.get_data(), b'\x03\x02\x01\x06')
+        self.assertEqual(e.get_data(), b"\x03\x02\x01\x06")
 
     def test_keyusage_not_critical(self):
-        setattr(app_settings, 'CA_KEYUSAGE_CRITICAL', False)
+        setattr(app_settings, "CA_KEYUSAGE_CRITICAL", False)
         ca = self._create_ca()
         e = ca.x509.get_extension(1)
-        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
+        self.assertEqual(e.get_short_name().decode(), "keyUsage")
         self.assertEqual(e.get_critical(), False)
-        setattr(app_settings, 'CA_KEYUSAGE_CRITICAL', True)
+        setattr(app_settings, "CA_KEYUSAGE_CRITICAL", True)
 
     def test_keyusage_value(self):
-        setattr(app_settings, 'CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign, keyAgreement')
+        setattr(app_settings, "CA_KEYUSAGE_VALUE", "cRLSign, keyCertSign, keyAgreement")
         ca = self._create_ca()
         e = ca.x509.get_extension(1)
-        self.assertEqual(e.get_short_name().decode(), 'keyUsage')
-        self.assertEqual(e.get_data(), b'\x03\x02\x01\x0e')
-        setattr(app_settings, 'CA_KEYUSAGE_VALUE', 'cRLSign, keyCertSign')
+        self.assertEqual(e.get_short_name().decode(), "keyUsage")
+        self.assertEqual(e.get_data(), b"\x03\x02\x01\x0e")
+        setattr(app_settings, "CA_KEYUSAGE_VALUE", "cRLSign, keyCertSign")
 
     def test_subject_key_identifier(self):
         ca = self._create_ca()
         e = ca.x509.get_extension(2)
-        self.assertEqual(e.get_short_name().decode(), 'subjectKeyIdentifier')
+        self.assertEqual(e.get_short_name().decode(), "subjectKeyIdentifier")
         self.assertEqual(e.get_critical(), False)
         e2 = crypto.X509Extension(
-            b'subjectKeyIdentifier', False, b'hash', subject=ca.x509
+            b"subjectKeyIdentifier", False, b"hash", subject=ca.x509
         )
         self.assertEqual(e.get_data(), e2.get_data())
 
     def test_authority_key_identifier(self):
         ca = self._create_ca()
         e = ca.x509.get_extension(3)
-        self.assertEqual(e.get_short_name().decode(), 'authorityKeyIdentifier')
+        self.assertEqual(e.get_short_name().decode(), "authorityKeyIdentifier")
         self.assertEqual(e.get_critical(), False)
         e2 = crypto.X509Extension(
-            b'authorityKeyIdentifier',
+            b"authorityKeyIdentifier",
             False,
-            b'keyid:always,issuer:always',
+            b"keyid:always,issuer:always",
             issuer=ca.x509,
         )
         self.assertEqual(e.get_data(), e2.get_data())
@@ -250,16 +250,16 @@ WRyKPvMvJzWT
     def test_extensions(self):
         extensions = [
             {
-                'name': 'nsComment',
-                'critical': False,
-                'value': 'CA - autogenerated Certificate',
+                "name": "nsComment",
+                "critical": False,
+                "value": "CA - autogenerated Certificate",
             }
         ]
         ca = self._create_ca(extensions=extensions)
         e1 = ca.x509.get_extension(4)
-        self.assertEqual(e1.get_short_name().decode(), 'nsComment')
+        self.assertEqual(e1.get_short_name().decode(), "nsComment")
         self.assertEqual(e1.get_critical(), False)
-        self.assertEqual(e1.get_data(), b'\x16\x1eCA - autogenerated Certificate')
+        self.assertEqual(e1.get_data(), b"\x16\x1eCA - autogenerated Certificate")
 
     def test_extensions_error1(self):
         extensions = {}
@@ -267,19 +267,19 @@ WRyKPvMvJzWT
             self._create_ca(extensions=extensions)
         except ValidationError as e:
             # verify error message
-            self.assertIn('Extension format invalid', str(e.message_dict['__all__'][0]))
+            self.assertIn("Extension format invalid", str(e.message_dict["__all__"][0]))
         else:
-            self.fail('ValidationError not raised')
+            self.fail("ValidationError not raised")
 
     def test_extensions_error2(self):
-        extensions = [{'wrong': 'wrong'}]
+        extensions = [{"wrong": "wrong"}]
         try:
             self._create_ca(extensions=extensions)
         except ValidationError as e:
             # verify error message
-            self.assertIn('Extension format invalid', str(e.message_dict['__all__'][0]))
+            self.assertIn("Extension format invalid", str(e.message_dict["__all__"][0]))
         else:
-            self.fail('ValidationError not raised')
+            self.fail("ValidationError not raised")
 
     def test_get_revoked_certs(self):
         ca = self._create_ca()
@@ -315,11 +315,11 @@ WRyKPvMvJzWT
 
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
-        path = reverse('admin:crl', args=[ca.pk])
-        self.assertEqual(path, f'/admin/{self.app_label}/ca/{ca.pk}.crl')
-        deprecated_path = reverse('admin:deprecated_crl', args=[ca.pk])
+        path = reverse("admin:crl", args=[ca.pk])
+        self.assertEqual(path, f"/admin/{self.app_label}/ca/{ca.pk}.crl")
+        deprecated_path = reverse("admin:deprecated_crl", args=[ca.pk])
         self.assertEqual(
-            deprecated_path, f'/admin/{self.app_label}/ca/x509/ca/{ca.pk}.crl'
+            deprecated_path, f"/admin/{self.app_label}/ca/x509/ca/{ca.pk}.crl"
         )
         response = self.client.get(path)
         self.assertEqual(response.status_code, 200)
@@ -330,21 +330,21 @@ WRyKPvMvJzWT
         self.assertEqual(int(revoked_list[0].get_serial()), cert.serial_number)
 
     def test_crl_view_403(self):
-        setattr(app_settings, 'CRL_PROTECTED', True)
+        setattr(app_settings, "CRL_PROTECTED", True)
         ca, _ = self._prepare_revoked()
-        response = self.client.get(reverse('admin:crl', args=[ca.pk]))
+        response = self.client.get(reverse("admin:crl", args=[ca.pk]))
         self.assertEqual(response.status_code, 403)
-        setattr(app_settings, 'CRL_PROTECTED', False)
+        setattr(app_settings, "CRL_PROTECTED", False)
 
     def test_crl_view_404(self):
         self._prepare_revoked()
-        response = self.client.get(reverse('admin:crl', args=[10]))
+        response = self.client.get(reverse("admin:crl", args=[10]))
         self.assertEqual(response.status_code, 404)
 
     def test_x509_text(self):
         ca = self._create_ca()
         text = crypto.dump_certificate(crypto.FILETYPE_TEXT, ca.x509)
-        self.assertEqual(ca.x509_text, text.decode('utf-8'))
+        self.assertEqual(ca.x509_text, text.decode("utf-8"))
 
     def test_x509_import_exception_fixed(self):
         certificate = """-----BEGIN CERTIFICATE-----
@@ -398,19 +398,19 @@ zzSTB8htePXcA2Jche227Ls2U7TFeyUCJ1Pns8wqfYxwfNBFH+gQ15sdQ2EwQSIY
 2yrYrwM4KOr7LrKtvz703ApicJf+oRO+vW27+N5t0pyLCjsYJyL55RpM0KWJhKhT
 KQV8C/ciDV+lIw2yBmlCNvUmy7GAsHSZM+C8y29+GFR7an6WV+xa
 -----END RSA PRIVATE KEY-----"""
-        ca = Ca(name='ImportTest error')
+        ca = Ca(name="ImportTest error")
         ca.certificate = certificate
         ca.private_key = private_key
         ca.full_clean()
         ca.save()
-        self.assertEqual(ca.email, '')
+        self.assertEqual(ca.email, "")
 
     def test_fill_subject_non_strings(self):
         ca1 = self._create_ca()
-        ca2 = Ca(name='ca', organization_name=ca1)
+        ca2 = Ca(name="ca", organization_name=ca1)
         x509 = crypto.X509()
         subject = ca2._fill_subject(x509.get_subject())
-        self.assertEqual(subject.organizationName, 'Test CA')
+        self.assertEqual(subject.organizationName, "Test CA")
 
     # this certificate has an invalid country code
     problematic_certificate = """-----BEGIN CERTIFICATE-----
@@ -470,40 +470,40 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
 
     def test_ca_invalid_country(self):
         ca = self._create_ca(
-            name='ImportTest error',
+            name="ImportTest error",
             certificate=self.problematic_certificate,
             private_key=self.problematic_private_key,
         )
-        self.assertEqual(ca.country_code, '')
+        self.assertEqual(ca.country_code, "")
 
     def test_import_ca_cert_validation_error(self):
         certificate = self.import_certificate[20:]
         private_key = self.import_private_key
-        ca = Ca(name='TestCaCertValidation')
+        ca = Ca(name="TestCaCertValidation")
         try:
             ca.certificate = certificate
             ca.private_key = private_key
             ca.full_clean()
         except ValidationError as e:
-            error_msg = str(e.message_dict['certificate'][0])
+            error_msg = str(e.message_dict["certificate"][0])
             self.assertTrue("('PEM routines', '', 'no start line')" in error_msg)
         else:
-            self.fail('ValidationError not raised')
+            self.fail("ValidationError not raised")
 
     def test_import_ca_key_validation_error(self):
         certificate = self.import_certificate
         private_key = self.import_private_key[20:]
-        ca = Ca(name='TestCaKeyValidation')
+        ca = Ca(name="TestCaKeyValidation")
         try:
             ca.certificate = certificate
             ca.private_key = private_key
             ca.full_clean()
             ca.save()
         except ValidationError as e:
-            error_msg = str(e.message_dict['private_key'][0])
+            error_msg = str(e.message_dict["private_key"][0])
             self.assertTrue("('DECODER routines', '', 'unsupported')" in error_msg)
         else:
-            self.fail('ValidationError not raised')
+            self.fail("ValidationError not raised")
 
     def test_create_old_serial_ca(self):
         ca = self._create_ca(serial_number=3)
@@ -513,15 +513,15 @@ wZWuZRQLPPTAdiW+drs3gz8w0u3Y9ihgvHQqFcGJ1+j6ANJ0XdE/D5Y=
 
     def test_bad_serial_number_ca(self):
         try:
-            self._create_ca(serial_number='notIntegers')
+            self._create_ca(serial_number="notIntegers")
         except ValidationError as e:
             self.assertEqual(
-                'Serial number must be an integer',
-                str(e.message_dict['serial_number'][0]),
+                "Serial number must be an integer",
+                str(e.message_dict["serial_number"][0]),
             )
 
     def test_import_ca_key_with_passphrase(self):
-        ca = Ca(name='ImportTest')
+        ca = Ca(name="ImportTest")
         ca.certificate = """-----BEGIN CERTIFICATE-----
 MIICrzCCAhigAwIBAgIJANCybYj5LwUWMA0GCSqGSIb3DQEBCwUAMG8xCzAJBgNV
 BAYTAklOMQwwCgYDVQQIDANhc2QxDDAKBgNVBAcMA2FzZDEMMAoGA1UECgwDYXNk
@@ -560,13 +560,13 @@ OO8quCk6DE4j4u3Yzk7810dkJtliwboQiTlitEbCjiyjkOrabIICKMte8nhylZX6
 BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
 -----END RSA PRIVATE KEY-----
         """
-        ca.passphrase = 'test123'
+        ca.passphrase = "test123"
         ca.full_clean()
         ca.save()
         self.assertIsInstance(ca.pkey, crypto.PKey)
 
     def test_import_ca_key_with_incorrect_passphrase(self):
-        ca = Ca(name='ImportTest')
+        ca = Ca(name="ImportTest")
         ca.certificate = """-----BEGIN CERTIFICATE-----
 MIICrzCCAhigAwIBAgIJANCybYj5LwUWMA0GCSqGSIb3DQEBCwUAMG8xCzAJBgNV
 BAYTAklOMQwwCgYDVQQIDANhc2QxDDAKBgNVBAcMA2FzZDEMMAoGA1UECgwDYXNk
@@ -606,16 +606,16 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
 -----END RSA PRIVATE KEY-----
         """
         try:
-            ca.passphrase = 'incorrect_passphrase'
+            ca.passphrase = "incorrect_passphrase"
             ca.full_clean()
             ca.save()
         except ValidationError as e:
-            self.assertIn('Incorrect Passphrase', str(e.message_dict['passphrase'][0]))
+            self.assertIn("Incorrect Passphrase", str(e.message_dict["passphrase"][0]))
         else:
-            self.fail('ValidationError not raised')
+            self.fail("ValidationError not raised")
 
     def test_generate_ca_with_passphrase(self):
-        ca = self._create_ca(passphrase='123')
+        ca = self._create_ca(passphrase="123")
         ca.full_clean()
         ca.save()
         self.assertIsInstance(ca.pkey, crypto.PKey)
@@ -633,8 +633,8 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
 
     def test_renew(self):
         ca = self._create_ca()
-        cert1 = self._create_cert(ca=ca, name='cert1')
-        cert2 = self._create_cert(ca=ca, name='cert2')
+        cert1 = self._create_cert(ca=ca, name="cert1")
+        cert2 = self._create_cert(ca=ca, name="cert2")
         old_ca_cert = ca.certificate
         old_ca_key = ca.private_key
         old_ca_end = ca.validity_end
@@ -665,26 +665,26 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
 
     def test_ca_common_name_length(self):
         common_name = (
-            'this is a very very very very very very'
-            ' very very very very very very long name'
+            "this is a very very very very very very"
+            " very very very very very very long name"
         )
         with self.assertRaises(ValidationError) as context_manager:
             self._create_ca(common_name=common_name)
 
         msg = (
-            f'Ensure this value has at most 64 characters (it has {len(common_name)}).'
+            f"Ensure this value has at most 64 characters (it has {len(common_name)})."
         )
         message_dict = context_manager.exception.message_dict
-        self.assertIn('common_name', message_dict)
-        self.assertEqual(message_dict['common_name'][0], msg)
+        self.assertIn("common_name", message_dict)
+        self.assertEqual(message_dict["common_name"][0], msg)
 
     def test_ca_without_key_length_and_digest_algo(self):
         try:
-            self._create_ca(key_length='', digest='')
+            self._create_ca(key_length="", digest="")
         except ValidationError as e:
-            self.assertIn('key_length', e.error_dict)
-            self.assertIn('digest', e.error_dict)
+            self.assertIn("key_length", e.error_dict)
+            self.assertIn("digest", e.error_dict)
         except Exception as e:
-            self.fail(f'Got exception: {e}')
+            self.fail(f"Got exception: {e}")
         else:
-            self.fail('ValidationError not raised as expected')
+            self.fail("ValidationError not raised as expected")

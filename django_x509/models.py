@@ -10,7 +10,7 @@ class Ca(AbstractCa):
 
     class Meta(AbstractCa.Meta):
         abstract = False
-        swappable = swapper.swappable_setting('django_x509', 'Ca')
+        swappable = swapper.swappable_setting("django_x509", "Ca")
 
 
 class Cert(AbstractCert):
@@ -20,4 +20,4 @@ class Cert(AbstractCert):
 
     class Meta(AbstractCert.Meta):
         abstract = False
-        swappable = swapper.swappable_setting('django_x509', 'Cert')
+        swappable = swapper.swappable_setting("django_x509", "Cert")

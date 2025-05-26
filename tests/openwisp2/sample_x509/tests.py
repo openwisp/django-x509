@@ -11,12 +11,12 @@ from .models import CustomCert
 class TestCustomCert(TestX509Mixin, TestCase):
     def test_pk_field(self):
         """Test that a cert can be created without an AttributeError."""
-        cert = self._create_cert(cert_model=CustomCert, fingerprint='123')
+        cert = self._create_cert(cert_model=CustomCert, fingerprint="123")
         self.assertEqual(cert.pk, cert.fingerprint)
 
 
 class ModelAdminTests(BaseModelAdminTests):
-    app_label = 'sample_x509'
+    app_label = "sample_x509"
 
 
 class TestCert(BaseTestCert):
