@@ -3,4 +3,4 @@ django>=4.2.0,<=5.3.0
 openwisp-utils @ https://github.com/openwisp/openwisp-utils/tarball/1.2
 jsonfield>=3.1.0,<4.0.0
 cryptography~=43.0.3
-pyOpenSSL~=24.2.1
+pyOpenSSL~=25.1.0
