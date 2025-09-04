@@ -42,59 +42,59 @@ jobs:
             django-version: django~=5.0.0
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
-    - name: Cache APT packages
-      uses: actions/cache@v4
-      with:
-        path: /var/cache/apt/archives
-        key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
-        restore-keys: |
-          apt-${{ runner.os }}-
+      - name: Cache APT packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: |
+            apt-${{ runner.os }}-
 
-    - name: Disable man page auto-update
-      run: |
-        echo 'set man-db/auto-update false' | sudo debconf-communicate >/dev/null
-        sudo dpkg-reconfigure man-db
+      - name: Disable man page auto-update
+        run: |
+          echo 'set man-db/auto-update false' | sudo debconf-communicate >/dev/null
+          sudo dpkg-reconfigure man-db
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: |
-          **/requirements*.txt
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: |
+            **/requirements*.txt
 
-    - name: Install Dependencies
-      id: deps
-      run: |
-        pip install -U pip setuptools wheel
-        sudo npm install -g prettier
-        pip install -U -r requirements-test.txt
-        pip install -U -e .
-        pip install ${{ matrix.django-version }}
+      - name: Install Dependencies
+        id: deps
+        run: |
+          pip install -U pip setuptools wheel
+          sudo npm install -g prettier
+          pip install -U -r requirements-test.txt
+          pip install -U -e .
+          pip install ${{ matrix.django-version }}
 
-    - name: QA Checks
-      run: ./run-qa-checks
+      - name: QA Checks
+        run: ./run-qa-checks
 
-    - name: Tests
-      if: ${{ !cancelled() && steps.deps.conclusion == 'success' }}
-      run: |
-        coverage run runtests.py --parallel
-        SAMPLE_APP=1 coverage run ./runtests.py --parallel
-        coverage combine
-        coverage xml
+      - name: Tests
+        if: ${{ !cancelled() && steps.deps.conclusion == 'success' }}
+        run: |
+          coverage run runtests.py --parallel
+          SAMPLE_APP=1 coverage run ./runtests.py --parallel
+          coverage combine
+          coverage xml
 
-    - name: Upload Coverage
-      if: ${{ success() }}
-      uses: coverallsapp/github-action@v2
-      with:
-        parallel: true
-        format: cobertura
-        flag-name: python-${{ matrix.env.env }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Coverage
+        if: ${{ success() }}
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel: true
+          format: cobertura
+          flag-name: python-${{ matrix.env.env }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   coveralls:
     needs: build
