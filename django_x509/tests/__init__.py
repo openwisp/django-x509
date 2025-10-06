@@ -21,11 +21,12 @@ class MessagingRequest(HttpRequest):
 
 
 class TestX509Mixin(object):
-    def _create_ca(self, **kwargs):
+    @staticmethod
+    def _create_ca(**kwargs):
         options = dict(
             name="Test CA",
             key_length="2048",
-            digest="sha256",
+            digest="sha256WithRSAEncryption",
             country_code="IT",
             state="RM",
             city="Rome",
@@ -40,14 +41,15 @@ class TestX509Mixin(object):
         ca.save()
         return ca
 
-    def _create_cert(self, cert_model=None, **kwargs):
+    @staticmethod
+    def _create_cert(cert_model=None, **kwargs):
         if not cert_model:
             cert_model = Cert
         options = dict(
             name="TestCert",
             ca=None,
             key_length="2048",
-            digest="sha256",
+            digest="sha256WithRSAEncryption",
             country_code="IT",
             state="RM",
             city="Rome",
@@ -59,7 +61,7 @@ class TestX509Mixin(object):
         options.update(kwargs)
         # auto create CA if not supplied
         if not options.get("ca"):
-            options["ca"] = self._create_ca()
+            options["ca"] = TestX509Mixin._create_ca()
         cert = cert_model(**options)
         cert.full_clean()
         cert.save()
