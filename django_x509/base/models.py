@@ -14,7 +14,7 @@ from cryptography.hazmat.bindings._rust import ObjectIdentifier
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, ed448, rsa, dsa, ec, padding
 from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1, SECP384R1, SECP521R1, ECDSA
-from cryptography.hazmat.primitives.hashes import SHA224, SHA256, SHA384, SHA512, SHA1
+from cryptography.hazmat.primitives.hashes import SHA224, SHA256, SHA384, SHA512
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.x509 import Certificate, load_pem_x509_certificate
 from django.core.exceptions import ValidationError
@@ -36,7 +36,6 @@ RSA_PUBLIC_EXPONENT = 65537
 class SupportedDigests(enum.Enum):
     """Supported certificate digest algorithm combinations."""
 
-    Sha1WithRSAEncryption = "sha1WithRSAEncryption"
     Sha224WithRSAEncryption = "sha224WithRSAEncryption"
     Sha256WithRSAEncryption = "sha256WithRSAEncryption"
     Sha384WithRSAEncryption = "sha384WithRSAEncryption"
@@ -44,14 +43,13 @@ class SupportedDigests(enum.Enum):
     EcdsaWithSHA256 = "ecdsa-with-SHA256"
     EcdsaWithSHA384 = "ecdsa-with-SHA384"
     EcdsaWithSHA512 = "ecdsa-with-SHA512"
-    DsaWithSHA1 = "dsaWithSHA1"
     DsaWithSHA256 = "dsaWithSHA256"
     Ed25519 = "Ed25519"
     Ed448 = "Ed448"
 
     @property
     def is_rsa(self) -> bool:
-        return self == SupportedDigests.Sha1WithRSAEncryption or self == SupportedDigests.Sha224WithRSAEncryption or self == SupportedDigests.Sha256WithRSAEncryption or self == SupportedDigests.Sha384WithRSAEncryption or self == SupportedDigests.Sha512WithRSAEncryption
+        return self == SupportedDigests.Sha224WithRSAEncryption or self == SupportedDigests.Sha256WithRSAEncryption or self == SupportedDigests.Sha384WithRSAEncryption or self == SupportedDigests.Sha512WithRSAEncryption
 
     @property
     def is_ecdsa(self) -> bool:
@@ -59,7 +57,7 @@ class SupportedDigests(enum.Enum):
 
     @property
     def is_dsa(self) -> bool:
-        return self == SupportedDigests.DsaWithSHA1 or self == SupportedDigests.DsaWithSHA256
+        return self == SupportedDigests.DsaWithSHA256
 
     @property
     def is_ed(self) -> bool:
@@ -68,8 +66,6 @@ class SupportedDigests(enum.Enum):
     @staticmethod
     def from_object_identifier(oid: ObjectIdentifier) -> "SupportedDigests":
         """Convert an ObjectIdentifier to a SupportedDigest object."""
-        if oid == SignatureAlgorithmOID.RSA_WITH_SHA1:
-            return SupportedDigests.Sha1WithRSAEncryption
         if oid == SignatureAlgorithmOID.RSA_WITH_SHA224:
             return SupportedDigests.Sha224WithRSAEncryption
         if oid == SignatureAlgorithmOID.RSA_WITH_SHA256:
@@ -84,8 +80,6 @@ class SupportedDigests(enum.Enum):
             return SupportedDigests.EcdsaWithSHA384
         if oid == SignatureAlgorithmOID.ECDSA_WITH_SHA512:
             return SupportedDigests.EcdsaWithSHA512
-        if oid == SignatureAlgorithmOID.DSA_WITH_SHA1:
-            return SupportedDigests.DsaWithSHA1
         if oid == SignatureAlgorithmOID.DSA_WITH_SHA256:
             return SupportedDigests.DsaWithSHA256
         if oid == SignatureAlgorithmOID.ED25519:
@@ -102,7 +96,7 @@ class SupportedDigests(enum.Enum):
 
     def generate_private_key(self, key_size: Optional[int] = None) -> Union[ed25519.Ed25519PrivateKey, ed448.Ed448PrivateKey, rsa.RSAPrivateKey, dsa.DSAPrivateKey, ec.EllipticCurvePrivateKey]:
         """Generate a private key for the selected digest algorithm."""
-        if self == SupportedDigests.Sha1WithRSAEncryption or self == SupportedDigests.Sha224WithRSAEncryption or self == SupportedDigests.Sha256WithRSAEncryption or self == SupportedDigests.Sha384WithRSAEncryption or self == SupportedDigests.Sha512WithRSAEncryption:
+        if self == SupportedDigests.Sha224WithRSAEncryption or self == SupportedDigests.Sha256WithRSAEncryption or self == SupportedDigests.Sha384WithRSAEncryption or self == SupportedDigests.Sha512WithRSAEncryption:
             if key_size is None:
                 raise ValueError(f"A key size must be specified when using the digest algorithm: '{self}'")
             return rsa.generate_private_key(RSA_PUBLIC_EXPONENT, key_size)
@@ -114,7 +108,7 @@ class SupportedDigests(enum.Enum):
         if self == SupportedDigests.EcdsaWithSHA512:
             return ec.generate_private_key(SECP521R1())
 
-        if self == SupportedDigests.DsaWithSHA1 or self == SupportedDigests.DsaWithSHA256:
+        if self == SupportedDigests.DsaWithSHA256:
             if key_size is None:
                 raise ValueError(f"A key size must be specified when using the digest algorithm: '{self}'")
 
@@ -125,10 +119,8 @@ class SupportedDigests(enum.Enum):
 
         return ed448.Ed448PrivateKey.generate()
 
-    def get_hashing_algorithm_instance(self) -> Union[SHA1, SHA224, SHA256, SHA384, SHA512] | None:
+    def get_hashing_algorithm_instance(self) -> Union[SHA224, SHA256, SHA384, SHA512] | None:
         """Get an instance of the hashing algorithm used."""
-        if self == SupportedDigests.Sha1WithRSAEncryption:
-            return SHA1()
         if self == SupportedDigests.Sha224WithRSAEncryption:
             return SHA224()
         if self == SupportedDigests.Sha256WithRSAEncryption:
@@ -143,8 +135,6 @@ class SupportedDigests(enum.Enum):
             return SHA384()
         if self == SupportedDigests.EcdsaWithSHA512:
             return SHA512()
-        if self == SupportedDigests.DsaWithSHA1:
-            return SHA1()
         if self == SupportedDigests.DsaWithSHA256:
             return SHA256()
         if self == SupportedDigests.Ed25519:
@@ -158,8 +148,6 @@ class SupportedDigests(enum.Enum):
 
     def __str__(self) -> str:
         """Convert this object to a string."""
-        if self == SupportedDigests.Sha1WithRSAEncryption:
-            return "SHA1 with RSA signature"
         if self == SupportedDigests.Sha224WithRSAEncryption:
             return "SHA224 with RSA signature"
         if self == SupportedDigests.Sha256WithRSAEncryption:
@@ -174,8 +162,6 @@ class SupportedDigests(enum.Enum):
             return "SHA384 with ECDSA signature"
         if self == SupportedDigests.EcdsaWithSHA512:
             return "SHA512 with ECDSA signature"
-        if self == SupportedDigests.DsaWithSHA1:
-            return "SHA1 with DSA signature"
         if self == SupportedDigests.DsaWithSHA256:
             return "SHA256 with DSA signature"
         if self == SupportedDigests.Ed25519:
