@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 
 import OpenSSL
 import swapper
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -514,16 +517,40 @@ class AbstractCa(BaseX509):
         """
         Returns up to date CRL of this CA
         """
-        revoked_certs = self.get_revoked_certs()
-        crl = crypto.CRL()
-        now_str = datetime_to_string(timezone.now())
-        for cert in revoked_certs:
-            revoked = crypto.Revoked()
-            revoked.set_serial(bytes(str(cert.serial_number), "utf8"))
-            revoked.set_reason(b"unspecified")
-            revoked.set_rev_date(bytes(str(now_str), "utf8"))
-            crl.add_revoked(revoked)
-        return crl.export(self.x509, self.pkey, days=1, digest=b"sha256")
+        backend = default_backend()
+        ca_cert = x509.load_pem_x509_certificate(self.certificate.encode())
+        # import ipdb; ipdb.set_trace()
+        pkey_kwargs = {"backend": backend, "password": None}
+        if self.passphrase:
+            pkey_kwargs["password"] = self.passphrase.encode()
+        private_key = serialization.load_pem_private_key(
+            self.private_key.encode(), **pkey_kwargs
+        )
+        now = timezone.now()
+        builder = (
+            x509.CertificateRevocationListBuilder()
+            .issuer_name(ca_cert.subject)
+            .last_update(now)
+            .next_update(now + timedelta(days=1))
+        )
+        for cert in self.get_revoked_certs():
+            revoked = (
+                x509.RevokedCertificateBuilder()
+                .serial_number(int(cert.serial_number))
+                .revocation_date(now)
+                .add_extension(
+                    x509.CRLReason(x509.ReasonFlags.unspecified),
+                    critical=False,
+                )
+                .build(backend)
+            )
+            builder = builder.add_revoked_certificate(revoked)
+        crl = builder.sign(
+            private_key=private_key,
+            algorithm=hashes.SHA256(),
+            backend=backend,
+        )
+        return crl.public_bytes(encoding=serialization.Encoding.PEM)
 
 
 AbstractCa._meta.get_field("validity_end").default = default_ca_validity_end

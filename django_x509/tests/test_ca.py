@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
@@ -15,6 +17,11 @@ Ca = load_model("django_x509", "Ca")
 Cert = load_model("django_x509", "Cert")
 
 
+def get_crl_revoked_certs(crl):
+    crl = x509.load_pem_x509_crl(crl, default_backend())
+    return [cert for cert in crl]
+
+
 class TestCa(TestX509Mixin, TestCase):
     """
     tests for Ca model
@@ -24,8 +31,8 @@ class TestCa(TestX509Mixin, TestCase):
 
     def _prepare_revoked(self):
         ca = self._create_ca()
-        crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
-        self.assertIsNone(crl.get_revoked())
+        revoked_certs = get_crl_revoked_certs(ca.crl)
+        self.assertEqual(revoked_certs, [])
         cert = self._create_cert(ca=ca)
         cert.revoke()
         return (ca, cert)
@@ -307,11 +314,10 @@ WRyKPvMvJzWT
 
     def test_crl(self):
         ca, cert = self._prepare_revoked()
-        crl = crypto.load_crl(crypto.FILETYPE_PEM, ca.crl)
-        revoked_list = crl.get_revoked()
+        revoked_list = get_crl_revoked_certs(ca.crl)
         self.assertIsNotNone(revoked_list)
         self.assertEqual(len(revoked_list), 1)
-        self.assertEqual(int(revoked_list[0].get_serial()), cert.serial_number)
+        self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
@@ -323,11 +329,10 @@ WRyKPvMvJzWT
         )
         response = self.client.get(path)
         self.assertEqual(response.status_code, 200)
-        crl = crypto.load_crl(crypto.FILETYPE_PEM, response.content)
-        revoked_list = crl.get_revoked()
+        revoked_list = get_crl_revoked_certs(response.content)
         self.assertIsNotNone(revoked_list)
         self.assertEqual(len(revoked_list), 1)
-        self.assertEqual(int(revoked_list[0].get_serial()), cert.serial_number)
+        self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
     def test_crl_view_403(self):
         setattr(app_settings, "CRL_PROTECTED", True)
