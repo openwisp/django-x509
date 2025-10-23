@@ -1,10 +1,34 @@
 Changelog
 =========
 
-Version 1.3.0 [Unreleased]
+Version 1.3.0 [2025-10-23]
 --------------------------
 
-Work in progress.
+Changes
+~~~~~~~
+
+Other changes
++++++++++++++
+
+- Fixed the URL structure for downloading CA's CRL `#147
+  <https://github.com/openwisp/django-x509/pull/147>`_.
+
+Dependencies
+++++++++++++
+
+- Bumped ``cryptography~=46.0.3``.
+- Bumped ``pyOpenSSL~=25.3.0``.
+- Bumped ``openwisp-utils~=1.2.0``.
+- Added support for Django ``5.x``.
+- Added support for Python ``3.11``, ``3.12``, and ``3.13``.
+- Dropped support for Django ``3.2`` and ``4.1``.
+- Dropped support for Python ``3.8``.
+
+Bugfixes
+~~~~~~~~
+
+- Avoided redundant SQL write query during CA/Cert creation `#120
+  <https://github.com/openwisp/django-x509/issues/120>`_.
 
 Version 1.2.0 [2024-08-16]
 --------------------------
