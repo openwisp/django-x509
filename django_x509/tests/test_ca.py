@@ -675,10 +675,10 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         """
         ca = self._create_ca()
         old_serial_number = ca.serial_number
-        
+
         ca.renew()
         ca.refresh_from_db()
-        
+
         # Parse the PEM certificate using cryptography
         pem_cert = x509.load_pem_x509_certificate(
             ca.certificate.encode(), default_backend()
@@ -698,7 +698,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         """
         ca = self._create_ca()
         cert = self._create_cert(ca=ca)
-        
+
         # Renew the certificate (this previously caused serial desync)
         cert.renew()
         cert.refresh_from_db()
@@ -708,15 +708,15 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             cert.certificate.encode(), default_backend()
         )
         self.assertEqual(int(pem_cert.serial_number), int(cert.serial_number))
-        
+
         # Revoke the renewed certificate
         cert.revoke()
         cert.refresh_from_db()
-        
+
         # Generate CRL and verify the revoked certificate's serial is in the CRL
         crl = x509.load_pem_x509_crl(ca.crl, default_backend())
         revoked_serials = [revoked.serial_number for revoked in crl]
-        
+
         # The CRL must contain the certificate's serial_number
         # This would fail if serial_number in DB didn't match serial in PEM
         self.assertIn(int(cert.serial_number), revoked_serials)
