@@ -684,7 +684,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             ca.certificate.encode(), default_backend()
         )
         pem_serial_number = pem_cert.serial_number
-        
+
         # The serial number in the PEM must match the database serial_number
         self.assertEqual(int(pem_serial_number), int(ca.serial_number))
         # Verify the serial number has actually changed after renewal
@@ -702,7 +702,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         # Renew the certificate (this previously caused serial desync)
         cert.renew()
         cert.refresh_from_db()
-        
+
         # Verify serial consistency after renewal
         pem_cert = x509.load_pem_x509_certificate(
             cert.certificate.encode(), default_backend()
