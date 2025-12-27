@@ -474,9 +474,21 @@ class BaseX509(models.Model):
         return cert
 
     def renew(self):
-        self._generate()
+        """
+        Renew the certificate, private key, serial number, and validity end date.
+        
+        Security note: serial_number must be generated BEFORE _generate() to ensure
+        the PEM certificate contains the same serial_number that is stored in the
+        database. This is critical for CRL revocation to work correctly, as the CRL
+        uses the database serial_number to match revoked certificates.
+        """
+        # Generate new serial_number before certificate generation to ensure
+        # PEM and database serial numbers are synchronized
         self.serial_number = self._generate_serial_number()
+        # Update validity_end before certificate generation so it's embedded in PEM
         self.validity_end = self.__class__().validity_end
+        # Generate certificate with the new serial_number and validity_end
+        self._generate()
         self.save()
 
     def _generate_serial_number(self):

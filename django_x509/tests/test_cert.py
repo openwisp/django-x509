@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
@@ -515,6 +517,29 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(old_ca_key, cert.ca.private_key)
         self.assertEqual(old_ca_end, cert.ca.validity_end)
         self.assertEqual(old_ca_serial_number, cert.ca.serial_number)
+
+    def test_renew_serial_number_consistency(self):
+        """
+        Regression test: After renewal, the serial number embedded in the PEM
+        certificate must match the serial_number stored in the database.
+        """
+        ca = self._create_ca()
+        cert = self._create_cert(ca=ca)
+        old_serial_number = cert.serial_number
+        
+        cert.renew()
+        cert.refresh_from_db()
+        
+        # Parse the PEM certificate using cryptography
+        pem_cert = x509.load_pem_x509_certificate(
+            cert.certificate.encode(), default_backend()
+        )
+        pem_serial_number = pem_cert.serial_number
+        
+        # The serial number in the PEM must match the database serial_number
+        self.assertEqual(int(pem_serial_number), int(cert.serial_number))
+        # Verify the serial number has actually changed after renewal
+        self.assertNotEqual(old_serial_number, cert.serial_number)
 
     def test_cert_common_name_length(self):
         common_name = (

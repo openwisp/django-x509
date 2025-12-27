@@ -668,6 +668,61 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertLess(old_cert2_end, cert2.validity_end)
         self.assertNotEqual(old_cert2_serial_number, cert2.serial_number)
 
+    def test_renew_serial_number_consistency(self):
+        """
+        Regression test: After CA renewal, the serial number embedded in the PEM
+        certificate must match the serial_number stored in the database.
+        """
+        ca = self._create_ca()
+        old_serial_number = ca.serial_number
+        
+        ca.renew()
+        ca.refresh_from_db()
+        
+        # Parse the PEM certificate using cryptography
+        pem_cert = x509.load_pem_x509_certificate(
+            ca.certificate.encode(), default_backend()
+        )
+        pem_serial_number = pem_cert.serial_number
+        
+        # The serial number in the PEM must match the database serial_number
+        self.assertEqual(int(pem_serial_number), int(ca.serial_number))
+        # Verify the serial number has actually changed after renewal
+        self.assertNotEqual(old_serial_number, ca.serial_number)
+
+    def test_renew_then_revoke_crl_consistency(self):
+        """
+        Security test: After certificate renewal, revocation must work correctly.
+        This verifies that CRL generation uses the same serial_number as the PEM,
+        ensuring revoked certificates can be properly identified.
+        """
+        ca = self._create_ca()
+        cert = self._create_cert(ca=ca)
+        
+        # Renew the certificate (this previously caused serial desync)
+        cert.renew()
+        cert.refresh_from_db()
+        
+        # Verify serial consistency after renewal
+        pem_cert = x509.load_pem_x509_certificate(
+            cert.certificate.encode(), default_backend()
+        )
+        self.assertEqual(int(pem_cert.serial_number), int(cert.serial_number))
+        
+        # Revoke the renewed certificate
+        cert.revoke()
+        cert.refresh_from_db()
+        
+        # Generate CRL and verify the revoked certificate's serial is in the CRL
+        crl = x509.load_pem_x509_crl(ca.crl, default_backend())
+        revoked_serials = [revoked.serial_number for revoked in crl]
+        
+        # The CRL must contain the certificate's serial_number
+        # This would fail if serial_number in DB didn't match serial in PEM
+        self.assertIn(int(cert.serial_number), revoked_serials)
+        # Verify it matches the PEM serial as well
+        self.assertIn(pem_cert.serial_number, revoked_serials)
+
     def test_ca_common_name_length(self):
         common_name = (
             "this is a very very very very very very"
