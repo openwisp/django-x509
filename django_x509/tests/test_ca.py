@@ -2,34 +2,20 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from cryptography import x509
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
-from swapper import load_model
 
 from .. import settings as app_settings
-from . import TestX509Mixin
-
-Ca = load_model("django_x509", "Ca")
-Cert = load_model("django_x509", "Cert")
-
-generalized_time = "%Y%m%d%H%M%SZ"
-utc_time = "%y%m%d%H%M%SZ"
+from . import UTC_TIME, Ca, TestX509Mixin, datetime_to_string
 
 
 def get_crl_revoked_certs(crl):
-    crl = x509.load_pem_x509_crl(crl, default_backend())
+    crl = x509.load_pem_x509_crl(crl)
     return [cert for cert in crl]
-
-
-def datetime_to_string(datetime_):
-    if datetime_.year < 2050:
-        return datetime_.strftime(utc_time)
-    return datetime_.strftime(generalized_time)
 
 
 class TestCa(TestX509Mixin, TestCase):
@@ -628,10 +614,10 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         utc_datetime = datetime(2049, 12, 31, 0, 0, 0, 0)
         self.assertEqual(
             datetime_to_string(generalized_datetime),
-            generalized_datetime.strftime(generalized_time),
+            generalized_datetime.strftime(UTC_TIME),
         )
         self.assertEqual(
-            datetime_to_string(utc_datetime), utc_datetime.strftime(utc_time)
+            datetime_to_string(utc_datetime), utc_datetime.strftime(UTC_TIME)
         )
 
     def test_renew(self):

@@ -4,8 +4,7 @@ from datetime import datetime, timedelta
 
 import swapper
 from cryptography import x509
-from cryptography.exceptions import UnsupportedAlgorithm
-from cryptography.hazmat.backends import default_backend
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID, NameOID
@@ -194,9 +193,7 @@ class BaseX509(models.Model):
         returns an instance of cryptography.x509.Certificate
         """
         if self.certificate:
-            return x509.load_pem_x509_certificate(
-                self.certificate.encode("utf-8"), default_backend()
-            )
+            return x509.load_pem_x509_certificate(self.certificate.encode("utf-8"))
 
     @cached_property
     def x509_text(self):
@@ -241,7 +238,7 @@ class BaseX509(models.Model):
         if self.certificate:
             try:
                 x509.load_pem_x509_certificate(self.certificate.encode("utf-8"))
-            except Exception:
+            except (ValueError, TypeError, UnsupportedAlgorithm):
                 errors["certificate"] = ValidationError(_("Invalid certificate"))
         if self.private_key:
             try:
@@ -252,7 +249,7 @@ class BaseX509(models.Model):
                 )
             except (TypeError, ValueError) as e:
                 msg = str(e).lower()
-                if "password" in msg or "decrypt" in msg or "padding" in msg:
+                if any(word in msg for word in ["password", "decrypt", "padding"]):
                     errors["passphrase"] = ValidationError(_("Incorrect Passphrase"))
                 else:
                     errors["private_key"] = ValidationError(_("Invalid private key"))
@@ -260,8 +257,6 @@ class BaseX509(models.Model):
                 errors["private_key"] = ValidationError(
                     _("Unsupported private key algorithm")
                 )
-            except Exception:
-                errors["private_key"] = ValidationError(_("Invalid private key"))
         if errors:
             raise ValidationError(errors)
 
@@ -360,21 +355,16 @@ class BaseX509(models.Model):
         # when importing an end entity certificate
         if hasattr(self, "ca"):
             self._verify_ca()
-        email = ""
         try:
             ext = cert.extensions.get_extension_for_oid(
                 ExtensionOID.SUBJECT_ALTERNATIVE_NAME
             )
             emails = ext.value.get_values_for_type(x509.RFC822Name)
-            if emails:
-                email = emails[0]
+            email = emails[0] if emails else ""
         except x509.ExtensionNotFound:
-            pass
-
-        if not email:
             attrs = cert.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)
-            if attrs:
-                email = str(attrs[0].value)
+            email = str(attrs[0].value) if attrs else ""
+
         self.email = email
         self.key_length = str(cert.public_key().key_size)
         self.digest = cert.signature_hash_algorithm.name.lower()
@@ -407,7 +397,13 @@ class BaseX509(models.Model):
         cert = self.x509
         ca_cert = self.ca.x509
         ca_pubkey = ca_cert.public_key()
-        if cert.issuer != ca_cert.subject:
+        issuer_identity = set(
+            (attr.oid, str(attr.value).strip().lower()) for attr in cert.issuer
+        )
+        ca_identity = set(
+            (attr.oid, str(attr.value).strip().lower()) for attr in ca_cert.subject
+        )
+        if issuer_identity != ca_identity:
             raise ValidationError(
                 _("The Certificate Issuer does not match the CA Subject.")
             )
@@ -426,7 +422,7 @@ class BaseX509(models.Model):
         except x509.ExtensionNotFound:
             raise ValidationError(
                 _("The selected CA is missing BasicConstraints and cannot sign.")
-            )
+            ) from None
         try:
             if isinstance(ca_pubkey, rsa.RSAPublicKey):
                 ca_pubkey.verify(
@@ -443,7 +439,7 @@ class BaseX509(models.Model):
                 )
             else:
                 ca_pubkey.verify(cert.signature, cert.tbs_certificate_bytes)
-        except Exception:
+        except InvalidSignature:
             raise ValidationError(
                 _("Cryptographic signature verification failed: CA does not match.")
             )
@@ -615,10 +611,9 @@ class AbstractCa(BaseX509):
         """
         Returns up to date CRL of this CA
         """
-        backend = default_backend()
         ca_cert = x509.load_pem_x509_certificate(self.certificate.encode())
         # import ipdb; ipdb.set_trace()
-        pkey_kwargs = {"backend": backend, "password": None}
+        pkey_kwargs = {"password": None}
         if self.passphrase:
             pkey_kwargs["password"] = self.passphrase.encode()
         private_key = serialization.load_pem_private_key(
@@ -640,13 +635,12 @@ class AbstractCa(BaseX509):
                     x509.CRLReason(x509.ReasonFlags.unspecified),
                     critical=False,
                 )
-                .build(backend)
+                .build()
             )
             builder = builder.add_revoked_certificate(revoked)
         crl = builder.sign(
             private_key=private_key,
             algorithm=hashes.SHA256(),
-            backend=backend,
         )
         return crl.public_bytes(encoding=serialization.Encoding.PEM)
 

@@ -2,29 +2,14 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from cryptography import x509
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from openwisp_utils.tests import AssertNumQueriesSubTestMixin
-from swapper import load_model
 
 from .. import settings as app_settings
-from . import TestX509Mixin
-
-generalized_time = "%Y%m%d%H%M%SZ"
-utc_time = "%y%m%d%H%M%SZ"
-
-
-def datetime_to_string(datetime_):
-    if datetime_.year < 2050:
-        return datetime_.strftime(utc_time)
-    return datetime_.strftime(generalized_time)
-
-
-Ca = load_model("django_x509", "Ca")
-Cert = load_model("django_x509", "Cert")
+from . import Ca, Cert, TestX509Mixin
 
 
 class TestCert(AssertNumQueriesSubTestMixin, TestX509Mixin, TestCase):
@@ -132,9 +117,7 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
 
     def test_x509_property(self):
         cert = self._create_cert()
-        cert_from_pem = x509.load_pem_x509_certificate(
-            cert.certificate.encode(), default_backend()
-        )
+        cert_from_pem = x509.load_pem_x509_certificate(cert.certificate.encode())
         self.assertEqual(cert.x509.subject, cert_from_pem.subject)
         self.assertEqual(cert.x509.issuer, cert_from_pem.issuer)
 
