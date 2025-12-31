@@ -552,10 +552,32 @@ class BaseX509(models.Model):
                     )
 
                 elif name == "nsCertType":
+                    ns_cert_type_map = {
+                        "client": 0x80,
+                        "server": 0x40,
+                        "email": 0x20,
+                        "objsign": 0x10,
+                        "sslca": 0x04,
+                        "emailca": 0x02,
+                        "objca": 0x01,
+                    }
+                    bits = 0
+                    for v in val.split(","):
+                        v_clean = v.strip().lower()
+                        if v_clean not in ns_cert_type_map:
+                            raise ValidationError(
+                                _("Unsupported nsCertType value: %s") % v_clean
+                            )
+                        bits |= ns_cert_type_map[v_clean]
+                    if not bits:
+                        raise ValidationError(
+                            _("nsCertType extension requires at least one valid type.")
+                        )
+                    raw_val = bytes([0x03, 0x02, 0x07, bits])
                     builder = builder.add_extension(
                         x509.UnrecognizedExtension(
                             x509.ObjectIdentifier("2.16.840.1.113730.1.1"),
-                            b"\x03\x02\x07\x80",
+                            raw_val,
                         ),
                         critical=crit,
                     )
