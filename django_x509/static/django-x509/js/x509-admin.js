@@ -23,7 +23,7 @@ django.jQuery(function ($) {
   // enable switcher only in add forms
   if (
     !operationType.length ||
-    $("form .deletelink-box").length > 0 ||
+    $("form .deletelink").length > 0 ||
     changePopupPage.test(url)
   ) {
     $(".field-operation_type").hide();
