@@ -532,17 +532,28 @@ class BaseX509(models.Model):
                         "codesigning": ExtendedKeyUsageOID.CODE_SIGNING,
                         "emailprotection": ExtendedKeyUsageOID.EMAIL_PROTECTION,
                     }
-                    oids = [
-                        eku_map[v.strip().lower()]
-                        for v in val.split(",")
-                        if v.strip().lower() in eku_map
-                    ]
+                    oids = []
+                    for v in val.split(","):
+                        v_clean = v.strip().lower()
+                        if v_clean not in eku_map:
+                            raise ValidationError(
+                                _("Unsupported extendedKeyUsage value: %s") % v_clean
+                            )
+                        oids.append(eku_map[v_clean])
                     if oids:
                         builder = builder.add_extension(
                             x509.ExtendedKeyUsage(oids), critical=crit
                         )
 
                 elif name == "nsComment":
+                    if not val:
+                        raise ValidationError(
+                            _("nsComment extension requires a value.")
+                        )
+                    if len(val) > 255:
+                        raise ValidationError(
+                            _("nsComment value exceeds maximum length of 255 bytes")
+                        )
                     raw_val = b"\x16" + bytes([len(val)]) + val.encode("utf-8")
                     builder = builder.add_extension(
                         x509.UnrecognizedExtension(
@@ -581,6 +592,8 @@ class BaseX509(models.Model):
                         ),
                         critical=crit,
                     )
+                else:
+                    raise ValidationError(_("Unsupported extension: %s") % name)
         return builder
 
     def renew(self):
@@ -634,7 +647,6 @@ class AbstractCa(BaseX509):
         Returns up to date CRL of this CA
         """
         ca_cert = x509.load_pem_x509_certificate(self.certificate.encode())
-        # import ipdb; ipdb.set_trace()
         pkey_kwargs = {"password": None}
         if self.passphrase:
             pkey_kwargs["password"] = self.passphrase.encode()
