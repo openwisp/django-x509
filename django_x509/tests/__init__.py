@@ -5,6 +5,17 @@ from swapper import load_model
 Ca = load_model("django_x509", "Ca")
 Cert = load_model("django_x509", "Cert")
 
+GENERALIZED_TIME = "%Y%m%d%H%M%SZ"
+UTC_TIME = "%y%m%d%H%M%SZ"
+
+
+def datetime_to_string(datetime_):
+    """
+    Helper to convert datetime to the string format used in certificates.
+    Centralized here to avoid duplication across test files.
+    """
+    return datetime_.strftime(UTC_TIME)
+
 
 class MessagingRequest(HttpRequest):
     session = "session"
