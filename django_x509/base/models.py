@@ -195,7 +195,12 @@ class BaseX509(models.Model):
         self._verify_extension_format()
         if self.key_type == "rsa" and self.key_length in EC_KEY_LENGTHS:
             raise ValidationError(
-                {"key_length": _("RSA keys must be at least 512 bits.")}
+                {
+                    "key_length": _(
+                        "Selected length is only valid for Elliptic Curve keys. "
+                        "RSA keys must use 512, 1024, 2048, or 4096 bits."
+                    )
+                }
             )
 
         if self.key_type == "ec" and self.key_length in RSA_KEY_LENGTHS:
@@ -407,6 +412,13 @@ class BaseX509(models.Model):
         elif isinstance(public_key, ec.EllipticCurvePublicKey):
             self.key_type = "ec"
             self.key_length = str(public_key.curve.key_size)
+        else:
+            raise ValidationError(
+                _(
+                    "Unsupported key type in certificate. "
+                    "Only RSA and EC keys are supported."
+                )
+            )
         # when importing an end entity certificate
         if hasattr(self, "ca"):
             self._verify_ca()
