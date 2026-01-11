@@ -19,6 +19,9 @@ from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from .. import settings as app_settings
 
 KEY_LENGTH_CHOICES = (
+    ("224", "224"),
+    ("256", "256"),
+    ("384", "384"),
     ("512", "512"),
     ("1024", "1024"),
     ("2048", "2048"),

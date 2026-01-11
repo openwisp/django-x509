@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from cryptography import x509
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -684,3 +685,39 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         cert_obj = x509.load_pem_x509_certificate(cert.certificate.encode())
         pem_serial = cert_obj.serial_number
         self.assertEqual(int(cert.serial_number), pem_serial)
+
+    def test_import_ecdsa_ca(self):
+        private_key = ec.generate_private_key(ec.SECP384R1())
+        subject = issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COMMON_NAME, "ecdsa-import-test"),
+            ]
+        )
+        now = datetime.now(dt_timezone.utc)
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(private_key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + timedelta(days=10))
+            .sign(private_key, hashes.SHA384())
+        )
+        cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode()
+        key_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        ).decode()
+        ca = Ca(name="ECDSA import Test", certificate=cert_pem, private_key=key_pem)
+        try:
+            ca.full_clean()
+            ca.save()
+        except KeyError as e:
+            self.fail(f"KeyError triggered during import: {e}")
+        except ValidationError as e:
+            self.fail(f"ValidationError triggered (likely missing choices): {e}")
+        self.assertEqual(ca.key_length, "384")
+        self.assertEqual(ca.digest, "sha384")
+        self.assertEqual(ca.common_name, "ecdsa-import-test")
