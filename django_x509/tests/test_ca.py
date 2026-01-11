@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from cryptography import x509
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -684,3 +685,48 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         cert_obj = x509.load_pem_x509_certificate(cert.certificate.encode())
         pem_serial = cert_obj.serial_number
         self.assertEqual(int(cert.serial_number), pem_serial)
+
+    def test_ecdsa_full_lifecycle(self):
+        curves_to_test = [
+            ("256", ec.SECP256R1),
+            ("384", ec.SECP384R1),
+            ("521", ec.SECP521R1),
+        ]
+        for length, curve_class in curves_to_test:
+            priv_key = ec.generate_private_key(curve_class())
+            key_pem = priv_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            ).decode("utf-8")
+            subject = issuer = x509.Name(
+                [
+                    x509.NameAttribute(x509.NameOID.COMMON_NAME, "test-import"),
+                ]
+            )
+            cert = (
+                x509.CertificateBuilder()
+                .subject_name(subject)
+                .issuer_name(issuer)
+                .public_key(priv_key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(timezone.now())
+                .not_valid_after(timezone.now() + timedelta(days=10))
+                .sign(priv_key, hashes.SHA256())
+            )
+            cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+            ca = Ca(
+                name=f"ECDSA-{length}-Import", certificate=cert_pem, private_key=key_pem
+            )
+            ca.full_clean()
+            ca.save()
+            self.assertEqual(ca.key_type, "ec")
+            self.assertEqual(ca.key_length, length)
+            gen_ca = Ca(name=f"Generated-EC-{length}", key_type="ec", key_length=length)
+            gen_ca.save()
+            self.assertIsInstance(gen_ca.pkey, ec.EllipticCurvePrivateKey)
+            original_cert = gen_ca.certificate
+            gen_ca.renew()
+            self.assertNotEqual(original_cert, gen_ca.certificate)
+            self.assertEqual(gen_ca.key_type, "ec")
+            self.assertIsInstance(gen_ca.pkey, ec.EllipticCurvePrivateKey)
