@@ -19,7 +19,6 @@ from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from .. import settings as app_settings
 
 KEY_LENGTH_CHOICES = (
-    ("224", "224"),
     ("256", "256"),
     ("384", "384"),
     ("521", "521"),
@@ -35,7 +34,7 @@ KEY_TYPE_CHOICES = (
 )
 
 RSA_KEY_LENGTHS = ("512", "1024", "2048", "4096")
-EC_KEY_LENGTHS = ("224", "256", "384", "521")
+EC_KEY_LENGTHS = ("256", "384", "521")
 
 DIGEST_CHOICES = (
     ("sha1", "SHA1"),
@@ -316,7 +315,6 @@ class BaseX509(models.Model):
             )
         elif self.key_type == "ec":
             curves = {
-                "224": ec.SECP224R1(),
                 "256": ec.SECP256R1(),
                 "384": ec.SECP384R1(),
                 "521": ec.SECP521R1(),
