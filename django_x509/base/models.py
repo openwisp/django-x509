@@ -354,6 +354,7 @@ class BaseX509(models.Model):
             self.digest.lower()
             .replace("withrsaencryption", "")
             .replace("ecdsa-with-", "")
+            .replace("withsha384", "sha384")
         )
         digest_alg = HASH_MAP.get(digest_name, hashes.SHA256)()
         cert = builder.sign(signing_key, digest_alg)
@@ -409,7 +410,10 @@ class BaseX509(models.Model):
             self.key_length = str(public_key.key_size)
         elif isinstance(public_key, ec.EllipticCurvePublicKey):
             self.key_type = "ec"
-            self.key_length = str(public_key.curve.key_size)
+            curve_size = str(public_key.curve.key_size)
+            if curve_size not in EC_KEY_LENGTHS:
+                raise ValidationError(_("Unsupported EC curve size: %s") % curve_size)
+            self.key_length = curve_size
         else:
             raise ValidationError(
                 _(
