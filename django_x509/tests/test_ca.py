@@ -688,45 +688,50 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
 
     def test_ecdsa_full_lifecycle(self):
         curves_to_test = [
-            ("256", ec.SECP256R1),
-            ("384", ec.SECP384R1),
-            ("521", ec.SECP521R1),
+            ("256", ec.SECP256R1, hashes.SHA256()),
+            ("384", ec.SECP384R1, hashes.SHA384()),
+            ("521", ec.SECP521R1, hashes.SHA512()),
         ]
-        for length, curve_class in curves_to_test:
-            priv_key = ec.generate_private_key(curve_class())
-            key_pem = priv_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            ).decode("utf-8")
-            subject = issuer = x509.Name(
-                [
-                    x509.NameAttribute(x509.NameOID.COMMON_NAME, "test-import"),
-                ]
-            )
-            cert = (
-                x509.CertificateBuilder()
-                .subject_name(subject)
-                .issuer_name(issuer)
-                .public_key(priv_key.public_key())
-                .serial_number(x509.random_serial_number())
-                .not_valid_before(timezone.now())
-                .not_valid_after(timezone.now() + timedelta(days=10))
-                .sign(priv_key, hashes.SHA256())
-            )
-            cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
-            ca = Ca(
-                name=f"ECDSA-{length}-Import", certificate=cert_pem, private_key=key_pem
-            )
-            ca.full_clean()
-            ca.save()
-            self.assertEqual(ca.key_type, "ec")
-            self.assertEqual(ca.key_length, length)
-            gen_ca = Ca(name=f"Generated-EC-{length}", key_type="ec", key_length=length)
-            gen_ca.save()
-            self.assertIsInstance(gen_ca.pkey, ec.EllipticCurvePrivateKey)
-            original_cert = gen_ca.certificate
-            gen_ca.renew()
-            self.assertNotEqual(original_cert, gen_ca.certificate)
-            self.assertEqual(gen_ca.key_type, "ec")
-            self.assertIsInstance(gen_ca.pkey, ec.EllipticCurvePrivateKey)
+        for length, curve_class, digest in curves_to_test:
+            with self.subTest(key_length=length):
+                priv_key = ec.generate_private_key(curve_class())
+                key_pem = priv_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.NoEncryption(),
+                ).decode("utf-8")
+                now = datetime.now(dt_timezone.utc)
+                subject = issuer = x509.Name(
+                    [x509.NameAttribute(NameOID.COMMON_NAME, "test")]
+                )
+                cert = (
+                    x509.CertificateBuilder()
+                    .subject_name(subject)
+                    .issuer_name(issuer)
+                    .public_key(priv_key.public_key())
+                    .serial_number(x509.random_serial_number())
+                    .not_valid_before(now)
+                    .not_valid_after(now + timedelta(days=10))
+                    .sign(priv_key, digest)
+                )
+                cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+                ca = Ca(
+                    name=f"EC-{length}",
+                    certificate=cert_pem,
+                    private_key=key_pem,
+                )
+                ca.full_clean()
+                ca.save()
+                self.assertEqual(ca.key_type, "ec")
+                self.assertEqual(ca.key_length, length)
+                gen_ca = Ca(
+                    name=f"Gen-EC-{length}",
+                    key_type="ec",
+                    key_length=length,
+                )
+                gen_ca.full_clean()
+                gen_ca.save()
+                self.assertIsInstance(gen_ca.pkey, ec.EllipticCurvePrivateKey)
+                original_cert = gen_ca.certificate
+                gen_ca.renew()
+                self.assertNotEqual(original_cert, gen_ca.certificate)
