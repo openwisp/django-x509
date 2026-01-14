@@ -686,7 +686,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         pem_serial = cert_obj.serial_number
         self.assertEqual(int(cert.serial_number), pem_serial)
 
-    def test_ecdsa_full_lifecycle(self):
+    def test_ca_ecdsa_full_lifecycle(self):
         curves_to_test = [
             ("256", ec.SECP256R1, hashes.SHA256()),
             ("384", ec.SECP384R1, hashes.SHA384()),

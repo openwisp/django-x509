@@ -201,7 +201,6 @@ class BaseX509(models.Model):
                     )
                 }
             )
-
         if self.key_type == "ec" and self.key_length in RSA_KEY_LENGTHS:
             raise ValidationError(
                 {"key_length": _("Selected length is not valid for Elliptic Curve.")}
