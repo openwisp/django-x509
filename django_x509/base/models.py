@@ -353,7 +353,7 @@ class BaseX509(models.Model):
             self.digest.lower()
             .replace("withrsaencryption", "")
             .replace("ecdsa-with-", "")
-            .replace("withsha384", "sha384")
+            .replace("withsha", "sha")
         )
         digest_alg = HASH_MAP.get(digest_name, hashes.SHA256)()
         cert = builder.sign(signing_key, digest_alg)
