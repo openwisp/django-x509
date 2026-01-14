@@ -734,9 +734,10 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 gen_ca.save()
                 self.assertIsInstance(gen_ca.pkey, ec.EllipticCurvePrivateKey)
                 original_cert = gen_ca.certificate
+                original_key = gen_ca.private_key
                 gen_ca.renew()
                 gen_ca.refresh_from_db()
                 self.assertEqual(gen_ca.key_type, "ec")
                 self.assertEqual(gen_ca.key_length, length)
-                self.assertNotEqual(gen_ca.private_key, original_cert)
+                self.assertNotEqual(gen_ca.private_key, original_key)
                 self.assertNotEqual(original_cert, gen_ca.certificate)
