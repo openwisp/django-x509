@@ -171,6 +171,9 @@ class BaseX509(models.Model):
         super().clean_fields(*args, **kwargs)
 
     def clean(self):
+        if self.serial_number:
+            self._validate_serial_number()
+        self._verify_extension_format()
         # when importing, both public and private must be present
         if (self.certificate and not self.private_key) or (
             self.private_key and not self.certificate
@@ -181,57 +184,11 @@ class BaseX509(models.Model):
                     "keys (private and public) must be present"
                 )
             )
-        if self.serial_number:
-            self._validate_serial_number()
-        self._verify_extension_format()
-        if self.certificate:
-            try:
-                public_key = self.x509.public_key()
-                is_ec_length = self.key_length in EC_KEY_LENGTHS
-                is_rsa_length = self.key_length in RSA_KEY_LENGTHS
-                if isinstance(public_key, rsa.RSAPublicKey):
-                    if is_ec_length:
-                        raise ValidationError(
-                            {
-                                "key_length": _(
-                                    "Selected length is only valid for ECDSA, "
-                                    "but an RSA key was provided."
-                                )
-                            }
-                        )
-                    if str(public_key.key_size) != self.key_length:
-                        raise ValidationError(
-                            {
-                                "key_length": _(
-                                    "The provided RSA key size (%s) "
-                                    "does not match the selected length."
-                                )
-                                % public_key.key_size
-                            }
-                        )
-                elif isinstance(public_key, ec.EllipticCurvePublicKey):
-                    if is_rsa_length:
-                        raise ValidationError(
-                            {
-                                "key_length": _(
-                                    "Selected length is only valid for RSA, "
-                                    "but an ECDSA key was provided."
-                                )
-                            }
-                        )
-                    actual_ec_length = str(public_key.curve.key_size)
-                    if actual_ec_length != self.key_length:
-                        raise ValidationError(
-                            {
-                                "key_length": _(
-                                    "The provided ECDSA curve size (%s) "
-                                    "does not match the selected length."
-                                )
-                                % actual_ec_length
-                            }
-                        )
-            except (ValueError, UnsupportedAlgorithm):
-                pass
+        all_supported = list(RSA_KEY_LENGTHS) + list(EC_KEY_LENGTHS)
+        if self.key_length not in all_supported:
+            raise ValidationError(
+                {"key_length": _("Unsupported key length: %s") % self.key_length}
+            )
 
     def save(self, *args, **kwargs):
         if self._state.adding and not self.certificate and not self.private_key:
