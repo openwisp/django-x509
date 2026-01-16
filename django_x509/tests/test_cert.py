@@ -500,7 +500,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         ]
         for length, curve_class, digest in curves_to_test:
             with self.subTest(key_length=length):
-                ca = Ca(name=f"CA-{length}", key_type="ec", key_length=length)
+                ca = Ca(name=f"CA-{length}", key_length=length)
                 ca.full_clean()
                 ca.save()
                 priv_key = ec.generate_private_key(curve_class())
@@ -529,15 +529,14 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                     ca=ca,
                     certificate=cert_pem,
                     private_key=key_pem,
+                    key_length=length,
                 )
                 entity_cert.full_clean()
                 entity_cert.save()
-                self.assertEqual(entity_cert.key_type, "ec")
                 self.assertEqual(entity_cert.key_length, length)
                 gen_cert = Cert(
                     name=f"Gen-EC-{length}",
                     ca=ca,
-                    key_type="ec",
                     key_length=length,
                 )
                 gen_cert.full_clean()
@@ -546,5 +545,4 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 original_pem = gen_cert.certificate
                 gen_cert.renew()
                 gen_cert.refresh_from_db()
-                self.assertEqual(gen_cert.key_type, "ec")
                 self.assertNotEqual(original_pem, gen_cert.certificate)

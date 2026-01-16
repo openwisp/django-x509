@@ -719,15 +719,14 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                     name=f"EC-{length}",
                     certificate=cert_pem,
                     private_key=key_pem,
+                    key_length=length,
                 )
                 ca.full_clean()
                 ca.save()
-                self.assertEqual(ca.key_type, "ec")
                 self.assertEqual(ca.key_length, length)
                 self.assertIsInstance(ca.pkey, ec.EllipticCurvePrivateKey)
                 gen_ca = Ca(
                     name=f"Gen-EC-{length}",
-                    key_type="ec",
                     key_length=length,
                 )
                 gen_ca.full_clean()
@@ -737,7 +736,6 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 original_key = gen_ca.private_key
                 gen_ca.renew()
                 gen_ca.refresh_from_db()
-                self.assertEqual(gen_ca.key_type, "ec")
                 self.assertEqual(gen_ca.key_length, length)
                 self.assertNotEqual(gen_ca.private_key, original_key)
                 self.assertNotEqual(original_cert, gen_ca.certificate)

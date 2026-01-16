@@ -19,18 +19,13 @@ from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from .. import settings as app_settings
 
 KEY_LENGTH_CHOICES = (
-    ("256", "256"),
-    ("384", "384"),
-    ("521", "521"),
-    ("512", "512"),
-    ("1024", "1024"),
-    ("2048", "2048"),
-    ("4096", "4096"),
-)
-
-KEY_TYPE_CHOICES = (
-    ("rsa", "RSA"),
-    ("ec", "Elliptic Curve"),
+    ("256", "256 (ECDSA)"),
+    ("384", "384 (ECDSA)"),
+    ("521", "521 (ECDSA)"),
+    ("512", "512 (RSA)"),
+    ("1024", "1024 (RSA)"),
+    ("2048", "2048 (RSA)"),
+    ("4096", "4096 (RSA)"),
 )
 
 RSA_KEY_LENGTHS = ("512", "1024", "2048", "4096")
@@ -159,9 +154,6 @@ class BaseX509(models.Model):
         blank=True,
         help_text=_("Passphrase for the private key, if present"),
     )
-    key_type = models.CharField(
-        _("key type"), max_length=3, choices=KEY_TYPE_CHOICES, default="rsa"
-    )
 
     class Meta:
         abstract = True
@@ -192,19 +184,54 @@ class BaseX509(models.Model):
         if self.serial_number:
             self._validate_serial_number()
         self._verify_extension_format()
-        if self.key_type == "rsa" and self.key_length in EC_KEY_LENGTHS:
-            raise ValidationError(
-                {
-                    "key_length": _(
-                        "Selected length is only valid for Elliptic Curve keys. "
-                        "RSA keys must use 512, 1024, 2048, or 4096 bits."
-                    )
-                }
-            )
-        if self.key_type == "ec" and self.key_length in RSA_KEY_LENGTHS:
-            raise ValidationError(
-                {"key_length": _("Selected length is not valid for Elliptic Curve.")}
-            )
+        if self.certificate:
+            try:
+                public_key = self.x509.public_key()
+                is_ec_length = self.key_length in EC_KEY_LENGTHS
+                is_rsa_length = self.key_length in RSA_KEY_LENGTHS
+                if isinstance(public_key, rsa.RSAPublicKey):
+                    if is_ec_length:
+                        raise ValidationError(
+                            {
+                                "key_length": _(
+                                    "Selected length is only valid for ECDSA, "
+                                    "but an RSA key was provided."
+                                )
+                            }
+                        )
+                    if str(public_key.key_size) != self.key_length:
+                        raise ValidationError(
+                            {
+                                "key_length": _(
+                                    "The provided RSA key size (%s) "
+                                    "does not match the selected length."
+                                )
+                                % public_key.key_size
+                            }
+                        )
+                elif isinstance(public_key, ec.EllipticCurvePublicKey):
+                    if is_rsa_length:
+                        raise ValidationError(
+                            {
+                                "key_length": _(
+                                    "Selected length is only valid for RSA, "
+                                    "but an ECDSA key was provided."
+                                )
+                            }
+                        )
+                    actual_ec_length = str(public_key.curve.key_size)
+                    if actual_ec_length != self.key_length:
+                        raise ValidationError(
+                            {
+                                "key_length": _(
+                                    "The provided ECDSA curve size (%s) "
+                                    "does not match the selected length."
+                                )
+                                % actual_ec_length
+                            }
+                        )
+            except (ValueError, UnsupportedAlgorithm):
+                pass
 
     def save(self, *args, **kwargs):
         if self._state.adding and not self.certificate and not self.private_key:
@@ -307,12 +334,8 @@ class BaseX509(models.Model):
         for attr in ["x509", "pkey"]:
             if attr in self.__dict__:
                 del self.__dict__[attr]
-        if self.key_type == "rsa":
-            key = rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=int(self.key_length),
-            )
-        elif self.key_type == "ec":
+        is_ec = self.key_length in EC_KEY_LENGTHS
+        if is_ec:
             curves = {
                 "256": ec.SECP256R1(),
                 "384": ec.SECP384R1(),
@@ -325,7 +348,10 @@ class BaseX509(models.Model):
                 )
             key = ec.generate_private_key(curve)
         else:
-            raise ValidationError(_("Unsupported key type: %s") % self.key_type)
+            key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=int(self.key_length),
+            )
         if hasattr(self, "ca"):
             signing_key = self.ca.pkey
             issuer_name = self.ca.x509.subject
@@ -367,7 +393,7 @@ class BaseX509(models.Model):
             encoding=serialization.Encoding.PEM,
             format=(
                 serialization.PrivateFormat.PKCS8
-                if self.key_type == "ec"
+                if is_ec
                 else serialization.PrivateFormat.TraditionalOpenSSL
             ),
             encryption_algorithm=encryption,
@@ -405,14 +431,11 @@ class BaseX509(models.Model):
         cert = self.x509
         public_key = cert.public_key()
         if isinstance(public_key, rsa.RSAPublicKey):
-            self.key_type = "rsa"
-            self.key_length = str(public_key.key_size)
+            actual_length = str(public_key.key_size)
+            actual_is_ec = False
         elif isinstance(public_key, ec.EllipticCurvePublicKey):
-            self.key_type = "ec"
-            curve_size = str(public_key.curve.key_size)
-            if curve_size not in EC_KEY_LENGTHS:
-                raise ValidationError(_("Unsupported EC curve size: %s") % curve_size)
-            self.key_length = curve_size
+            actual_length = str(public_key.curve.key_size)
+            actual_is_ec = True
         else:
             raise ValidationError(
                 _(
@@ -420,6 +443,22 @@ class BaseX509(models.Model):
                     "Only RSA and EC keys are supported."
                 )
             )
+        selected_is_ec = self.key_length in EC_KEY_LENGTHS
+        if selected_is_ec != actual_is_ec:
+            algorithm_expected = "ECDSA" if selected_is_ec else "RSA"
+            algorithm_provided = "ECDSA" if actual_is_ec else "RSA"
+            raise ValidationError(
+                {
+                    "key_length": _(
+                        "Algorithm mismatch: You selected a length for %s, "
+                        "but the provided certificate contains an %s key."
+                    )
+                    % (algorithm_expected, algorithm_provided)
+                }
+            )
+        if actual_is_ec and actual_length not in EC_KEY_LENGTHS:
+            raise ValidationError(_("Unsupported EC curve size: %s") % actual_length)
+        self.key_length = actual_length
         # when importing an end entity certificate
         if hasattr(self, "ca"):
             self._verify_ca()
