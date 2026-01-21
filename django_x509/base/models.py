@@ -13,7 +13,6 @@ from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
-from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 
 from .. import settings as app_settings
@@ -118,13 +117,11 @@ class BaseX509(models.Model):
     )
     email = models.EmailField(_("email address"), blank=True)
     common_name = models.CharField(_("common name"), max_length=64, blank=True)
-    extensions = JSONField(
+    extensions = models.JSONField(
         _("extensions"),
         default=list,
         blank=True,
         help_text=_("additional x509 certificate extensions"),
-        load_kwargs={"object_pairs_hook": collections.OrderedDict},
-        dump_kwargs={"indent": 4},
     )
     # serial_number is set to CharField as a UUID integer is too big for a
     # PositiveIntegerField and an IntegerField on SQLite
