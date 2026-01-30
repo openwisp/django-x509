@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from cryptography import x509
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -19,63 +20,112 @@ class TestCert(AssertNumQueriesSubTestMixin, TestX509Mixin, TestCase):
 
     import_certificate = """
 -----BEGIN CERTIFICATE-----
-MIICMTCCAdugAwIBAgIDAeJAMA0GCSqGSIb3DQEBBQUAMGgxETAPBgNVBAoMCE9w
-ZW5XSVNQMQswCQYDVQQGEwJJVDEMMAoGA1UEAwwDb3cyMQ0wCwYDVQQHDARSb21l
-MRwwGgYJKoZIhvcNAQkBFg10ZXN0QHRlc3QuY29tMQswCQYDVQQIDAJSTTAiGA8y
-MDE1MTEwMTAwMDAwMFoYDzIxMTgxMTAyMTgwMDI1WjAAMFwwDQYJKoZIhvcNAQEB
-BQADSwAwSAJBANh0Y7oG5JUl9cCBs6E11cJ2xLul6zw8cEoD1L7NazrPXG/NGTLt
-OF2TOEUob24aQ+YagMD6HLbejV0baTXwXakCAwEAAaOB0TCBzjAJBgNVHRMEAjAA
-MAsGA1UdDwQEAwIFoDAdBgNVHQ4EFgQUpcvUDhxzJFpMvjlTQjBaCjQI/3QwgZQG
-A1UdIwSBjDCBiYAUwfnP0B5rF3xo7yDRAda+1nj6QqahbKRqMGgxETAPBgNVBAoM
-CE9wZW5XSVNQMQswCQYDVQQGEwJJVDEMMAoGA1UEAwwDb3cyMQ0wCwYDVQQHDARS
-b21lMRwwGgYJKoZIhvcNAQkBFg10ZXN0QHRlc3QuY29tMQswCQYDVQQIDAJSTYID
-AeJAMA0GCSqGSIb3DQEBBQUAA0EAUKog+BPsM8j34Clec2BAACcuyJlwX41vQ3kG
-FqQS2KfO7YIk5ITWhX8y0P//u+ENWRlnVTRQma9d5tYYJvL8+Q==
+MIIDNjCCAh6gAwIBAgIDAeJAMA0GCSqGSIb3DQEBCwUAMHcxEzARBgNVBAMMCmlt
+cG9ydHRlc3QxCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJDQTEWMBQGA1UEBwwNU2Fu
+IEZyYW5jaXNjbzENMAsGA1UECgwEQUNNRTEfMB0GCSqGSIb3DQEJARYQY29udGFj
+dEBhY21lLmNvbTAeFw0yNjAxMTcxNTUxNTVaFw0zNjAxMTUxNTUxNTVaMAAwggEi
+MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC5NNAOi6Fqj+1bDT/PXSqnB6qc
+1F1j9DYvGw4/YBZTDvyII66rQQ34/SgEkNhYH5f5Q7xxEaZHD29TGUE3wj+sps8L
+WrgJd6shzIHYArZNQ21ZIy93aTZT87KznCBcsr0pFr6yHa0rVAug/x4dtxhq2wGA
+ESdwkzbTPP3yXjASLt20CMBQP7ZSIVmJSO/ZJ+ukdFz7psUnZhpXcav97lLsi8+A
+yXaRDSBkDOjiw0p0JO6syOxX7CNohNFJstiLc20A2YahN00RfjSRq92+3iLUHzVW
+RpiQs2EA3lg4SSre3dthqvWTNm48Sdy1x5AgipRHipaa/XSiAVbBkHwn/g1rAgMB
+AAGjQjBAMB0GA1UdDgQWBBSgr3fucGsd3A1fX0A2I0Ai9yy5ajAfBgNVHSMEGDAW
+gBSufESUfqH1WZBlgcb5oYdK6ENrIzANBgkqhkiG9w0BAQsFAAOCAQEACRNSrr20
+rpl8WSo+hzavnE6jzd3S4PYl4IU3cY03C/1uJ7ode00TOpq0LGIC5QToxcUNOqmb
+AU+JINaEXXy5jyud/p/SzsN1jXfP1MQcvTyL4thxcUftXYeoFaq+u8YgRFbuzCeD
+cnn0S+QXNKIOkASEEuEWRaMjWFDL17CNhEsW2HXV3MOhZv5L9ft5ua007LfDGTk9
+1Y+RQ+6/nAn9K0zRoKebnWWVWfgmUDCRYronbn13BU0elecMGqcsZzq+zTo8ePDG
++Hx97JA9mJhRsGQkIAYk24SKF9mOPUb2MCUHW41UHa09yUlKENgshwR5zMksioZ6
+CdicXI48yT96WQ==
 -----END CERTIFICATE-----
 """
     import_private_key = """
 -----BEGIN PRIVATE KEY-----
-MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEA2HRjugbklSX1wIGz
-oTXVwnbEu6XrPDxwSgPUvs1rOs9cb80ZMu04XZM4RShvbhpD5hqAwPoctt6NXRtp
-NfBdqQIDAQABAkEAx9M7NcOjRqXSqDOU92DRxEMNAAb+kY9iQpIi1zqgoZqWduVK
-tq0X0ous54j2ItqKDHxqEbbBzlo/BxMn5zkdOQIhAPIlngBgjgM0FFt+4bw6+5mW
-VvjxIQoVHkmd1HsfHkPvAiEA5NZ+Zqbbv6T7oLgixye1nbcJ3mQ5+IUuamGp7dVq
-/+cCIQDpxVNCffTcNt0ob9gyRqc74Z5Ze0EwYK761zqZGrO3VQIgYp0UZ4QsWo/s
-Z7wyMISqPUbtl8q1OKWb9PgVVIqNy60CIEpi865urZNSIz4SRrxn4r+WV9Mxlfxs
-1xtxYxSjiqrj
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC5NNAOi6Fqj+1b
+DT/PXSqnB6qc1F1j9DYvGw4/YBZTDvyII66rQQ34/SgEkNhYH5f5Q7xxEaZHD29T
+GUE3wj+sps8LWrgJd6shzIHYArZNQ21ZIy93aTZT87KznCBcsr0pFr6yHa0rVAug
+/x4dtxhq2wGAESdwkzbTPP3yXjASLt20CMBQP7ZSIVmJSO/ZJ+ukdFz7psUnZhpX
+cav97lLsi8+AyXaRDSBkDOjiw0p0JO6syOxX7CNohNFJstiLc20A2YahN00RfjSR
+q92+3iLUHzVWRpiQs2EA3lg4SSre3dthqvWTNm48Sdy1x5AgipRHipaa/XSiAVbB
+kHwn/g1rAgMBAAECggEAOFlAqgRCnrzejvLXhLxIY1xaRO/54BTnvWpCafbOpAOt
+wq/0j0cyPJytZcI6CInIP78joNUpXXptOP+4j4HqxJlV6hL2Zm8B4r0pjjK5C4Xl
+yZaCdRbOQDmnl6z7TajWE5/HckLEMqgWB6xHGexgofYzHSda9A3eQuPOMcUFZCpX
+H//sZPCOgkidObZ/jNQ3pH1A5JJ5BdZtz3BFvHkv+OHjEY8nNPbMuylMiOSbyLDZ
+zrF9ghSJYp1KpbxdojkzVYJSrZ9P2bDX+JJXqrmQ62LbPbRtETRxHc+VA4u4ZhS/
+/GC20bXkuoOLJg0LJw1R4qEJ8o3g9XVni/cBUzR6ZQKBgQD9nQYKULSG8vlFP711
+uaP2TQhaCMEPESzg1SS6H3lLBH5NYdG5gY8omoNBzoIZk2XHiaDsTFpGMsPZrufP
+BvN5VQukaYYe8jPBfq5ktlSbAkvQRVmuFlFT+bA1n/5jZCQyAd1Un8aJBYr+AdNl
+BzpCQUeTmP069OO50V4hjbbBJQKBgQC68v2YlGxpOBlngscKGZzSNjcxrZG+erul
+ZTt899waDaJEH3cxUjPcEZbAjin7gmsDehWN+kZ5kn4rd3+9M89SH63cd2lQq+fb
+pckOH5yvKjRsNCcwG5mlNcAkAWnbOL6ajNbdHVwNwPB4f4fEdsflTkuHgoUWfLB4
+UtY5oTu3TwKBgFWgYXy0GO+DM5Qk3CPWRLyQ76PuVrhulRdn/1lz7PDeGIKp5zRZ
+wOr1mCFsxtI5yOBg4FtHwCb5VtS1UAC/GQ87Ho4pLqZeIglPazQHt3MKiGxOLeQw
+Fs9iexLv7OTD19CmfoLm2xJCM9Zk6Wmv0gSyo6b6vWzdZ9HCFaUAgtadAoGBAKNg
+3BNOEvhZWIpHlh7Th2OGkfHOWEJ5DChdMgHisu3p4FdckFQAHOZEUNTy6OmubktZ
+lCDCCnkQd0cRZgc5kgOZP94eVWF0+mnQlsbLBalnXuz5Hw5B8KKbONG+kn5NNvXm
+A5i1oc87QGxuN36Qt91D8Wn5vMmMKsTcz+8JYyCtAoGBAK2vieDw6rD8k4UAp4Nn
+hYMtcPeVKNPcZxGWzh9abX0YcW02F6kP9xd0Mlv9AhCPl2xwoSB9y1WoOlCzvijq
+0pl8/DG+QHhnd0h362CaOuzpuH7863QhoAyIqVejED+XWkmYwjYK3CUqSRnnqFK/
+v/Qdu78ntVYDbDKuoaWE3uPa
 -----END PRIVATE KEY-----
 
 """
     import_ca_certificate = """
 -----BEGIN CERTIFICATE-----
-MIICpTCCAk+gAwIBAgIDAeJAMA0GCSqGSIb3DQEBBQUAMGgxETAPBgNVBAoMCE9w
-ZW5XSVNQMQswCQYDVQQGEwJJVDEMMAoGA1UEAwwDb3cyMQ0wCwYDVQQHDARSb21l
-MRwwGgYJKoZIhvcNAQkBFg10ZXN0QHRlc3QuY29tMQswCQYDVQQIDAJSTTAiGA8y
-MDE1MTEwMTAwMDAwMFoYDzIxMjcxMDMxMTc1OTI1WjBoMREwDwYDVQQKDAhPcGVu
-V0lTUDELMAkGA1UEBhMCSVQxDDAKBgNVBAMMA293MjENMAsGA1UEBwwEUm9tZTEc
-MBoGCSqGSIb3DQEJARYNdGVzdEB0ZXN0LmNvbTELMAkGA1UECAwCUk0wXDANBgkq
-hkiG9w0BAQEFAANLADBIAkEAsz5ORGAkryOe3bHRsuBJjCbwvPh4peSfpdrRV9CS
-iz7HQWq1s+wdzHONvc8pin+lmnB+RhGm0LrZDOWRyfzjMwIDAQABo4HdMIHaMBIG
-A1UdEwEB/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBTB+c/Q
-HmsXfGjvINEB1r7WePpCpjCBlAYDVR0jBIGMMIGJgBTB+c/QHmsXfGjvINEB1r7W
-ePpCpqFspGowaDERMA8GA1UECgwIT3BlbldJU1AxCzAJBgNVBAYTAklUMQwwCgYD
-VQQDDANvdzIxDTALBgNVBAcMBFJvbWUxHDAaBgkqhkiG9w0BCQEWDXRlc3RAdGVz
-dC5jb20xCzAJBgNVBAgMAlJNggMB4kAwDQYJKoZIhvcNAQEFBQADQQAeHppFPgUx
-TPJ0Vv9oZHcaOTww6S2p/X/F6yCHZMYq83B+cVxcJ4v+MVxRLg7DBVAIA8gOEFy2
-sKMLWX3IKJmh
+MIIDzzCCAregAwIBAgIUQSTDetixAO35vLfJ7jlCH7/UpUcwDQYJKoZIhvcNAQEL
+BQAwdzETMBEGA1UEAwwKaW1wb3J0dGVzdDELMAkGA1UEBhMCVVMxCzAJBgNVBAgM
+AkNBMRYwFAYDVQQHDA1TYW4gRnJhbmNpc2NvMQ0wCwYDVQQKDARBQ01FMR8wHQYJ
+KoZIhvcNAQkBFhBjb250YWN0QGFjbWUuY29tMB4XDTI2MDExNzA3NDEwNVoXDTM2
+MDExNTA3NDEwNVowdzETMBEGA1UEAwwKaW1wb3J0dGVzdDELMAkGA1UEBhMCVVMx
+CzAJBgNVBAgMAkNBMRYwFAYDVQQHDA1TYW4gRnJhbmNpc2NvMQ0wCwYDVQQKDARB
+Q01FMR8wHQYJKoZIhvcNAQkBFhBjb250YWN0QGFjbWUuY29tMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkyNsaGZatFTvlPQ2Soj4g5kzalPmrLkKEXxY
+kNvICJ430Pob1J0N+R5VdhNuwuSaCc4bj5lzyHCvScSZBaTyThXX6deRUW1uk8Ss
+8fG+E8JCrAHzKWQVUe7uZJTgKtI6hNBfNzmVHVXvWiFBQRMO4OXOW92hKKPhOIcc
+T99QcelNrO1TKT937cngKaSb+0ZcoAspKWfFb0y62XxxArHC/f5nN2p1I8+6h9gQ
+26+MRXmxwlvT9qX2TMRBCj36D0jgsCgJ10C7iQjZu3d5FtmbU7dS4DvlCj8pNXcn
+S4RxXHrmZKeY3UVk9TNRYyMOd2cHm7FQdrGYWO4xT+5LtPkLcQIDAQABo1MwUTAd
+BgNVHQ4EFgQUrnxElH6h9VmQZYHG+aGHSuhDayMwHwYDVR0jBBgwFoAUrnxElH6h
+9VmQZYHG+aGHSuhDayMwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOC
+AQEACshO+uDpXE779/5zrm6w83IKJHqYnX2pdFMJM1WuJBXlo0r+WMrwDTarQc+I
+NhuL60bnoYrmrja8o5cOuBBMqpIn2ct1H7xE4C0t6BY4+khmEBLM700oxKWhOThG
+IKAcdLrbqGECQdbttMS5kiMhlH5mQANtnPQFHZgua/kPrBjIeeOzK0Wt+2Lnd3/o
+q24y18BVEbJAZxTsEberrvrSAxrdSNk9A4nMrz5UpjOxJ4QWKJctGjUjZrCtpLqP
+/fPO6RV+C1jIBYvP2NduuCiQgCqfRArPqhqqWbQodUCwBL8mTu/piL5e1dIotYwH
+EQZrw8bbikXRSH3D31NVroN7fw==
 -----END CERTIFICATE-----
 """
     import_ca_private_key = """
 -----BEGIN PRIVATE KEY-----
-MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAsz5ORGAkryOe3bHR
-suBJjCbwvPh4peSfpdrRV9CSiz7HQWq1s+wdzHONvc8pin+lmnB+RhGm0LrZDOWR
-yfzjMwIDAQABAkEAnG5ICEyQN3my8HB8PsyX44UonQOM59s7qZfrE+SnwHU2ywhE
-k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
-2WlyfnXwE/RFzVDOfOcrAiEAx9Y1ZbtTr2AL6wsf+wpRbkq9dPEiWi4C+0ms3Uw2
-8BkCIGRctohLnqS2QWLrSHfQFdeM0StizN11uvMI023fYv6TAiEAxujn85/3V1wh
-4M4NAiMuFLseQ5V1XQ/pddjK0Od405kCIC2ezclTgDBbRkHXKFtKnoj3/pGUsa3K
-5XIa5rp5Is47
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCTI2xoZlq0VO+U
+9DZKiPiDmTNqU+asuQoRfFiQ28gInjfQ+hvUnQ35HlV2E27C5JoJzhuPmXPIcK9J
+xJkFpPJOFdfp15FRbW6TxKzx8b4TwkKsAfMpZBVR7u5klOAq0jqE0F83OZUdVe9a
+IUFBEw7g5c5b3aEoo+E4hxxP31Bx6U2s7VMpP3ftyeAppJv7RlygCykpZ8VvTLrZ
+fHECscL9/mc3anUjz7qH2BDbr4xFebHCW9P2pfZMxEEKPfoPSOCwKAnXQLuJCNm7
+d3kW2ZtTt1LgO+UKPyk1dydLhHFceuZkp5jdRWT1M1FjIw53ZwebsVB2sZhY7jFP
+7ku0+QtxAgMBAAECggEANH9kE4/JdyQC41uK72cVfCayMJLE8AWJcRmzo+O26FRD
+R/2k5mQu8x5+kYV3dHQJ/cubC85NgEusTx6lFl120qN6iQWP5MStum1m42BEWFps
+XWDIuJDsBnLAfgScQssFdBPAlTynVnMt1jOdS7GYEmgMC7z03kIyfm++i0T7N9ji
+fyN2CFOXgevgHK5EtTSrBTzg8JkFnhNZKjHPU9IkRyaN8KtOwKrEgxh0glvNM6yp
+cmU8PE+DPK4TSQGsIO4X4Z19wKv7O8x6CYLos8w2Yh9jwMHaGeDnv68RVFoY1vgH
+q/PJcWylRanDeyoShIm3v2qBCQcBtUqDUqdTotww7QKBgQDH2LeZ4rn7SUuRkt7l
+YeM4YtlbWSlycTh1KphqkM3UW0MQA/HcJKgFacbxdEj9hV0Ol/l76qQv39V1Ts3X
+Zsf1eSGLdrvi2JYrlh0WYhFco/g7Cqt43dNfqSAnNKb8ihRq3X8zsQ7nTDU3wWoK
+fYjeHyYRFYPi7jQF3sYcmrM5OwKBgQC8e1KPKQ2eIJNC5rYbolxRgrSOMxr+AxgD
+iiNdhPT0lpeYEPW65z/pbdiiehXt8zrrJhtfDDe7f0dHaYkbSJWq5dzjAqnfwNGO
++gr5+skTL5nkimjbinGHN8+2134eMxh4WmsyQvkY23wk8SJlC9/57/TQvjRNZUAw
+nmBmQdojQwKBgQCWFXl9RjqqLxdjkkt3NRZxyDq4UbPA0Kq3w2+HyIvryUYKBwxi
+ad0Ng6z2tIAEdV23kga5OzRnB9DFMpOACx5sibXZiSf9au8MeMYLg0bKrhHENXUl
+ZmJR2y/cgbxOuFwxDXt0FKq+pgrpfoXmrvRU7EuoVOIhUQccyXs7DCtA9QKBgEoS
+vVN98tgePUGhohgiKt3t3D+2XflOBfX+J//s7MfjFxiwMaKOl1OJ1AWmrU+is5kO
+lNs51f1d/AlYtIWAdTGAvNqKhXBmOvVR11Z+9N8Rag2jR6pgMlXN3VgiQHJl6kwC
+XPaX04WtXJC4I6hKjm+PmksfNTblf+CbnY8SekQ5AoGBALvK6n2UGG+0fKtUFM+M
+0enYrqW065OsDOIXo7roOVZjBhul+vilk7xJ85fhtDD0zll/4OoJ1BG9IN0rUUJh
+eMIi3AQRO060kYejKGC2ls5hMxjdhxB/bUGrwXkMxZQPfjBkcP3JqaZkwcFBKq5N
+tsND+97h9r73S+UTOhepQTDB
 -----END PRIVATE KEY-----
+
 """
 
     def test_new(self):
@@ -165,14 +215,14 @@ k9Y1S1C9VB0YsDZTeZUggJNSDN4YrKjIevYZQQIhAOWec6vngM/PlI1adrFndd3d
         # verify issuer (using CA subject for comparison)
         self.assertEqual(x509_obj.issuer, ca.x509.subject)
         # verify field attributes
-        self.assertEqual(cert.key_length, "512")
-        self.assertEqual(cert.digest, "sha1")
+        self.assertEqual(cert.key_length, "2048")
+        self.assertEqual(cert.digest, "sha256")
         self.assertEqual(int(cert.serial_number), 123456)
 
         self.assertEqual(cert.country_code, "")
         self.assertEqual(cert.common_name, "")
-        start = datetime(2015, 11, 1, 0, 0, 0, tzinfo=dt_timezone.utc)
-        end = datetime(2118, 11, 2, 18, 0, 25, tzinfo=dt_timezone.utc)
+        start = datetime(2026, 1, 17, 15, 51, 55, tzinfo=dt_timezone.utc)
+        end = datetime(2036, 1, 15, 15, 51, 55, tzinfo=dt_timezone.utc)
         self.assertEqual(cert.validity_start, start)
         self.assertEqual(cert.validity_end, end)
         # ensure version is 3
@@ -490,3 +540,58 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         message_dict = context_manager.exception.message_dict
         self.assertIn("common_name", message_dict)
         self.assertEqual(message_dict["common_name"][0], msg)
+
+    def test_cert_ecdsa_full_lifecycle(self):
+        curves_to_test = [
+            ("256", ec.SECP256R1, hashes.SHA256()),
+            ("384", ec.SECP384R1, hashes.SHA384()),
+            ("521", ec.SECP521R1, hashes.SHA512()),
+        ]
+        for length, curve_class, digest in curves_to_test:
+            with self.subTest(key_length=length):
+                ca = Ca(name=f"CA-{length}", key_length=length)
+                ca.full_clean()
+                ca.save()
+                priv_key = ec.generate_private_key(curve_class())
+                key_pem = priv_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.NoEncryption(),
+                ).decode("utf-8")
+                now = datetime.now(dt_timezone.utc)
+                subject = x509.Name(
+                    [x509.NameAttribute(NameOID.COMMON_NAME, "test-cert")]
+                )
+                cert = (
+                    x509.CertificateBuilder()
+                    .subject_name(subject)
+                    .issuer_name(ca.x509.subject)
+                    .public_key(priv_key.public_key())
+                    .serial_number(x509.random_serial_number())
+                    .not_valid_before(now)
+                    .not_valid_after(now + timedelta(days=10))
+                    .sign(ca.pkey, digest)
+                )
+                cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+                entity_cert = Cert(
+                    name=f"EC-{length}-Import",
+                    ca=ca,
+                    certificate=cert_pem,
+                    private_key=key_pem,
+                    key_length=length,
+                )
+                entity_cert.full_clean()
+                entity_cert.save()
+                self.assertEqual(entity_cert.key_length, length)
+                gen_cert = Cert(
+                    name=f"Gen-EC-{length}",
+                    ca=ca,
+                    key_length=length,
+                )
+                gen_cert.full_clean()
+                gen_cert.save()
+                self.assertIsInstance(gen_cert.pkey, ec.EllipticCurvePrivateKey)
+                original_pem = gen_cert.certificate
+                gen_cert.renew()
+                gen_cert.refresh_from_db()
+                self.assertNotEqual(original_pem, gen_cert.certificate)
