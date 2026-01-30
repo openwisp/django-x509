@@ -241,10 +241,8 @@ Default key length for new CAs and new certificates.
 
 Must be one of the following values:
 
-- ``512``
-- ``1024``
-- ``2048``
-- ``4096``
+- RSA: ``1024``, ``2048``, ``4096``
+- ECDSA: ``256`` (P-256), ``384`` (P-384), ``521`` (P-521)
 
 ``DJANGO_X509_DEFAULT_DIGEST_ALGORITHM``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
