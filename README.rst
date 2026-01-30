@@ -68,6 +68,8 @@ Current features
 - Possibility to generate and import passphrase protected x509
   certificates/CAs
 - Passphrase protected x509 content will be shown encrypted in the web UI
+- RSA and ECDSA support: generate or import certificates using RSA or
+  ECDSA algorithms.
 
 Project goals
 -------------
