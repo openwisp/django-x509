@@ -19,6 +19,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
+        "Django>=4.2",
         "cryptography~=46.0.3",
     ],
     classifiers=[
