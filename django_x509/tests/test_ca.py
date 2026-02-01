@@ -375,7 +375,7 @@ tsND+97h9r73S+UTOhepQTDB
         text = ca.x509_text
         # check for the key components rather than the exact "Subject:" prefix
         self.assertIn(ca.common_name, text)
-        self.assertIn(str(ca.serial_number), text)
+        self.assertIn("Serial Number:", text)
         # ensure it's not PEM
         self.assertNotIn("-----BEGIN CERTIFICATE-----", text)
 

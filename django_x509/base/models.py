@@ -1,4 +1,5 @@
 import collections
+import subprocess
 import uuid
 from datetime import datetime, timedelta
 
@@ -209,23 +210,19 @@ class BaseX509(models.Model):
     def x509_text(self):
         if not self.certificate:
             return None
-        cert = self.x509
-        lines = [
-            f"Subject: {cert.subject.rfc4514_string()}",
-            f"Issuer: {cert.issuer.rfc4514_string()}",
-            f"Serial Number: {cert.serial_number}",
-            "Validity:",
-            f"    Not Before: {cert.not_valid_before_utc}",
-            f"    Not After : {cert.not_valid_after_utc}",
-            f"Signature Algorithm: {cert.signature_hash_algorithm.name}",
-            "Extensions:",
-        ]
-        for ext in cert.extensions:
-            name = ext.oid._name if hasattr(ext.oid, "_name") else ext.oid.dotted_string
-            lines.append(f"    {name}:")
-            lines.append(f"        Critical: {ext.critical}")
-            lines.append(f"        Value: {ext.value}")
-        return "\n".join(lines)
+        try:
+            cmd = ["openssl", "x509", "-text", "-noout"]
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            stdout, stderr = proc.communicate(input=self.certificate)
+            return stdout
+        except Exception:
+            return "Error: Could not format certificate via openssl binary."
 
     @cached_property
     def pkey(self):
