@@ -1,5 +1,7 @@
+import subprocess
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
+from unittest import mock
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -596,3 +598,12 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 gen_cert.renew()
                 gen_cert.refresh_from_db()
                 self.assertNotEqual(original_pem, gen_cert.certificate)
+
+    def test_x509_text_exception(self):
+        cert = self._create_cert()
+        with mock.patch("subprocess.check_output") as mocked_cmd:
+            mocked_cmd.side_effect = Exception("Simulated Failure")
+            self.assertEqual(
+                cert.x509_text,
+                "Error: Could not format certificate via openssl binary.",
+            )
