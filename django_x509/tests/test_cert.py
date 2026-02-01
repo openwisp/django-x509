@@ -1,4 +1,3 @@
-import subprocess
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from unittest import mock
