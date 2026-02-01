@@ -211,24 +211,13 @@ class BaseX509(models.Model):
         if not self.certificate:
             return None
         try:
-            cmd = ["openssl", "x509", "-text", "-noout"]
-            proc = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            stdout, stderr = proc.communicate(input=self.certificate)
-            if proc.returncode != 0:
-                return (
-                    f"Error: openssl failed with: {stderr.strip() or 'unknown error'}"
-                )
-            return stdout
-        except FileNotFoundError:
-            return "Error: openssl binary not found."
-        except OSError as e:
-            return f"Error: Could not execute openssl: {e}"
+            return subprocess.check_output(
+                ["openssl", "x509", "-text", "-noout"],
+                input=self.certificate.encode("utf-8"),
+                stderr=subprocess.STDOUT,
+            ).decode("utf-8")
+        except Exception:
+            return "Error: Could not format certificate via openssl binary."
 
     @cached_property
     def pkey(self):
