@@ -220,9 +220,15 @@ class BaseX509(models.Model):
                 text=True,
             )
             stdout, stderr = proc.communicate(input=self.certificate)
+            if proc.returncode != 0:
+                return (
+                    f"Error: openssl failed with: {stderr.strip() or 'unknown error'}"
+                )
             return stdout
-        except Exception:
-            return "Error: Could not format certificate via openssl binary."
+        except FileNotFoundError:
+            return "Error: openssl binary not found."
+        except OSError as e:
+            return f"Error: Could not execute openssl: {e}"
 
     @cached_property
     def pkey(self):

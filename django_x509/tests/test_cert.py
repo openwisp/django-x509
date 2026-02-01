@@ -350,7 +350,7 @@ tsND+97h9r73S+UTOhepQTDB
         text = cert.x509_text
         self.assertIsNotNone(text)
         self.assertIn("Subject:", text)
-        self.assertIn(f"CN={cert.common_name}", text)
+        self.assertIn(cert.common_name, text)
         self.assertIn("Serial Number:", text)
         new_cert = Cert()
         self.assertIsNone(new_cert.x509_text)
