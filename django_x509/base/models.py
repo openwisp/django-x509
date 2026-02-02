@@ -252,9 +252,17 @@ class BaseX509(models.Model):
                 )
             except (TypeError, ValueError) as e:
                 msg = str(e).lower()
-                # Only treat as passphrase error if it's about decryption/padding
-                # "password" alone can appear in general key parsing errors
-                if any(word in msg for word in ["decrypt", "padding"]):
+                # Distinguish passphrase errors from format errors:
+                # - Specific passphrase errors:
+                #   "password was not given but private key is encrypted"
+                # - Decryption/padding failures indicate wrong passphrase
+                # - Generic "password" mentions in parsing errors
+                #   should NOT trigger this
+                is_passphrase_error = (
+                    any(word in msg for word in ["decrypt", "padding"])
+                    or "password was not given" in msg
+                )
+                if is_passphrase_error:
                     errors["passphrase"] = ValidationError(_("Incorrect Passphrase"))
                 else:
                     errors["private_key"] = ValidationError(_("Invalid private key"))
