@@ -373,9 +373,25 @@ tsND+97h9r73S+UTOhepQTDB
     def test_x509_text(self):
         ca = self._create_ca()
         text = ca.x509_text
-        # check for the key components rather than the exact "Subject:" prefix
+        # Verify OpenSSL-style text output format
+        # OpenSSL displays serial numbers in hex format separated by colons
+        self.assertIn("Certificate:", text)
+        self.assertIn("Data:", text)
+        self.assertIn("Version:", text)
+        self.assertIn("Serial Number:", text)
+        # Serial number in OpenSSL format (hex with colons)
+        self.assertRegex(text, r"Serial Number:\s*\n\s+[0-9a-f]{2}(?::[0-9a-f]{2})+")
+        self.assertIn("Signature Algorithm:", text)
+        self.assertIn("Issuer:", text)
+        self.assertIn("Validity", text)
+        self.assertIn("Not Before:", text)
+        self.assertIn("Not After :", text)
+        self.assertIn("Subject:", text)
         self.assertIn(ca.common_name, text)
-        self.assertIn(str(ca.serial_number), text)
+        self.assertIn("Subject Public Key Info:", text)
+        self.assertIn("X509v3 extensions:", text)
+        self.assertIn("X509v3 Basic Constraints:", text)
+        self.assertIn("CA:TRUE", text)
         # ensure it's not PEM
         self.assertNotIn("-----BEGIN CERTIFICATE-----", text)
 

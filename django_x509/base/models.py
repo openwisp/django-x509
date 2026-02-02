@@ -15,6 +15,7 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from jsonfield import JSONField
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
+from OpenSSL import crypto
 
 from .. import settings as app_settings
 
@@ -207,25 +208,17 @@ class BaseX509(models.Model):
 
     @cached_property
     def x509_text(self):
-        if not self.certificate:
-            return None
-        cert = self.x509
-        lines = [
-            f"Subject: {cert.subject.rfc4514_string()}",
-            f"Issuer: {cert.issuer.rfc4514_string()}",
-            f"Serial Number: {cert.serial_number}",
-            "Validity:",
-            f"    Not Before: {cert.not_valid_before_utc}",
-            f"    Not After : {cert.not_valid_after_utc}",
-            f"Signature Algorithm: {cert.signature_hash_algorithm.name}",
-            "Extensions:",
-        ]
-        for ext in cert.extensions:
-            name = ext.oid._name if hasattr(ext.oid, "_name") else ext.oid.dotted_string
-            lines.append(f"    {name}:")
-            lines.append(f"        Critical: {ext.critical}")
-            lines.append(f"        Value: {ext.value}")
-        return "\n".join(lines)
+        """
+        Uses pyOpenSSL to return a human readable text
+        representation of the certificate which is
+        equivalent to "openssl x509 -text -noout -in <cert>".
+        """
+        if self.certificate:
+            text = crypto.dump_certificate(
+                crypto.FILETYPE_TEXT,
+                crypto.load_certificate(crypto.FILETYPE_PEM, self.certificate),
+            )
+            return text.decode("utf-8")
 
     @cached_property
     def pkey(self):
@@ -259,7 +252,9 @@ class BaseX509(models.Model):
                 )
             except (TypeError, ValueError) as e:
                 msg = str(e).lower()
-                if any(word in msg for word in ["password", "decrypt", "padding"]):
+                # Only treat as passphrase error if it's about decryption/padding
+                # "password" alone can appear in general key parsing errors
+                if any(word in msg for word in ["decrypt", "padding"]):
                     errors["passphrase"] = ValidationError(_("Incorrect Passphrase"))
                 else:
                     errors["private_key"] = ValidationError(_("Invalid private key"))
