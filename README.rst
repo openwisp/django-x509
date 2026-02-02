@@ -9,10 +9,6 @@ django-x509
     :target: https://coveralls.io/r/openwisp/django-x509
     :alt: Test Coverage
 
-.. image:: https://img.shields.io/librariesio/release/github/openwisp/django-x509
-    :target: https://libraries.io/github/openwisp/django-x509#repository_dependencies
-    :alt: Dependency monitoring
-
 .. image:: https://img.shields.io/gitter/room/nwjs/nw.js.svg
     :target: https://gitter.im/openwisp/general
     :alt: chat
@@ -81,7 +77,8 @@ Project goals
 Dependencies
 ------------
 
-- Python >= 3.9
+- Python >= 3.10
+- Django >= 4.2.0
 - OpenSSL
 
 Install stable version from pypi
