@@ -3,26 +3,6 @@ from setuptools import find_packages, setup
 
 from django_x509 import get_version
 
-
-def get_install_requires():
-    """
-    parse requirements.txt, ignore links, exclude comments
-    """
-    requirements = []
-    for line in open("requirements.txt").readlines():
-        # skip to next iteration if comment or empty line
-        if (
-            line.startswith("#")
-            or line == ""
-            or line.startswith("http")
-            or line.startswith("git")
-        ):
-            continue
-        # add line to requirements
-        requirements.append(line)
-    return requirements
-
-
 setup(
     name="django-x509",
     version=get_version(),
@@ -38,7 +18,11 @@ setup(
     packages=find_packages(exclude=["tests", "docs"]),
     include_package_data=True,
     zip_safe=False,
-    install_requires=get_install_requires(),
+    install_requires=[
+        "openwisp-utils @ "
+        "https://github.com/openwisp/openwisp-utils/archive/refs/heads/1.3.tar.gz",
+        "pyopenssl>=25.3.0,<26.0.0",
+    ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Web Environment",
