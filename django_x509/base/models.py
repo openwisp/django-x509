@@ -13,15 +13,21 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from model_utils.fields import AutoCreatedField, AutoLastModifiedField
+from OpenSSL import crypto
 
 from .. import settings as app_settings
 
 KEY_LENGTH_CHOICES = (
-    ("512", "512"),
-    ("1024", "1024"),
-    ("2048", "2048"),
-    ("4096", "4096"),
+    ("256", "256 (ECDSA)"),
+    ("384", "384 (ECDSA)"),
+    ("521", "521 (ECDSA)"),
+    ("1024", "1024 (RSA)"),
+    ("2048", "2048 (RSA)"),
+    ("4096", "4096 (RSA)"),
 )
+
+RSA_KEY_LENGTHS = ("1024", "2048", "4096")
+EC_KEY_LENGTHS = ("256", "384", "521")
 
 DIGEST_CHOICES = (
     ("sha1", "SHA1"),
@@ -161,6 +167,9 @@ class BaseX509(models.Model):
         super().clean_fields(*args, **kwargs)
 
     def clean(self):
+        if self.serial_number:
+            self._validate_serial_number()
+        self._verify_extension_format()
         # when importing, both public and private must be present
         if (self.certificate and not self.private_key) or (
             self.private_key and not self.certificate
@@ -171,9 +180,11 @@ class BaseX509(models.Model):
                     "keys (private and public) must be present"
                 )
             )
-        if self.serial_number:
-            self._validate_serial_number()
-        self._verify_extension_format()
+        all_supported = list(RSA_KEY_LENGTHS) + list(EC_KEY_LENGTHS)
+        if self.key_length not in all_supported:
+            raise ValidationError(
+                {"key_length": _("Unsupported key length: %s") % self.key_length}
+            )
 
     def save(self, *args, **kwargs):
         if self._state.adding and not self.certificate and not self.private_key:
@@ -193,25 +204,17 @@ class BaseX509(models.Model):
 
     @cached_property
     def x509_text(self):
-        if not self.certificate:
-            return None
-        cert = self.x509
-        lines = [
-            f"Subject: {cert.subject.rfc4514_string()}",
-            f"Issuer: {cert.issuer.rfc4514_string()}",
-            f"Serial Number: {cert.serial_number}",
-            "Validity:",
-            f"    Not Before: {cert.not_valid_before_utc}",
-            f"    Not After : {cert.not_valid_after_utc}",
-            f"Signature Algorithm: {cert.signature_hash_algorithm.name}",
-            "Extensions:",
-        ]
-        for ext in cert.extensions:
-            name = ext.oid._name if hasattr(ext.oid, "_name") else ext.oid.dotted_string
-            lines.append(f"    {name}:")
-            lines.append(f"        Critical: {ext.critical}")
-            lines.append(f"        Value: {ext.value}")
-        return "\n".join(lines)
+        """
+        Uses pyOpenSSL to return a human readable text
+        representation of the certificate which is
+        equivalent to "openssl x509 -text -noout -in <cert>".
+        """
+        if self.certificate:
+            text = crypto.dump_certificate(
+                crypto.FILETYPE_TEXT,
+                crypto.load_certificate(crypto.FILETYPE_PEM, self.certificate),
+            )
+            return text.decode("utf-8")
 
     @cached_property
     def pkey(self):
@@ -245,7 +248,17 @@ class BaseX509(models.Model):
                 )
             except (TypeError, ValueError) as e:
                 msg = str(e).lower()
-                if any(word in msg for word in ["password", "decrypt", "padding"]):
+                # Distinguish passphrase errors from format errors:
+                # - Specific passphrase errors:
+                #   "password was not given but private key is encrypted"
+                # - Decryption/padding failures indicate wrong passphrase
+                # - Generic "password" mentions in parsing errors
+                #   should NOT trigger this
+                is_passphrase_error = (
+                    any(word in msg for word in ["decrypt", "padding"])
+                    or "password was not given" in msg
+                )
+                if is_passphrase_error:
                     errors["passphrase"] = ValidationError(_("Incorrect Passphrase"))
                 else:
                     errors["private_key"] = ValidationError(_("Invalid private key"))
@@ -276,10 +289,24 @@ class BaseX509(models.Model):
         for attr in ["x509", "pkey"]:
             if attr in self.__dict__:
                 del self.__dict__[attr]
-        key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=int(self.key_length),
-        )
+        is_ec = self.key_length in EC_KEY_LENGTHS
+        if is_ec:
+            curves = {
+                "256": ec.SECP256R1(),
+                "384": ec.SECP384R1(),
+                "521": ec.SECP521R1(),
+            }
+            curve = curves.get(self.key_length)
+            if not curve:
+                raise ValidationError(
+                    _("Unsupported EC key length: %s") % self.key_length
+                )
+            key = ec.generate_private_key(curve)
+        else:
+            key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=int(self.key_length),
+            )
         if hasattr(self, "ca"):
             signing_key = self.ca.pkey
             issuer_name = self.ca.x509.subject
@@ -303,7 +330,12 @@ class BaseX509(models.Model):
             "sha384": hashes.SHA384,
             "sha512": hashes.SHA512,
         }
-        digest_name = self.digest.lower().replace("withrsaencryption", "")
+        digest_name = (
+            self.digest.lower()
+            .replace("withrsaencryption", "")
+            .replace("ecdsa-with-", "")
+            .replace("withsha", "sha")
+        )
         digest_alg = HASH_MAP.get(digest_name, hashes.SHA256)()
         cert = builder.sign(signing_key, digest_alg)
         self.certificate = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
@@ -314,7 +346,11 @@ class BaseX509(models.Model):
         )
         self.private_key = key.private_bytes(
             encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            format=(
+                serialization.PrivateFormat.PKCS8
+                if is_ec
+                else serialization.PrivateFormat.TraditionalOpenSSL
+            ),
             encryption_algorithm=encryption,
         ).decode("utf-8")
 
@@ -348,6 +384,36 @@ class BaseX509(models.Model):
         imports existing x509 certificates
         """
         cert = self.x509
+        public_key = cert.public_key()
+        if isinstance(public_key, rsa.RSAPublicKey):
+            actual_length = str(public_key.key_size)
+            actual_is_ec = False
+        elif isinstance(public_key, ec.EllipticCurvePublicKey):
+            actual_length = str(public_key.curve.key_size)
+            actual_is_ec = True
+        else:
+            raise ValidationError(
+                _(
+                    "Unsupported key type in certificate. "
+                    "Only RSA and EC keys are supported."
+                )
+            )
+        selected_is_ec = self.key_length in EC_KEY_LENGTHS
+        if selected_is_ec != actual_is_ec:
+            algorithm_expected = "ECDSA" if selected_is_ec else "RSA"
+            algorithm_provided = "ECDSA" if actual_is_ec else "RSA"
+            raise ValidationError(
+                {
+                    "key_length": _(
+                        "Algorithm mismatch: You selected a length for %s, "
+                        "but the provided certificate contains an %s key."
+                    )
+                    % (algorithm_expected, algorithm_provided)
+                }
+            )
+        if actual_is_ec and actual_length not in EC_KEY_LENGTHS:
+            raise ValidationError(_("Unsupported EC curve size: %s") % actual_length)
+        self.key_length = actual_length
         # when importing an end entity certificate
         if hasattr(self, "ca"):
             self._verify_ca()
@@ -362,7 +428,6 @@ class BaseX509(models.Model):
             email = str(attrs[0].value) if attrs else ""
 
         self.email = email
-        self.key_length = str(cert.public_key().key_size)
         self.digest = cert.signature_hash_algorithm.name.lower()
         self.validity_start = cert.not_valid_before_utc
         self.validity_end = cert.not_valid_after_utc

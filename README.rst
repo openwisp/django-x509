@@ -68,6 +68,8 @@ Current features
 - Possibility to generate and import passphrase protected x509
   certificates/CAs
 - Passphrase protected x509 content will be shown encrypted in the web UI
+- RSA and ECDSA support: generate or import certificates using RSA or
+  ECDSA algorithms.
 
 Project goals
 -------------
@@ -239,10 +241,8 @@ Default key length for new CAs and new certificates.
 
 Must be one of the following values:
 
-- ``512``
-- ``1024``
-- ``2048``
-- ``4096``
+- RSA: ``1024``, ``2048``, ``4096``
+- ECDSA: ``256`` (P-256), ``384`` (P-384), ``521`` (P-521)
 
 ``DJANGO_X509_DEFAULT_DIGEST_ALGORITHM``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
