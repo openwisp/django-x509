@@ -339,6 +339,7 @@ class BaseX509(models.Model):
         digest_alg = HASH_MAP.get(digest_name, hashes.SHA256)()
         cert = builder.sign(signing_key, digest_alg)
         self.certificate = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        self.serial_number = str(cert.serial_number)
         encryption = (
             serialization.BestAvailableEncryption(self.passphrase.encode("utf-8"))
             if self.passphrase
