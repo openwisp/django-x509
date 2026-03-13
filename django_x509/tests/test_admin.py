@@ -11,6 +11,8 @@ from django.urls import reverse
 from openwisp_utils.tests import AdminActionPermTestMixin
 from swapper import load_model
 
+from django_x509.base.admin import BaseAdmin
+
 from . import MessagingRequest
 
 User = get_user_model()
@@ -251,6 +253,19 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
         m = list(request.get_messages())
         self.assertEqual(len(m), 1)
         self.assertEqual(str(m[0]), "1 certificate was revoked.")
+
+    def test_revoke_action_multiple(self):
+        req = MessagingRequest()
+        req.user = MockSuperUser()
+        cert = Cert.objects.create(name="test_cert_2", ca=self.ca)
+        ma = self.cert_admin(Cert, self.site)
+        ma.revoke_action(req, [self.cert, cert])
+        message = req.get_message_strings()
+        self.assertEqual(message, ["2 certificates were revoked."])
+
+    def test_base_admin_default_extensions_schema(self):
+        ma = BaseAdmin(Ca, self.site)
+        self.assertEqual(ma.get_extensions_schema(), [])
 
     def test_revoke_action_perms(self):
         user = User.objects.create(

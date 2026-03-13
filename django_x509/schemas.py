@@ -16,7 +16,7 @@ def _build_extension_schema(name, title, description, value_schema):
             "critical": {"type": "boolean", "default": False},
             "value": value_schema,
         },
-        "required": ["name", "critical", "value"],
+        "required": ["name", "value"],
     }
 
 

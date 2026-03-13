@@ -601,6 +601,11 @@ class BaseX509(models.Model):
             return value.split(",")
         return []
 
+    def _get_der_length_bytes(self, length):
+        if length < 128:
+            return bytes([length])
+        return b"\x81" + bytes([length])
+
     def _validate_supported_extensions(self):
         for index, ext in enumerate(self.extensions or []):
             if not isinstance(ext, dict):
@@ -623,7 +628,8 @@ class BaseX509(models.Model):
                     self._raise_extensions_validation_error(
                         f"{path}.value", _("nsComment extension requires a value.")
                     )
-                if len(value) > 255:
+                value_bytes = value.encode("utf-8")
+                if len(value_bytes) > 255:
                     self._raise_extensions_validation_error(
                         f"{path}.value",
                         _("nsComment value exceeds maximum length of 255 bytes"),
@@ -760,9 +766,9 @@ class BaseX509(models.Model):
                         "emailprotection": ExtendedKeyUsageOID.EMAIL_PROTECTION,
                     }
                     oids = []
-                    values = val if isinstance(val, list) else val.split(",")
+                    values = self._get_extension_values(val)
                     for v in values:
-                        v_clean = v.strip().lower()
+                        v_clean = str(v).strip().lower()
                         if v_clean not in eku_map:
                             raise ValidationError(
                                 _("Unsupported extendedKeyUsage value: %s") % v_clean
@@ -778,11 +784,14 @@ class BaseX509(models.Model):
                         raise ValidationError(
                             _("nsComment extension requires a value.")
                         )
-                    if len(val) > 255:
+                    val_bytes = val.encode("utf-8")
+                    if len(val_bytes) > 255:
                         raise ValidationError(
                             _("nsComment value exceeds maximum length of 255 bytes")
                         )
-                    raw_val = b"\x16" + bytes([len(val)]) + val.encode("utf-8")
+                    raw_val = (
+                        b"\x16" + self._get_der_length_bytes(len(val_bytes)) + val_bytes
+                    )
                     builder = builder.add_extension(
                         x509.UnrecognizedExtension(
                             x509.ObjectIdentifier("2.16.840.1.113730.1.13"), raw_val
@@ -801,9 +810,9 @@ class BaseX509(models.Model):
                         "objca": 0x01,
                     }
                     bits = 0
-                    values = val if isinstance(val, list) else val.split(",")
+                    values = self._get_extension_values(val)
                     for v in values:
-                        v_clean = v.strip().lower()
+                        v_clean = str(v).strip().lower()
                         if v_clean not in ns_cert_type_map:
                             raise ValidationError(
                                 _("Unsupported nsCertType value: %s") % v_clean
