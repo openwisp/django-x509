@@ -1,9 +1,12 @@
+import json
+import re
 from copy import deepcopy
+from html import unescape
 
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from openwisp_utils.tests import AdminActionPermTestMixin
 from swapper import load_model
@@ -153,6 +156,64 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
         self.assertEqual(list(ma.get_fields(request, self.cert)), cert_fields)
         cert_fields.insert(index, "extensions")
         cert_fields.insert(pass_index, "passphrase")
+
+    def test_ca_extensions_widget(self):
+        ma = self.ca_admin(Ca, self.site)
+        widget = ma.get_form(request).base_fields["extensions"].widget
+        html = widget.media.render()
+        rendered = widget.render("extensions", [])
+        self.assertIn("django-x509/js/extensions-widget.js", html)
+        self.assertIn("django-x509/css/extensions-widget.css", html)
+        self.assertIn("x509-extensions-widget", rendered)
+        self.assertIn("nsComment", rendered)
+        self.assertNotIn("extendedKeyUsage", rendered)
+        schema_attr = re.search(r'data-schema="([^"]+)"', rendered)
+        self.assertIsNotNone(schema_attr)
+        self.assertEqual(
+            json.loads(unescape(schema_attr.group(1)))["title"], "CA extensions"
+        )
+
+    def test_cert_extensions_widget(self):
+        readonly_fields = self.cert_admin.readonly_fields[:]
+        try:
+            ma = self.cert_admin(Cert, self.site)
+            widget = ma.get_form(request).base_fields["extensions"].widget
+            rendered = widget.render("extensions", [])
+            self.assertIn("nsComment", rendered)
+            self.assertIn("extendedKeyUsage", rendered)
+        finally:
+            self.cert_admin.readonly_fields = readonly_fields
+
+    @override_settings(
+        DJANGO_X509_CERT_EXTENSIONS_SCHEMA={
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {
+                        "title": "Comment only",
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "name": {"const": "nsComment"},
+                            "critical": {"type": "boolean", "default": False},
+                            "value": {"type": "string", "minLength": 1},
+                        },
+                        "required": ["name", "critical", "value"],
+                    }
+                ]
+            },
+        }
+    )
+    def test_cert_extensions_widget_uses_overridden_schema(self):
+        readonly_fields = self.cert_admin.readonly_fields[:]
+        try:
+            ma = self.cert_admin(Cert, self.site)
+            widget = ma.get_form(request).base_fields["extensions"].widget
+            rendered = widget.render("extensions", [])
+            self.assertIn("nsComment", rendered)
+            self.assertNotIn("extendedKeyUsage", rendered)
+        finally:
+            self.cert_admin.readonly_fields = readonly_fields
 
     def test_default_fieldsets_ca(self):
         ma = self.ca_admin(Ca, self.site)

@@ -1,0 +1,16 @@
+{% load i18n %}
+<div
+    class="x509-extensions-widget"
+    data-schema="{{ schema }}"
+    data-add-label="{% trans 'Add extension' %}"
+    data-remove-label="{% trans 'Remove' %}"
+    data-unsupported-label="{% trans 'The configured schema cannot be rendered by the simplified editor. Use raw JSON instead.' %}"
+    data-invalid-json-label="{% trans 'The current value cannot be rendered by the simplified editor. Fix it in raw JSON or clear the field.' %}"
+>
+    <div class="x509-extensions-editor"></div>
+    <p class="help x509-extensions-widget__message" hidden></p>
+    <details class="x509-extensions-raw">
+        <summary>{% trans "Raw JSON" %}</summary>
+        {{ textarea }}
+    </details>
+</div>

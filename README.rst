@@ -329,6 +329,50 @@ for new end-entity certificates.
 
 Value of the ``keyUsage`` x509 extension for new end-entity certificates.
 
+``DJANGO_X509_CA_EXTENSIONS_SCHEMA``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+============ =================================
+**type**:    ``dict``
+**default**: bundled CA extensions JSON schema
+============ =================================
+
+JSON schema used to validate the ``extensions`` field of CA objects and to
+drive the simplified admin editor.
+
+The default schema exposes:
+
+- ``nsComment``
+- ``nsCertType`` with CA-oriented values (``sslca``, ``emailca``,
+  ``objca``)
+
+``DJANGO_X509_CERT_EXTENSIONS_SCHEMA``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+============ ==========================================
+**type**:    ``dict``
+**default**: bundled certificate extensions JSON schema
+============ ==========================================
+
+JSON schema used to validate the ``extensions`` field of end-entity
+certificates and to drive the simplified admin editor.
+
+The default schema exposes:
+
+- ``nsComment``
+- ``nsCertType`` with end-entity values (``client``, ``server``,
+  ``email``, ``objsign``)
+- ``extendedKeyUsage``
+
+When these settings are overridden, backend validation follows the
+supplied schema during field validation. The built-in editor supports
+schemas that keep the same top-level ``array`` plus ``items.oneOf``
+structure used by the defaults; unsupported schemas fall back to the raw
+JSON textarea while backend validation still uses the configured schema.
+
+Legacy comma-separated values for multi-value extensions are still
+accepted and normalized automatically.
+
 ``DJANGO_X509_CRL_PROTECTED``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
