@@ -365,7 +365,10 @@ The default schema exposes:
 - ``extendedKeyUsage``
 
 When these settings are overridden, backend validation follows the
-supplied schema during field validation. The built-in editor supports
+supplied schema during field validation. The current backend still only
+accepts the extension names and values implemented by django-x509, so
+overrides can tighten validation and customize the editor but do not add
+support for arbitrary extension types. The built-in editor supports
 schemas that keep the same top-level ``array`` plus ``items.oneOf``
 structure used by the defaults; unsupported schemas fall back to the raw
 JSON textarea while backend validation still uses the configured schema.

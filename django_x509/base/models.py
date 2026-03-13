@@ -607,6 +607,7 @@ class BaseX509(models.Model):
         return b"\x81" + bytes([length])
 
     def _validate_supported_extensions(self):
+        seen_extension_names = set()
         for index, ext in enumerate(self.extensions or []):
             if not isinstance(ext, dict):
                 continue
@@ -617,6 +618,11 @@ class BaseX509(models.Model):
             if not isinstance(critical, bool):
                 self._raise_extensions_validation_error(
                     f"{path}.critical", _("Critical flag must be a boolean value.")
+                )
+            if name in seen_extension_names:
+                self._raise_extensions_validation_error(
+                    f"{path}.name",
+                    _("Duplicate extension is not allowed: %s") % name,
                 )
             if name == "nsComment":
                 if not isinstance(value, str):
@@ -634,6 +640,7 @@ class BaseX509(models.Model):
                         f"{path}.value",
                         _("nsComment value exceeds maximum length of 255 bytes"),
                     )
+                seen_extension_names.add(name)
                 continue
             if name == "extendedKeyUsage":
                 values = self._get_extension_values(value)
@@ -656,6 +663,7 @@ class BaseX509(models.Model):
                             f"{path}.value",
                             _("Unsupported extendedKeyUsage value: %s") % cleaned_value,
                         )
+                seen_extension_names.add(name)
                 continue
             if name == "nsCertType":
                 values = self._get_extension_values(value)
@@ -675,6 +683,7 @@ class BaseX509(models.Model):
                             f"{path}.value",
                             _("Unsupported nsCertType value: %s") % cleaned_value,
                         )
+                seen_extension_names.add(name)
                 continue
             self._raise_extensions_validation_error(
                 f"{path}.name", _("Unsupported extension: %s") % name

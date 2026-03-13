@@ -61,7 +61,7 @@
       return null;
     }
     items = rawItems.map(function (item) {
-      var option, valueSchema, normalized;
+      var hasCritical, option, valueSchema, normalized;
       if (!item || typeof item !== "object" || Array.isArray(item)) {
         return null;
       }
@@ -70,9 +70,13 @@
         return null;
       }
       valueSchema = getValueSchema(option);
+      hasCritical = Object.prototype.hasOwnProperty.call(item, "critical");
+      if (hasCritical && typeof item.critical !== "boolean") {
+        return null;
+      }
       normalized = {
         name: item.name,
-        critical: Boolean(item.critical),
+        critical: hasCritical ? item.critical : false,
         value: item.value,
       };
       if (valueSchema.type === "array") {
@@ -84,11 +88,16 @@
             })
             .filter(Boolean);
         }
-        if (!Array.isArray(normalized.value)) {
-          normalized.value = [];
+        if (
+          !Array.isArray(normalized.value) ||
+          normalized.value.some(function (value) {
+            return typeof value !== "string";
+          })
+        ) {
+          return null;
         }
       } else if (typeof normalized.value !== "string") {
-        normalized.value = normalized.value == null ? "" : String(normalized.value);
+        return null;
       }
       return normalized;
     });
@@ -301,7 +310,6 @@
       return;
     }
 
-    syncTextarea(textarea, items);
     renderEditor(widget, textarea, editor, items, options, optionMap, labels);
   }
 

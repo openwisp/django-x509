@@ -65,6 +65,20 @@ class ExtensionsSchemaTests(TestX509Mixin, TestCase):
             )
         self.assertIn("extensions", context.exception.message_dict)
 
+    def test_duplicate_extensions_raise_field_errors(self):
+        with self.assertRaises(ValidationError) as context:
+            self._create_cert(
+                extensions=[
+                    {"name": "nsComment", "critical": False, "value": "first"},
+                    {"name": "nsComment", "critical": False, "value": "second"},
+                ]
+            )
+        self.assertIn("extensions", context.exception.message_dict)
+        self.assertIn(
+            "Duplicate extension is not allowed: nsComment",
+            str(context.exception.message_dict["extensions"][0]),
+        )
+
     def test_legacy_string_values_are_normalized(self):
         cert = self._create_cert(
             extensions=[
