@@ -108,7 +108,7 @@
     textarea.value = JSON.stringify(items, null, 2);
   }
 
-  function buildArrayValueEditor(rowBody, item, option, onChange) {
+  function buildArrayValueEditor(rowBody, item, option, onSync) {
     var wrapper = createElement("div", "x509-extensions-choice-list"),
       valueSchema = getValueSchema(option);
 
@@ -124,7 +124,7 @@
           .map(function (element) {
             return element.value;
           });
-        onChange();
+        onSync();
       });
       label.appendChild(checkbox);
       label.appendChild(document.createTextNode(" " + choice));
@@ -134,7 +134,7 @@
     rowBody.appendChild(wrapper);
   }
 
-  function buildStringValueEditor(rowBody, item, option, onChange) {
+  function buildStringValueEditor(rowBody, item, option, onSync) {
     var input = createElement("input", "vTextField x509-extensions-input"),
       valueSchema = getValueSchema(option);
 
@@ -145,21 +145,34 @@
     }
     input.addEventListener("input", function () {
       item.value = input.value;
-      onChange();
+      onSync();
     });
     rowBody.appendChild(input);
   }
 
-  function renderRow(editor, items, options, optionMap, index, onChange, labels) {
+  function renderRow(
+    editor,
+    items,
+    options,
+    optionMap,
+    index,
+    onSync,
+    onStructureChange,
+    labels,
+  ) {
     var item = items[index],
       option = optionMap[item.name],
       valueSchema = getValueSchema(option),
       row = createElement("div", "x509-extensions-row"),
       header = createElement("div", "x509-extensions-row__header"),
-      selectWrap = createElement("label", "x509-extensions-row__field"),
+      selectWrap = createElement(
+        "label",
+        "x509-extensions-row__field x509-extensions-row__field--select",
+      ),
       selectLabel = createElement("span", "x509-extensions-row__label", "Extension"),
       select = createElement("select", "x509-extensions-select"),
-      criticalWrap = createElement("label", "x509-extensions-row__field"),
+      criticalWrap = createElement("label", "x509-extensions-row__toggle"),
+      criticalLabel = createElement("span", "", "Critical"),
       critical = createElement("input"),
       removeButton = createElement(
         "button",
@@ -185,25 +198,25 @@
       var nextOption = optionMap[select.value];
       item.name = nextOption.name;
       item.value = getDefaultValue(getValueSchema(nextOption));
-      onChange();
+      onStructureChange();
     });
 
     critical.type = "checkbox";
     critical.checked = item.critical;
     critical.addEventListener("change", function () {
       item.critical = critical.checked;
-      onChange();
+      onSync();
     });
 
     removeButton.type = "button";
     removeButton.addEventListener("click", function () {
       items.splice(index, 1);
-      onChange();
+      onStructureChange();
     });
 
     selectWrap.appendChild(selectLabel);
     selectWrap.appendChild(select);
-    criticalWrap.appendChild(document.createTextNode("Critical "));
+    criticalWrap.appendChild(criticalLabel);
     criticalWrap.appendChild(critical);
     header.appendChild(selectWrap);
     header.appendChild(criticalWrap);
@@ -218,9 +231,9 @@
 
     rowBody.appendChild(valueLabel);
     if (valueSchema.type === "array") {
-      buildArrayValueEditor(rowBody, item, option, onChange);
+      buildArrayValueEditor(rowBody, item, option, onSync);
     } else {
-      buildStringValueEditor(rowBody, item, option, onChange);
+      buildStringValueEditor(rowBody, item, option, onSync);
     }
     row.appendChild(rowBody);
     editor.appendChild(row);
@@ -236,6 +249,9 @@
         options,
         optionMap,
         index,
+        function () {
+          syncTextarea(textarea, items);
+        },
         function () {
           syncTextarea(textarea, items);
           renderEditor(widget, textarea, editor, items, options, optionMap, labels);
