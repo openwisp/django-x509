@@ -546,6 +546,28 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(old_ca_end, ca.validity_end)
         self.assertEqual(old_ca_serial_number, ca.serial_number)
 
+    def test_renew_preserves_validity_duration(self):
+        """
+        Verify that renew() preserves the original validity duration
+        instead of resetting to the system default.
+        """
+        custom_days = 730
+        default_days = app_settings.DEFAULT_CERT_VALIDITY
+        self.assertNotEqual(custom_days, default_days)
+        cert = self._create_cert()
+        # Set a custom validity duration different from the default
+        cert.validity_end = cert.validity_start + timedelta(days=custom_days)
+        cert.save()
+        cert.refresh_from_db()
+        cert.renew()
+        cert.refresh_from_db()
+        # The renewed cert should NOT use the system default duration.
+        # Verify that the duration is closer to the custom value
+        # than to the default value.
+        renewed_duration = cert.validity_end - cert.validity_start
+        self.assertAlmostEqual(renewed_duration.days, custom_days, delta=2)
+        self.assertNotAlmostEqual(renewed_duration.days, default_days, delta=2)
+
     def test_cert_common_name_length(self):
         common_name = "a" * 65
         with self.assertRaises(ValidationError) as context_manager:
