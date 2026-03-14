@@ -17,9 +17,13 @@
   }
 
   function parseOptions(schema) {
-    var branches = ((schema || {}).items || {}).oneOf || [],
+    var branches = ((schema || {}).items || {}).oneOf,
       options = [],
       unsupported = false;
+
+    if (!Array.isArray(branches)) {
+      return null;
+    }
 
     branches.forEach(function (branch) {
       var properties = branch.properties || {},
@@ -169,10 +173,14 @@
         "label",
         "x509-extensions-row__field x509-extensions-row__field--select",
       ),
-      selectLabel = createElement("span", "x509-extensions-row__label", "Extension"),
+      selectLabel = createElement(
+        "span",
+        "x509-extensions-row__label",
+        labels.extension,
+      ),
       select = createElement("select", "x509-extensions-select"),
       criticalWrap = createElement("label", "x509-extensions-row__toggle"),
-      criticalLabel = createElement("span", "", "Critical"),
+      criticalLabel = createElement("span", "", labels.critical),
       critical = createElement("input"),
       removeButton = createElement(
         "button",
@@ -183,7 +191,7 @@
       valueLabel = createElement(
         "span",
         "x509-extensions-row__label",
-        valueSchema.title || "Value",
+        valueSchema.title || labels.value,
       );
 
     options.forEach(function (selectOption) {
@@ -290,7 +298,10 @@
       items,
       labels = {
         add: widget.dataset.addLabel || "Add extension",
+        critical: widget.dataset.criticalLabel || "Critical",
+        extension: widget.dataset.extensionLabel || "Extension",
         remove: widget.dataset.removeLabel || "Remove",
+        value: widget.dataset.valueLabel || "Value",
       };
 
     try {

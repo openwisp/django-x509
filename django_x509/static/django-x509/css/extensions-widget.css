@@ -20,7 +20,7 @@
   align-items: start;
   column-gap: 1rem;
   display: grid;
-  gap: 0.75rem;
+  row-gap: 0.75rem;
   grid-template-areas:
     "select remove"
     "critical remove";
