@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -123,6 +124,55 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
         self.assertGreater(cert.validity_end, old_cert_validity_end)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("expired-ca", mail.outbox[0].body)
+        self.assertIn("renewed", mail.outbox[0].body.lower())
+
+    def test_check_x509_expiration_auto_renew_ca_skips_revoked_certificates(self):
+        User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="openwisp"
+        )
+        ca = self._create_ca(
+            name="expired-ca", auto_renew=AutoRenewChoices.CA_AND_CERTIFICATES
+        )
+        active_cert = self._create_cert(name="active-child-cert", ca=ca)
+        revoked_cert = self._create_cert(name="revoked-child-cert", ca=ca)
+        revoked_cert.revoke()
+        self._set_validity_end(ca, timedelta(days=-1))
+        old_active_serial = active_cert.serial_number
+        old_revoked_serial = revoked_cert.serial_number
+        old_revoked_certificate = revoked_cert.certificate
+
+        check_x509_expiration()
+
+        active_cert.refresh_from_db()
+        revoked_cert.refresh_from_db()
+        self.assertNotEqual(active_cert.serial_number, old_active_serial)
+        self.assertEqual(revoked_cert.serial_number, str(old_revoked_serial))
+        self.assertEqual(revoked_cert.certificate, old_revoked_certificate)
+        self.assertTrue(revoked_cert.revoked)
+
+    def test_check_x509_expiration_failed_auto_renew_is_retried(self):
+        User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="openwisp"
+        )
+        cert = self._create_cert(name="expired-cert")
+        cert.ca.auto_renew = AutoRenewChoices.CERTIFICATES_ONLY
+        cert.ca.save(update_fields=["auto_renew"])
+        self._set_validity_end(cert, timedelta(days=-1))
+
+        with patch.object(cert.__class__, "renew", side_effect=Exception("boom")):
+            check_x509_expiration()
+
+        cert.refresh_from_db()
+        self.assertIsNone(cert.expire_notified)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("automatic renewal failed", mail.outbox[0].body.lower())
+        mail.outbox = []
+
+        check_x509_expiration()
+
+        cert.refresh_from_db()
+        self.assertIsNone(cert.expire_notified)
+        self.assertEqual(len(mail.outbox), 1)
         self.assertIn("renewed", mail.outbox[0].body.lower())
 
     def test_check_x509_expiration_does_not_mark_expired_objects_without_recipients(

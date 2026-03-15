@@ -387,6 +387,7 @@ using the default Django mail helpers:
 
 - if ``ADMINS`` is configured, ``mail_admins`` is used
 - if ``MANAGERS`` is configured, ``mail_managers`` is used
+- if both are configured, both helpers are used
 - if neither ``ADMINS`` nor ``MANAGERS`` is configured, all superusers
   with a non-empty email address are notified with ``send_mass_mail``
 

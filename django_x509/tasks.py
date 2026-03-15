@@ -1,6 +1,7 @@
 from datetime import datetime, time, timedelta
 
 from celery import shared_task
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from swapper import load_model
@@ -68,73 +69,74 @@ def check_x509_expiration():
                 expiring_certs=expiring_certs,
                 notice_days=app_settings.EXPIRATION_NOTICE_DAYS,
             )
-    expired_cas = list(
-        Ca.objects.filter(validity_end__lte=now)
-        .filter(Q(expire_notified__isnull=True) | Q(expire_notified=False))
-        .order_by("validity_end", "pk")
-    )
-    expired_certs = list(
-        Cert.objects.select_related("ca")
-        .filter(revoked=False, validity_end__lte=now)
-        .filter(Q(expire_notified__isnull=True) | Q(expire_notified=False))
-        .order_by("validity_end", "pk")
-    )
-    expired_ca_ids = {ca.pk for ca in expired_cas}
-    renewed_cas = []
-    renewed_certs = []
-    failed_cas = []
-    failed_certs = []
-    manual_expired_cas = []
-    manual_expired_certs = []
-    for ca in expired_cas:
-        if ca.can_auto_renew_ca:
-            try:
-                ca.renew()
-                renewed_cas.append(ca)
-            except Exception as exc:
-                failed_cas.append({"instance": ca, "error": str(exc)})
-        else:
-            manual_expired_cas.append(ca)
-    renewed_ca_ids = {ca.pk for ca in renewed_cas}
-    for cert in expired_certs:
-        if cert.ca_id in renewed_ca_ids:
-            continue
-        if cert.can_auto_renew and cert.ca_id not in expired_ca_ids:
-            try:
-                cert.renew()
-                renewed_certs.append(cert)
-            except Exception as exc:
-                failed_certs.append({"instance": cert, "error": str(exc)})
-        else:
-            manual_expired_certs.append(cert)
-    if not any(
-        [
-            manual_expired_cas,
-            manual_expired_certs,
-            renewed_cas,
-            renewed_certs,
-            failed_cas,
-            failed_certs,
-        ]
-    ):
-        return {
-            "expiring_cas": len(expiring_cas),
-            "expiring_certs": len(expiring_certs),
-        }
-    notified = _get_signal_success(
-        x509_objects_expired,
-        expired_cas=manual_expired_cas,
-        expired_certs=manual_expired_certs,
-        renewed_cas=renewed_cas,
-        renewed_certs=renewed_certs,
-        failed_cas=failed_cas,
-        failed_certs=failed_certs,
-    )
-    if notified:
-        _mark_expired_objects_notified(manual_expired_cas)
-        _mark_expired_objects_notified(manual_expired_certs)
-        _mark_expired_objects_notified([entry["instance"] for entry in failed_cas])
-        _mark_expired_objects_notified([entry["instance"] for entry in failed_certs])
+    with transaction.atomic():
+        expired_cas = list(
+            Ca.objects.select_for_update()
+            .filter(validity_end__lte=now)
+            .filter(Q(expire_notified__isnull=True) | Q(expire_notified=False))
+            .order_by("validity_end", "pk")
+        )
+        expired_certs = list(
+            Cert.objects.select_for_update()
+            .select_related("ca")
+            .filter(revoked=False, validity_end__lte=now)
+            .filter(Q(expire_notified__isnull=True) | Q(expire_notified=False))
+            .order_by("validity_end", "pk")
+        )
+        expired_ca_ids = {ca.pk for ca in expired_cas}
+        renewed_cas = []
+        renewed_certs = []
+        failed_cas = []
+        failed_certs = []
+        manual_expired_cas = []
+        manual_expired_certs = []
+        for ca in expired_cas:
+            if ca.can_auto_renew_ca:
+                try:
+                    ca.renew(include_revoked_certificates=False)
+                    renewed_cas.append(ca)
+                except Exception as exc:
+                    failed_cas.append({"instance": ca, "error": str(exc)})
+            else:
+                manual_expired_cas.append(ca)
+        renewed_ca_ids = {ca.pk for ca in renewed_cas}
+        for cert in expired_certs:
+            if cert.ca_id in renewed_ca_ids:
+                continue
+            if cert.can_auto_renew and cert.ca_id not in expired_ca_ids:
+                try:
+                    cert.renew()
+                    renewed_certs.append(cert)
+                except Exception as exc:
+                    failed_certs.append({"instance": cert, "error": str(exc)})
+            else:
+                manual_expired_certs.append(cert)
+        if not any(
+            [
+                manual_expired_cas,
+                manual_expired_certs,
+                renewed_cas,
+                renewed_certs,
+                failed_cas,
+                failed_certs,
+            ]
+        ):
+            return {
+                "expiring_cas": len(expiring_cas),
+                "expiring_certs": len(expiring_certs),
+            }
+        notified = _get_signal_success(
+            x509_objects_expired,
+            expired_cas=manual_expired_cas,
+            expired_certs=manual_expired_certs,
+            renewed_cas=renewed_cas,
+            renewed_certs=renewed_certs,
+            failed_cas=failed_cas,
+            failed_certs=failed_certs,
+        )
+        if notified:
+            _mark_expired_objects_notified(manual_expired_cas)
+            _mark_expired_objects_notified(manual_expired_certs)
     return {
         "expiring_cas": len(expiring_cas),
         "expiring_certs": len(expiring_certs),

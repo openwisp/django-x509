@@ -726,7 +726,7 @@ class AbstractCa(BaseX509):
             revoked=True, validity_start__lte=now, validity_end__gte=now
         )
 
-    def renew(self):
+    def renew(self, include_revoked_certificates=True):
         """
         Renew the certificate, private key and
         validity end date of a CA
@@ -734,7 +734,10 @@ class AbstractCa(BaseX509):
         super().renew()
         children = getattr(self, "issued_certificates", getattr(self, "cert_set", None))
         if children:
-            for cert in children.all():
+            certificates = children.all()
+            if not include_revoked_certificates:
+                certificates = certificates.filter(revoked=False)
+            for cert in certificates:
                 cert.ca = self
                 cert.renew()
 
