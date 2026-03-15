@@ -114,6 +114,7 @@ class AbstractCaAdmin(BaseAdmin):
         "digest",
         "validity_start",
         "validity_end",
+        "auto_renew",
         "country_code",
         "state",
         "city",
@@ -232,6 +233,12 @@ class AbstractCertAdmin(BaseAdmin):
 
     ca_url.short_description = "CA"
 
+    def expired(self, obj):
+        return obj.is_expired
+
+    expired.boolean = True
+    expired.short_description = _("expired")
+
     @action(description=_("Revoke selected certificates"), permissions=["change"])
     def revoke_action(self, request, queryset):
         rows = 0
@@ -273,5 +280,6 @@ CertAdmin = AbstractCertAdmin
 AbstractCertAdmin.list_display = BaseAdmin.list_display[:]
 AbstractCertAdmin.list_display.insert(1, "ca_url")
 AbstractCertAdmin.list_display.insert(5, "revoked")
+AbstractCertAdmin.list_display.insert(6, "expired")
 AbstractCertAdmin.readonly_edit = BaseAdmin.readonly_edit[:]
 AbstractCertAdmin.readonly_edit += ("ca",)

@@ -667,6 +667,8 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
 
     def test_renew(self):
         ca = self._create_ca()
+        ca.expire_notified = True
+        ca.save(update_fields=["expire_notified"])
         certs = [
             self._create_cert(ca=ca, name="cert1"),
             self._create_cert(ca=ca, name="cert2"),
@@ -689,6 +691,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertNotEqual(old_ca_cert, ca.certificate)
         self.assertNotEqual(old_ca_key, ca.private_key)
         self.assertGreater(ca.validity_end, old_ca_end)
+        self.assertIsNone(ca.expire_notified)
         for i, c in enumerate(certs):
             c.refresh_from_db()
             old = old_certs_data[i]
@@ -697,6 +700,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self.assertNotEqual(old["key"], c.private_key)
             self.assertNotEqual(old["serial"], c.serial_number)
             self.assertGreater(c.validity_end, old["end"])
+            self.assertIsNone(c.expire_notified)
 
     def test_ca_common_name_length(self):
         common_name = "a" * 65

@@ -1,0 +1,202 @@
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model
+from django.core import mail
+from django.test import TestCase, override_settings
+from django.utils import timezone
+
+from django_x509.base.models import AutoRenewChoices
+from django_x509.handlers import (
+    notify_x509_objects_expired,
+    notify_x509_objects_expiring,
+)
+from django_x509.signals import x509_objects_expired, x509_objects_expiring
+from django_x509.tasks import check_x509_expiration
+
+from . import TestX509Mixin
+
+User = get_user_model()
+
+
+@override_settings(DJANGO_X509_EXPIRATION_NOTICE_DAYS=3)
+class TestExpirationTasks(TestX509Mixin, TestCase):
+    def _set_validity_end(self, instance, delta):
+        instance.validity_end = timezone.now() + delta
+        instance.save(update_fields=["validity_end"])
+        return instance
+
+    def test_check_x509_expiration_uses_superusers_as_fallback(self):
+        User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="openwisp"
+        )
+        cert = self._set_validity_end(
+            self._create_cert(name="expiring-cert"), timedelta(days=3)
+        )
+
+        check_x509_expiration()
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("expiring-cert", mail.outbox[0].body)
+        self.assertEqual(mail.outbox[0].to, ["admin@example.com"])
+        cert.refresh_from_db()
+        self.assertIsNone(cert.expire_notified)
+
+    @override_settings(
+        ADMINS=[("Admin", "admin@example.com")],
+        MANAGERS=[("Manager", "manager@example.com")],
+        SERVER_EMAIL="server@example.com",
+    )
+    def test_check_x509_expiration_prefers_admins_and_managers(self):
+        cert = self._set_validity_end(
+            self._create_cert(name="expiring-cert"), timedelta(days=3)
+        )
+
+        check_x509_expiration()
+
+        self.assertEqual(len(mail.outbox), 2)
+        recipients = sorted(message.to[0] for message in mail.outbox)
+        self.assertEqual(recipients, ["admin@example.com", "manager@example.com"])
+        self.assertTrue(all("expiring-cert" in message.body for message in mail.outbox))
+        cert.refresh_from_db()
+        self.assertIsNone(cert.expire_notified)
+
+    def test_check_x509_expiration_marks_expired_objects_as_notified(self):
+        User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="openwisp"
+        )
+        cert = self._create_cert(name="expired-cert")
+        cert.expire_notified = None
+        cert.save(update_fields=["expire_notified"])
+        self._set_validity_end(cert, timedelta(days=-1))
+
+        check_x509_expiration()
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("expired-cert", mail.outbox[0].body)
+        cert.refresh_from_db()
+        self.assertTrue(cert.expire_notified)
+        mail.outbox = []
+
+        check_x509_expiration()
+
+        self.assertEqual(mail.outbox, [])
+
+    def test_check_x509_expiration_auto_renews_expired_certificates(self):
+        User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="openwisp"
+        )
+        cert = self._create_cert(name="expired-cert")
+        cert.ca.auto_renew = AutoRenewChoices.CERTIFICATES_ONLY
+        cert.ca.save(update_fields=["auto_renew"])
+        self._set_validity_end(cert, timedelta(days=-1))
+        old_validity_end = cert.validity_end
+        old_serial = cert.serial_number
+
+        check_x509_expiration()
+
+        cert.refresh_from_db()
+        self.assertGreater(cert.validity_end, old_validity_end)
+        self.assertNotEqual(cert.serial_number, old_serial)
+        self.assertIsNone(cert.expire_notified)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("expired-cert", mail.outbox[0].body)
+        self.assertIn("renewed", mail.outbox[0].body.lower())
+
+    def test_check_x509_expiration_auto_renews_expired_cas(self):
+        User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="openwisp"
+        )
+        ca = self._create_ca(
+            name="expired-ca", auto_renew=AutoRenewChoices.CA_AND_CERTIFICATES
+        )
+        cert = self._create_cert(name="ca-child-cert", ca=ca)
+        self._set_validity_end(ca, timedelta(days=-1))
+        self._set_validity_end(cert, timedelta(days=-1))
+        old_ca_validity_end = ca.validity_end
+        old_cert_validity_end = cert.validity_end
+
+        check_x509_expiration()
+
+        ca.refresh_from_db()
+        cert.refresh_from_db()
+        self.assertGreater(ca.validity_end, old_ca_validity_end)
+        self.assertGreater(cert.validity_end, old_cert_validity_end)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("expired-ca", mail.outbox[0].body)
+        self.assertIn("renewed", mail.outbox[0].body.lower())
+
+    def test_check_x509_expiration_does_not_mark_expired_objects_without_recipients(
+        self,
+    ):
+        cert = self._create_cert(name="expired-cert")
+        self._set_validity_end(cert, timedelta(days=-1))
+
+        check_x509_expiration()
+
+        self.assertEqual(mail.outbox, [])
+        cert.refresh_from_db()
+        self.assertIsNone(cert.expire_notified)
+
+    def test_expiring_signal_can_be_overridden(self):
+        cert = self._set_validity_end(
+            self._create_cert(name="expiring-cert"), timedelta(days=3)
+        )
+        captured = {}
+
+        def receiver(sender, expiring_cas, expiring_certs, notice_days, **kwargs):
+            captured["notice_days"] = notice_days
+            captured["ca_ids"] = [ca.pk for ca in expiring_cas]
+            captured["cert_ids"] = [item.pk for item in expiring_certs]
+            return True
+
+        x509_objects_expiring.disconnect(notify_x509_objects_expiring)
+        x509_objects_expiring.connect(receiver, dispatch_uid="test_expiring_receiver")
+        try:
+            check_x509_expiration()
+        finally:
+            x509_objects_expiring.disconnect(dispatch_uid="test_expiring_receiver")
+            x509_objects_expiring.connect(
+                notify_x509_objects_expiring,
+                dispatch_uid="django_x509.notify_x509_objects_expiring",
+            )
+
+        self.assertEqual(captured["notice_days"], 3)
+        self.assertEqual(captured["ca_ids"], [])
+        self.assertEqual(captured["cert_ids"], [cert.pk])
+        self.assertEqual(mail.outbox, [])
+
+    def test_expired_signal_can_be_overridden(self):
+        cert = self._create_cert(name="expired-cert")
+        self._set_validity_end(cert, timedelta(days=-1))
+        captured = {}
+
+        def receiver(
+            sender,
+            expired_cas,
+            expired_certs,
+            renewed_cas,
+            renewed_certs,
+            failed_cas,
+            failed_certs,
+            **kwargs,
+        ):
+            captured["expired_cert_ids"] = [item.pk for item in expired_certs]
+            captured["renewed_cert_ids"] = [item.pk for item in renewed_certs]
+            captured["failed_cert_ids"] = [item["instance"].pk for item in failed_certs]
+            return True
+
+        x509_objects_expired.disconnect(notify_x509_objects_expired)
+        x509_objects_expired.connect(receiver, dispatch_uid="test_expired_receiver")
+        try:
+            check_x509_expiration()
+        finally:
+            x509_objects_expired.disconnect(dispatch_uid="test_expired_receiver")
+            x509_objects_expired.connect(
+                notify_x509_objects_expired,
+                dispatch_uid="django_x509.notify_x509_objects_expired",
+            )
+
+        self.assertEqual(captured["expired_cert_ids"], [cert.pk])
+        self.assertEqual(captured["renewed_cert_ids"], [])
+        self.assertEqual(captured["failed_cert_ids"], [])
+        self.assertEqual(mail.outbox, [])

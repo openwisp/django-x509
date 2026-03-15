@@ -525,6 +525,8 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
 
     def test_renew(self):
         cert = self._create_cert()
+        cert.expire_notified = True
+        cert.save(update_fields=["expire_notified"])
         old_cert = cert.certificate
         old_key = cert.private_key
         old_end = cert.validity_end
@@ -539,6 +541,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertNotEqual(old_key, cert.private_key)
         self.assertGreater(cert.validity_end, old_end)
         self.assertNotEqual(old_serial_number, cert.serial_number)
+        self.assertIsNone(cert.expire_notified)
         ca = cert.ca
         ca.refresh_from_db()
         self.assertEqual(old_ca_cert, ca.certificate)

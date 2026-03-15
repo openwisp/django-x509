@@ -31,6 +31,7 @@ ca_fields = [
     "digest",
     "validity_start",
     "validity_end",
+    "auto_renew",
     "country_code",
     "state",
     "city",
@@ -154,6 +155,23 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
         cert_fields.insert(index, "extensions")
         cert_fields.insert(pass_index, "passphrase")
 
+    def test_cert_list_display(self):
+        ma = self.cert_admin(Cert, self.site)
+        self.assertEqual(
+            list(ma.get_list_display(request)),
+            [
+                "name",
+                "ca_url",
+                "key_length",
+                "digest",
+                "validity_end",
+                "revoked",
+                "expired",
+                "created",
+                "modified",
+            ],
+        )
+
     def test_default_fieldsets_ca(self):
         ma = self.ca_admin(Ca, self.site)
         self.assertEqual(ma.get_fieldsets(request), [(None, {"fields": ca_fields})])
@@ -171,11 +189,15 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
 
     def test_readonly_fields_Cert(self):
         ma = self.cert_admin(Cert, self.site)
-        self.assertEqual(ma.get_readonly_fields(request), cert_readonly)
+        readonly_fields = list(ma.get_readonly_fields(request))
+        self.assertEqual(readonly_fields[:2], ["revoked", "revoked_at"])
+        self.assertTrue(
+            all(field in {"created", "modified"} for field in readonly_fields[2:])
+        )
         ca_readonly.append("ca")
         self.assertEqual(
             ma.get_readonly_fields(request, self.cert),
-            tuple(ca_readonly + cert_readonly),
+            tuple(ca_readonly + readonly_fields),
         )
 
     def test_ca_url(self):

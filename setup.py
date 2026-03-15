@@ -19,7 +19,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        "openwisp-utils @ "
+        "openwisp-utils[celery] @ "
         "https://github.com/openwisp/openwisp-utils/archive/refs/heads/1.3.tar.gz",
         "pyopenssl>=25.3.0,<26.0.0",
     ],
