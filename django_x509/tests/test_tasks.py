@@ -317,3 +317,62 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
         self.assertFalse(result["notified"])
         self.assertIsNone(cert.expire_notified)
         self.assertEqual(mail.outbox, [])
+
+    def test_notify_x509_objects_expiring_returns_false_without_objects(self):
+        self.assertFalse(
+            notify_x509_objects_expiring(
+                sender=self.__class__,
+                expiring_cas=[],
+                expiring_certs=[],
+                notice_days=3,
+            )
+        )
+
+    def test_notify_x509_objects_expired_returns_false_without_events(self):
+        self.assertFalse(
+            notify_x509_objects_expired(
+                sender=self.__class__,
+                expired_cas=[],
+                expired_certs=[],
+                renewed_cas=[],
+                renewed_certs=[],
+                failed_cas=[],
+                failed_certs=[],
+            )
+        )
+
+    def test_notify_x509_objects_expiring_includes_manual_and_auto_ca_sections(self):
+        User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="openwisp"
+        )
+        manual_ca = self._set_validity_end(
+            self._create_ca(name="manual-ca"), timedelta(days=3)
+        )
+        auto_ca = self._set_validity_end(
+            self._create_ca(
+                name="auto-ca", auto_renew=AutoRenewChoices.CA_AND_CERTIFICATES
+            ),
+            timedelta(days=3),
+        )
+        auto_cert = self._set_validity_end(
+            self._create_cert(name="auto-cert", ca=auto_ca), timedelta(days=3)
+        )
+
+        with patch("django_x509.handlers.reverse", side_effect=Exception("boom")):
+            result = notify_x509_objects_expiring(
+                sender=self.__class__,
+                expiring_cas=[manual_ca, auto_ca],
+                expiring_certs=[auto_cert],
+                notice_days=3,
+            )
+
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        body = mail.outbox[0].body
+        self.assertIn("Certificate authorities requiring manual action:", body)
+        self.assertIn("Certificate authorities with automatic renewal enabled:", body)
+        self.assertIn("Certificates with automatic renewal enabled:", body)
+        self.assertIn("manual-ca", body)
+        self.assertIn("auto-ca", body)
+        self.assertIn("auto-cert", body)
+        self.assertIn("unavailable", body)
