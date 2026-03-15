@@ -157,7 +157,7 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
         revoked_cert.revoke()
         self._set_validity_end(ca, timedelta(days=-1))
         old_active_serial = active_cert.serial_number
-        old_revoked_serial = revoked_cert.serial_number
+        old_revoked_serial = str(revoked_cert.serial_number)
         old_revoked_certificate = revoked_cert.certificate
 
         check_x509_expiration()
@@ -165,11 +165,11 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
         active_cert.refresh_from_db()
         revoked_cert.refresh_from_db()
         self.assertNotEqual(active_cert.serial_number, old_active_serial)
-        self.assertEqual(revoked_cert.serial_number, str(old_revoked_serial))
+        self.assertEqual(revoked_cert.serial_number, old_revoked_serial)
         self.assertEqual(revoked_cert.certificate, old_revoked_certificate)
         self.assertTrue(revoked_cert.revoked)
 
-    def test_check_x509_expiration_failed_auto_renew_is_retried(self):
+    def test_check_x509_expiration_failed_auto_renew_is_attempted_on_next_run(self):
         User.objects.create_superuser(
             username="admin", email="admin@example.com", password="openwisp"
         )
@@ -194,7 +194,9 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("renewed", mail.outbox[0].body.lower())
 
-    def test_check_x509_expiration_failed_ca_auto_renew_is_retried(self):
+    def test_check_x509_expiration_failed_ca_auto_renew_is_attempted_on_next_run(
+        self,
+    ):
         User.objects.create_superuser(
             username="admin", email="admin@example.com", password="openwisp"
         )
@@ -218,6 +220,52 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
         self.assertIsNone(ca.expire_notified)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("renewed", mail.outbox[0].body.lower())
+
+    def test_check_x509_expiration_ca_auto_renew_rolls_back_partial_failures(self):
+        User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="openwisp"
+        )
+        ca = self._create_ca(
+            name="expired-ca", auto_renew=AutoRenewChoices.CA_AND_CERTIFICATES
+        )
+        healthy_cert = self._create_cert(name="healthy-child-cert", ca=ca)
+        failing_cert = self._create_cert(name="failing-child-cert", ca=ca)
+        self._set_validity_end(ca, timedelta(days=-1))
+        self._set_validity_end(healthy_cert, timedelta(days=-1))
+        self._set_validity_end(failing_cert, timedelta(days=-1))
+        old_ca_serial = str(ca.serial_number)
+        old_ca_certificate = ca.certificate
+        old_healthy_serial = str(healthy_cert.serial_number)
+        old_healthy_certificate = healthy_cert.certificate
+        old_failing_serial = str(failing_cert.serial_number)
+        old_failing_certificate = failing_cert.certificate
+        original_renew = healthy_cert.__class__.renew
+
+        def renew_with_failure(instance):
+            if instance.name == "failing-child-cert":
+                raise Exception("boom")
+            return original_renew(instance)
+
+        with patch.object(
+            healthy_cert.__class__,
+            "renew",
+            autospec=True,
+            side_effect=renew_with_failure,
+        ):
+            check_x509_expiration()
+
+        ca.refresh_from_db()
+        healthy_cert.refresh_from_db()
+        failing_cert.refresh_from_db()
+        self.assertEqual(str(ca.serial_number), old_ca_serial)
+        self.assertEqual(ca.certificate, old_ca_certificate)
+        self.assertEqual(str(healthy_cert.serial_number), old_healthy_serial)
+        self.assertEqual(healthy_cert.certificate, old_healthy_certificate)
+        self.assertEqual(str(failing_cert.serial_number), old_failing_serial)
+        self.assertEqual(failing_cert.certificate, old_failing_certificate)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("automatic renewal failed", mail.outbox[0].body.lower())
+        self.assertIn("expired-ca", mail.outbox[0].body)
 
     def test_check_x509_expiration_does_not_mark_expired_objects_without_recipients(
         self,
@@ -243,7 +291,9 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
             captured["cert_ids"] = [item.pk for item in expiring_certs]
             return True
 
-        x509_objects_expiring.disconnect(notify_x509_objects_expiring)
+        x509_objects_expiring.disconnect(
+            dispatch_uid="django_x509.notify_x509_objects_expiring"
+        )
         x509_objects_expiring.connect(receiver, dispatch_uid="test_expiring_receiver")
         try:
             check_x509_expiration()
@@ -279,7 +329,9 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
             captured["failed_cert_ids"] = [item["instance"].pk for item in failed_certs]
             return True
 
-        x509_objects_expired.disconnect(notify_x509_objects_expired)
+        x509_objects_expired.disconnect(
+            dispatch_uid="django_x509.notify_x509_objects_expired"
+        )
         x509_objects_expired.connect(receiver, dispatch_uid="test_expired_receiver")
         try:
             check_x509_expiration()
@@ -302,7 +354,9 @@ class TestExpirationTasks(TestX509Mixin, TestCase):
         def receiver(sender, **kwargs):
             raise RuntimeError("boom")
 
-        x509_objects_expired.disconnect(notify_x509_objects_expired)
+        x509_objects_expired.disconnect(
+            dispatch_uid="django_x509.notify_x509_objects_expired"
+        )
         x509_objects_expired.connect(receiver, dispatch_uid="test_expired_exception")
         try:
             result = check_x509_expiration()

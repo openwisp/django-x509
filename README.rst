@@ -394,7 +394,7 @@ using the default Django mail helpers:
 Signals
 ~~~~~~~
 
-The task emits two overrideable Django signals:
+The task emits two overridable Django signals:
 
 - ``django_x509.signals.x509_objects_expiring`` Signature: ``(sender,
   expiring_cas, expiring_certs, notice_days)``

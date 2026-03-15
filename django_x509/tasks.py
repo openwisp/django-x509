@@ -93,7 +93,8 @@ def check_x509_expiration():
         for ca in expired_cas:
             if ca.can_auto_renew_ca:
                 try:
-                    ca.renew(include_revoked_certificates=False)
+                    with transaction.atomic():
+                        ca.renew(include_revoked_certificates=False)
                     renewed_cas.append(ca)
                 except Exception as exc:
                     failed_cas.append({"instance": ca, "error": str(exc)})
@@ -105,7 +106,8 @@ def check_x509_expiration():
                 continue
             if cert.can_auto_renew and cert.ca_id not in expired_ca_ids:
                 try:
-                    cert.renew()
+                    with transaction.atomic():
+                        cert.renew()
                     renewed_certs.append(cert)
                 except Exception as exc:
                     failed_certs.append({"instance": cert, "error": str(exc)})
