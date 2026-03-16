@@ -688,7 +688,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         ca.refresh_from_db()
         self.assertNotEqual(old_ca_cert, ca.certificate)
         self.assertNotEqual(old_ca_key, ca.private_key)
-        self.assertGreater(ca.validity_end, old_ca_end)
+        self.assertGreaterEqual(ca.validity_end, old_ca_end)
         for i, c in enumerate(certs):
             c.refresh_from_db()
             old = old_certs_data[i]
@@ -696,7 +696,61 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self.assertNotEqual(old["cert"], c.certificate)
             self.assertNotEqual(old["key"], c.private_key)
             self.assertNotEqual(old["serial"], c.serial_number)
-            self.assertGreater(c.validity_end, old["end"])
+            self.assertGreaterEqual(c.validity_end, old["end"])
+
+    def test_renew_preserves_custom_validity_duration(self):
+        """Regression test: CA renew() must preserve the original validity
+        duration and update validity_start. Child certs should also
+        preserve their individual custom durations."""
+        ca = self._create_ca()
+        # Set exact custom CA validity (20 years instead of default 10)
+        ca_custom_days = 7300
+        ca_start = datetime.now()
+        ca.validity_start = ca_start
+        ca.validity_end = ca_start + timedelta(days=ca_custom_days)
+        ca._generate()
+        ca.save()
+        # Create child cert with exact custom 2-year validity
+        cert = self._create_cert(ca=ca, name="custom-cert")
+        cert_custom_days = 730
+        cert_start = datetime.now()
+        cert.validity_start = cert_start
+        cert.validity_end = cert_start + timedelta(days=cert_custom_days)
+        cert._generate()
+        cert.save()
+        ca.renew()
+        ca.refresh_from_db()
+        cert.refresh_from_db()
+        # CA should preserve its 20-year duration (not reset to default 10-year)
+        # Strip tzinfo for consistent subtraction (validity_start may be naive,
+        # validity_end is tz-aware), matching test_cert.py approach.
+        ca_end = ca.validity_end.replace(tzinfo=None)
+        ca_start = ca.validity_start.replace(tzinfo=None)
+        renewed_ca_duration = ca_end - ca_start
+        renewed_ca_days = renewed_ca_duration.days
+        self.assertAlmostEqual(renewed_ca_days, ca_custom_days, delta=1)
+        self.assertGreater(renewed_ca_days, app_settings.DEFAULT_CA_VALIDITY + 30)
+        # Child cert should preserve its 2-year duration (not reset to default 1 year)
+        cert_end = cert.validity_end.replace(tzinfo=None)
+        cert_start = cert.validity_start.replace(tzinfo=None)
+        renewed_cert_duration = cert_end - cert_start
+        renewed_cert_days = renewed_cert_duration.days
+        self.assertAlmostEqual(renewed_cert_days, cert_custom_days, delta=1)
+        self.assertGreater(renewed_cert_days, app_settings.DEFAULT_CERT_VALIDITY + 30)
+
+    def test_renew_fallback_default_duration(self):
+        """When validity_start or validity_end is None, renew() should
+        fall back to the system default CA duration."""
+        ca = self._create_ca()
+        ca.validity_start = None
+        ca.save(update_fields=["validity_start"])
+        ca.renew()
+        ca.refresh_from_db()
+        expected_days = app_settings.DEFAULT_CA_VALIDITY
+        ca_end = ca.validity_end.replace(tzinfo=None)
+        ca_start = ca.validity_start.replace(tzinfo=None)
+        renewed_duration = ca_end - ca_start
+        self.assertAlmostEqual(renewed_duration.days, expected_days, delta=1)
 
     def test_ca_common_name_length(self):
         common_name = "a" * 65

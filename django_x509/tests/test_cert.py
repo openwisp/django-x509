@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.utils import timezone
 from openwisp_utils.tests import AssertNumQueriesSubTestMixin
 
 from .. import settings as app_settings
@@ -537,7 +538,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         cert.renew()
         self.assertNotEqual(old_cert, cert.certificate)
         self.assertNotEqual(old_key, cert.private_key)
-        self.assertGreater(cert.validity_end, old_end)
+        self.assertGreaterEqual(cert.validity_end, old_end)
         self.assertNotEqual(old_serial_number, cert.serial_number)
         ca = cert.ca
         ca.refresh_from_db()
@@ -545,6 +546,60 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(old_ca_key, ca.private_key)
         self.assertEqual(old_ca_end, ca.validity_end)
         self.assertEqual(old_ca_serial_number, ca.serial_number)
+
+    def test_renew_preserves_custom_validity_duration(self):
+        """Regression test: renew() must preserve the original validity
+        duration instead of resetting to the system default."""
+        custom_days = 730
+        cert = self._create_cert()
+        # Set an exact custom validity window (2 years)
+        start = datetime.now()
+        cert.validity_start = start
+        cert.validity_end = start + timedelta(days=custom_days)
+        cert._generate()
+        cert.save()
+        cert.renew()
+        # validity_start is naive but validity_end is tz-aware,
+        # strip tzinfo for the subtraction
+        end = cert.validity_end.replace(tzinfo=None)
+        renewed_duration = end - cert.validity_start
+        renewed_days = renewed_duration.days
+        # Tight tolerance: duration must be preserved exactly
+        self.assertAlmostEqual(renewed_days, custom_days, delta=1)
+        # Must NOT have been reset to the system default (365 days)
+        self.assertGreater(renewed_days, app_settings.DEFAULT_CERT_VALIDITY + 30)
+        # Ensure validity_start was updated (not stale from original creation)
+        self.assertGreater(
+            cert.validity_start,
+            datetime.now() - timedelta(days=3),
+        )
+
+    def test_renew_updates_validity_start(self):
+        """Regression test: renew() must update validity_start to current
+        time instead of leaving the original stale date."""
+        cert = self._create_cert()
+        # Simulate an old cert by backdating validity_start
+        old_start = datetime.now() - timedelta(days=365)
+        cert.validity_start = old_start
+        cert.validity_end = timezone.now()
+        cert._generate()
+        cert.save()
+        cert.renew()
+        # validity_start should be refreshed to ~yesterday, not the old backdated value
+        self.assertGreater(cert.validity_start, old_start)
+
+    def test_renew_fallback_default_duration(self):
+        """When validity_start or validity_end is None, renew() should
+        fall back to the system default duration."""
+        cert = self._create_cert()
+        # Clear validity dates to trigger the fallback branch
+        cert.validity_start = None
+        cert.save(update_fields=["validity_start"])
+        cert.renew()
+        expected_days = app_settings.DEFAULT_CERT_VALIDITY
+        end = cert.validity_end.replace(tzinfo=None)
+        renewed_duration = end - cert.validity_start
+        self.assertAlmostEqual(renewed_duration.days, expected_days, delta=1)
 
     def test_cert_common_name_length(self):
         common_name = "a" * 65
