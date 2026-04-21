@@ -659,10 +659,25 @@ class BaseX509(models.Model):
 
     def renew(self):
         self.serial_number = self._generate_serial_number()
-        if hasattr(self, "ca"):
-            self.validity_end = default_cert_validity_end()
+        # Preserve the original validity duration instead of
+        # resetting to the system default (security fix).
+        if self.validity_start and self.validity_end:
+            start = self.validity_start
+            end = self.validity_end
+            # Handle mixed naive/aware datetimes: make both naive
+            # before computing the duration (validity_start is
+            # intentionally naive, validity_end is timezone-aware).
+            if timezone.is_naive(start) and not timezone.is_naive(end):
+                end = timezone.make_naive(end)
+            elif not timezone.is_naive(start) and timezone.is_naive(end):
+                start = timezone.make_naive(start)
+            original_duration = end - start
+        elif hasattr(self, "ca"):
+            original_duration = timedelta(days=app_settings.DEFAULT_CERT_VALIDITY)
         else:
-            self.validity_end = default_ca_validity_end()
+            original_duration = timedelta(days=app_settings.DEFAULT_CA_VALIDITY)
+        self.validity_start = default_validity_start()
+        self.validity_end = timezone.now() + original_duration
         self._generate()
         self.save()
 

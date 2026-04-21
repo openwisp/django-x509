@@ -698,6 +698,28 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self.assertNotEqual(old["serial"], c.serial_number)
             self.assertGreater(c.validity_end, old["end"])
 
+    def test_renew_preserves_validity_duration(self):
+        """
+        Verify that CA renew() preserves the original validity duration
+        instead of resetting to the system default.
+        """
+        custom_days = 1825  # 5 years, different from default 3650
+        default_days = app_settings.DEFAULT_CA_VALIDITY
+        self.assertNotEqual(custom_days, default_days)
+        ca = self._create_ca()
+        # Set a custom validity duration different from the default
+        ca.validity_end = ca.validity_start + timedelta(days=custom_days)
+        ca.save()
+        ca.refresh_from_db()
+        ca.renew()
+        ca.refresh_from_db()
+        # The renewed CA should NOT use the system default duration.
+        # Verify that the duration is closer to the custom value
+        # than to the default value.
+        renewed_duration = ca.validity_end - ca.validity_start
+        self.assertAlmostEqual(renewed_duration.days, custom_days, delta=2)
+        self.assertNotAlmostEqual(renewed_duration.days, default_days, delta=2)
+
     def test_ca_common_name_length(self):
         common_name = "a" * 65
         with self.assertRaises(ValidationError) as cm:
