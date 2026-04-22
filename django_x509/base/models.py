@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 import swapper
 from cryptography import x509
@@ -658,11 +659,31 @@ class BaseX509(models.Model):
         return builder
 
     def renew(self):
-        self.serial_number = self._generate_serial_number()
-        if hasattr(self, "ca"):
-            self.validity_end = default_cert_validity_end()
+        # Preserve the original validity duration as a timedelta instead
+        # of resetting to the system default. This ensures certificates
+        # created with custom validity periods (e.g. 730 days) retain
+        # that exact duration across renewals.
+        if self.validity_start and self.validity_end:
+            # Strip timezone info for subtraction since validity_start
+            # is naive and validity_end may be tz-aware
+            start = self.validity_start
+            end = self.validity_end
+            if getattr(start, "tzinfo", None) is not None:
+                start = start.replace(tzinfo=None)
+            if getattr(end, "tzinfo", None) is not None:
+                end = end.replace(tzinfo=None)
+            original_duration = end - start
+        elif hasattr(self, "ca"):
+            original_duration = timedelta(days=app_settings.DEFAULT_CERT_VALIDITY)
         else:
-            self.validity_end = default_ca_validity_end()
+            original_duration = timedelta(days=app_settings.DEFAULT_CA_VALIDITY)
+        self.serial_number = self._generate_serial_number()
+        self.validity_start = default_validity_start()
+        # Anchor validity_end to the refreshed validity_start so the
+        # renewed window is a fixed duration from start (no drift).
+        # Replace tzinfo to stay tz-aware, matching default_*_validity_end().
+        naive_end = self.validity_start + original_duration
+        self.validity_end = naive_end.replace(tzinfo=dt_timezone.utc)
         self._generate()
         self.save()
 
