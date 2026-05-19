@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - master
+      - "gsoc26-x509-certificate-generator-templates"
 
 jobs:
   build:
