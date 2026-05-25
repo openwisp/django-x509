@@ -329,6 +329,10 @@ tsND+97h9r73S+UTOhepQTDB
                 "value": "ASN1:UTF8:string:00-B0-D0-63-C2-26",
                 "critical": True,
             },
+            {
+                "oid": "1.3.6.1.4.1.55555.1.3",
+                "value": "ASN1:UTF8:string:implicit-critical-false",
+            },
         ]
         cert = self._create_cert(extensions=extensions)
         e1 = cert.x509.extensions.get_extension_for_oid(
@@ -344,6 +348,10 @@ tsND+97h9r73S+UTOhepQTDB
         )
         self.assertTrue(e2.critical)
         self.assertEqual(e2.value.value, b"\x0c\x1100-B0-D0-63-C2-26")
+        e3 = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.3")
+        )
+        self.assertFalse(e3.critical)
 
     def test_oid_parser_validation_errors(self):
         """Test that invalid custom OID formats raise correct ValidationErrors"""

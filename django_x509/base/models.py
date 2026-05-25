@@ -575,7 +575,26 @@ class BaseX509(models.Model):
                     _("Invalid hex string provided for ASN1 value")
                 ) from None
         elif value_kind == "string":
-            payload = raw.encode("utf-8")
+            if asn1_type == "IA5":
+                try:
+                    payload = raw.encode("ascii")
+                except UnicodeEncodeError:
+                    raise ValidationError(
+                        _("IA5String value must contain only ASCII characters")
+                    ) from None
+            elif asn1_type == "PRINTABLE":
+                allowed_printable = set(
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    "abcdefghijklmnopqrstuvwxyz"
+                    "0123456789 '()+,-./:=?"
+                )
+                if not all(ch in allowed_printable for ch in raw):
+                    raise ValidationError(
+                        _("PrintableString contains unsupported characters")
+                    )
+                payload = raw.encode("ascii")
+            else:
+                payload = raw.encode("utf-8")
         else:
             raise ValidationError(
                 _("Unsupported value kind: %s. Use 'hex' or 'string'") % value_kind
