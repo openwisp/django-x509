@@ -460,6 +460,71 @@ tsND+97h9r73S+UTOhepQTDB
             "PrintableString contains unsupported characters", str(cm.exception)
         )
 
+    def test_custom_oid_missing_value(self):
+        extensions = [{"oid": "1.3.6.1.4.1.55555.1.7"}]
+        try:
+            self._create_cert(extensions=extensions)
+        except ValidationError as e:
+            msg = e.message_dict.get("__all__", [str(e)])[0]
+            self.assertIn("Extension format invalid", str(msg))
+        else:
+            self.fail("ValidationError not raised")
+
+    def test_custom_oid_invalid_critical_type(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.8",
+                "value": "ASN1:UTF8:string:test",
+                "critical": "yes",
+            }
+        ]
+        try:
+            self._create_cert(extensions=extensions)
+        except ValidationError as e:
+            msg = e.message_dict.get("__all__", [str(e)])[0]
+            self.assertIn("Extension format invalid", str(msg))
+        else:
+            self.fail("ValidationError not raised")
+
+    def test_custom_oid_hex_value(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.9",
+                "value": "ASN1:OCTET:hex:0A:0B:0C",
+            }
+        ]
+        cert = self._create_cert(extensions=extensions)
+        ext = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.9")
+        )
+        self.assertEqual(ext.value.value, b"\x04\x03\x0a\x0b\x0c")
+
+    def test_custom_oid_hex_invalid(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.10",
+                "value": "ASN1:OCTET:hex:0G",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("Invalid hex string", str(cm.exception))
+
+    def test_custom_oid_long_length(self):
+        long_val = "a" * 128
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.11",
+                "value": f"ASN1:UTF8:string:{long_val}",
+            }
+        ]
+        cert = self._create_cert(extensions=extensions)
+        ext = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.11")
+        )
+        self.assertEqual(ext.value.value[:3], b"\x0c\x81\x80")
+        self.assertEqual(ext.value.value[3:], long_val.encode("utf-8"))
+
     def test_revoke(self):
         cert = self._create_cert()
         self.assertFalse(cert.revoked)
