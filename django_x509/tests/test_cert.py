@@ -403,6 +403,63 @@ tsND+97h9r73S+UTOhepQTDB
         else:
             self.fail("ValidationError not raised")
 
+    def test_custom_oid_invalid_oid(self):
+        extensions = [
+            {
+                "oid": "invalid.oid",
+                "value": "ASN1:UTF8:string:test",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("Invalid OID", str(cm.exception))
+
+    def test_custom_oid_invalid_asn1_format(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.3",
+                "value": "UTF8:string:test",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("must start with 'ASN1:'", str(cm.exception))
+
+    def test_custom_oid_invalid_value_kind(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.4",
+                "value": "ASN1:UTF8:blob:test",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("Unsupported value kind", str(cm.exception))
+
+    def test_custom_oid_invalid_ia5_charset(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.5",
+                "value": "ASN1:IA5:string:cafè",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("must contain only ASCII characters", str(cm.exception))
+
+    def test_custom_oid_invalid_printable_charset(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.6",
+                "value": "ASN1:PRINTABLE:string:hello@world",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn(
+            "PrintableString contains unsupported characters", str(cm.exception)
+        )
+
     def test_revoke(self):
         cert = self._create_cert()
         self.assertFalse(cert.revoked)
