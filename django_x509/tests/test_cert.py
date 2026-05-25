@@ -317,6 +317,64 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertTrue(e2.critical)
         self.assertIn(x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH, e2.value)
 
+    def test_custom_oid_extensions(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.1",
+                "value": "ASN1:UTF8:string:f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+                "critical": False,
+            },
+            {
+                "oid": "1.3.6.1.4.1.55555.1.2",
+                "value": "ASN1:UTF8:string:00-B0-D0-63-C2-26",
+                "critical": True,
+            },
+        ]
+        cert = self._create_cert(extensions=extensions)
+        e1 = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.1")
+        )
+        self.assertFalse(e1.critical)
+        self.assertEqual(
+            e1.value.value,
+            b"\x0c$" + b"f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+        )
+        e2 = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.2")
+        )
+        self.assertTrue(e2.critical)
+        self.assertEqual(e2.value.value, b"\x0c\x1100-B0-D0-63-C2-26")
+
+    def test_oid_parser_validation_errors(self):
+        """Test that invalid custom OID formats raise correct ValidationErrors"""
+        invalid_scenarios = [
+            (
+                [{"oid": "1.3.6.1.4.1.55555", "value": "UTF8:string:test"}],
+                "Custom OID values must start with 'ASN1:'",
+            ),
+            (
+                [{"oid": "1.3.6.1.4.1.55555", "value": "ASN1:UTF8:test"}],
+                "Invalid ASN1 format. Expected 'ASN1:<TYPE>:<KIND>:<VALUE>'",
+            ),
+            (
+                [{"oid": "1.3.6.1.4.1.55555", "value": "ASN1:UNKNOWN:string:test"}],
+                "Unsupported ASN1 type: UNKNOWN",
+            ),
+            (
+                [{"oid": "1.3.6.1.4.1.55555", "value": "ASN1:OCTET:hex:zzzzz"}],
+                "Invalid hex string provided for ASN1 value",
+            ),
+            (
+                [{"oid": "not-an-oid", "value": "ASN1:UTF8:string:test"}],
+                "Invalid OID format: not-an-oid",
+            ),
+        ]
+        for extensions, expected_error in invalid_scenarios:
+            with self.subTest(extensions=extensions):
+                with self.assertRaises(ValidationError) as cm:
+                    self._create_cert(extensions=extensions)
+                self.assertIn(expected_error, str(cm.exception))
+
     def test_extensions_error1(self):
         extensions = {}
         try:

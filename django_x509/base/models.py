@@ -86,6 +86,19 @@ def default_digest_algorithm():
     return app_settings.DEFAULT_DIGEST_ALGORITHM
 
 
+def _encode_der_length(length):
+    if length < 0:
+        raise ValueError("Invalid DER length")
+    if length < 128:
+        return bytes([length])
+    length_bytes = length.to_bytes((length.bit_length() + 7) // 8, "big")
+    return bytes([0x80 | len(length_bytes)]) + length_bytes
+
+
+def _encode_der_value(tag, payload):
+    return bytes([tag]) + _encode_der_length(len(payload)) + payload
+
+
 class BaseX509(models.Model):
     """
     Abstract Cert class, shared between Ca and Cert
@@ -516,8 +529,58 @@ class BaseX509(models.Model):
         for ext in self.extensions:
             if not isinstance(ext, dict):
                 raise ValidationError(msg)
-            if not ("name" in ext and "critical" in ext and "value" in ext):
+            has_identifier = "name" in ext or "oid" in ext
+            if not has_identifier:
                 raise ValidationError(msg)
+            if "oid" in ext:
+                if "value" not in ext:
+                    raise ValidationError(msg)
+                try:
+                    x509.ObjectIdentifier(ext["oid"])
+                except (ValueError, TypeError):
+                    raise ValidationError(_("Invalid OID format: %s") % ext["oid"])
+                if "critical" in ext and not isinstance(ext.get("critical"), bool):
+                    raise ValidationError(msg)
+                self._parse_custom_extension_value(ext["value"])
+            elif not ("critical" in ext and "value" in ext):
+                raise ValidationError(msg)
+
+    def _parse_custom_extension_value(self, value):
+        if not isinstance(value, str) or not value:
+            raise ValidationError(_("Custom OID values must be a non-empty string"))
+        if not value.startswith("ASN1:"):
+            raise ValidationError(_("Custom OID values must start with 'ASN1:'"))
+        try:
+            prefix, asn1_type, value_kind, raw = value.split(":", 3)
+        except ValueError:
+            raise ValidationError(
+                _("Invalid ASN1 format. Expected 'ASN1:<TYPE>:<KIND>:<VALUE>'")
+            ) from None
+        asn1_type = asn1_type.strip().upper()
+        value_kind = value_kind.strip().lower()
+        tag_map = {
+            "UTF8": 0x0C,
+            "IA5": 0x16,
+            "PRINTABLE": 0x13,
+            "OCTET": 0x04,
+        }
+        if asn1_type not in tag_map:
+            raise ValidationError(_("Unsupported ASN1 type: %s") % asn1_type)
+        if value_kind == "hex":
+            raw = raw.replace(" ", "").replace(":", "").replace("-", "")
+            try:
+                payload = bytes.fromhex(raw)
+            except ValueError:
+                raise ValidationError(
+                    _("Invalid hex string provided for ASN1 value")
+                ) from None
+        elif value_kind == "string":
+            payload = raw.encode("utf-8")
+        else:
+            raise ValidationError(
+                _("Unsupported value kind: %s. Use 'hex' or 'string'") % value_kind
+            )
+        return _encode_der_value(tag_map[asn1_type], payload)
 
     def _add_extensions(self, builder, public_key):
         """
@@ -582,6 +645,15 @@ class BaseX509(models.Model):
         builder = builder.add_extension(aki, critical=False)
         if self.extensions:
             for ext_data in self.extensions:
+                if "oid" in ext_data:
+                    oid = ext_data.get("oid")
+                    crit = ext_data.get("critical", False)
+                    raw_val = self._parse_custom_extension_value(ext_data.get("value"))
+                    builder = builder.add_extension(
+                        x509.UnrecognizedExtension(x509.ObjectIdentifier(oid), raw_val),
+                        critical=crit,
+                    )
+                    continue
                 name = ext_data.get("name")
                 val = ext_data.get("value", "")
                 crit = ext_data.get("critical", False)
