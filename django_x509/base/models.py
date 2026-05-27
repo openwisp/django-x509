@@ -523,8 +523,9 @@ class BaseX509(models.Model):
         (internal use only)
         verifies the format of ``self.extension`` is correct
         """
-        msg = "Extension format invalid"
+        msg = _("Extension format invalid")
         reserved_oids = self._get_reserved_extension_oids()
+        seen_custom_oids = set()
         if not isinstance(self.extensions, list):
             raise ValidationError(msg)
         for ext in self.extensions:
@@ -537,13 +538,18 @@ class BaseX509(models.Model):
                 if "value" not in ext:
                     raise ValidationError(msg)
                 try:
-                    x509.ObjectIdentifier(ext["oid"])
+                    oid = x509.ObjectIdentifier(ext["oid"]).dotted_string
                 except (ValueError, TypeError):
                     raise ValidationError(_("Invalid OID format: %s") % ext["oid"])
-                if ext["oid"] in reserved_oids:
+                if oid in reserved_oids:
                     raise ValidationError(
-                        _("Reserved extension OID is not allowed: %s") % ext["oid"]
+                        _("Reserved extension OID is not allowed: %s") % oid
                     )
+                if oid in seen_custom_oids:
+                    raise ValidationError(
+                        _("Duplicate extension OID is not allowed: %s") % oid
+                    )
+                seen_custom_oids.add(oid)
                 if "critical" in ext and not isinstance(ext.get("critical"), bool):
                     raise ValidationError(msg)
                 self._parse_custom_extension_value(ext["value"])
@@ -672,17 +678,22 @@ class BaseX509(models.Model):
 
         builder = builder.add_extension(aki, critical=False)
         if self.extensions:
+            reserved_oids = self._get_reserved_extension_oids()
             for ext_data in self.extensions:
                 if "oid" in ext_data:
                     oid = ext_data.get("oid")
-                    if oid in self._get_reserved_extension_oids():
+                    normalized_oid = x509.ObjectIdentifier(oid).dotted_string
+                    if normalized_oid in reserved_oids:
                         raise ValidationError(
-                            _("Reserved extension OID is not allowed: %s") % oid
+                            _("Reserved extension OID is not allowed: %s")
+                            % normalized_oid
                         )
                     crit = ext_data.get("critical", False)
                     raw_val = self._parse_custom_extension_value(ext_data.get("value"))
                     builder = builder.add_extension(
-                        x509.UnrecognizedExtension(x509.ObjectIdentifier(oid), raw_val),
+                        x509.UnrecognizedExtension(
+                            x509.ObjectIdentifier(normalized_oid), raw_val
+                        ),
                         critical=crit,
                     )
                     continue

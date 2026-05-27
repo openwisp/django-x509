@@ -848,3 +848,21 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertIn(
             f"Reserved extension OID is not allowed: {reserved_oid}", str(cm.exception)
         )
+
+    def test_custom_extension_duplicate_oid(self):
+        """Test that duplicate custom OIDs are rejected."""
+        oid = "1.3.6.1.4.1.55555.1.12"
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-dup-oid",
+            ca=ca,
+            extensions=[
+                {"oid": oid, "value": "ASN1:UTF8:string:test1"},
+                {"oid": oid, "value": "ASN1:UTF8:string:test2"},
+            ],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.full_clean()
+        self.assertIn(
+            f"Duplicate extension OID is not allowed: {oid}", str(cm.exception)
+        )
