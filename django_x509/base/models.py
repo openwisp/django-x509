@@ -524,6 +524,7 @@ class BaseX509(models.Model):
         verifies the format of ``self.extension`` is correct
         """
         msg = "Extension format invalid"
+        reserved_oids = self._get_reserved_extension_oids()
         if not isinstance(self.extensions, list):
             raise ValidationError(msg)
         for ext in self.extensions:
@@ -539,6 +540,10 @@ class BaseX509(models.Model):
                     x509.ObjectIdentifier(ext["oid"])
                 except (ValueError, TypeError):
                     raise ValidationError(_("Invalid OID format: %s") % ext["oid"])
+                if ext["oid"] in reserved_oids:
+                    raise ValidationError(
+                        _("Reserved extension OID is not allowed: %s") % ext["oid"]
+                    )
                 if "critical" in ext and not isinstance(ext.get("critical"), bool):
                     raise ValidationError(msg)
                 self._parse_custom_extension_value(ext["value"])
@@ -567,6 +572,10 @@ class BaseX509(models.Model):
         if asn1_type not in tag_map:
             raise ValidationError(_("Unsupported ASN1 type: %s") % asn1_type)
         if value_kind == "hex":
+            if asn1_type != "OCTET":
+                raise ValidationError(
+                    _("Hex values are only supported for OCTET strings")
+                )
             raw = raw.replace(" ", "").replace(":", "").replace("-", "")
             try:
                 payload = bytes.fromhex(raw)
@@ -666,6 +675,10 @@ class BaseX509(models.Model):
             for ext_data in self.extensions:
                 if "oid" in ext_data:
                     oid = ext_data.get("oid")
+                    if oid in self._get_reserved_extension_oids():
+                        raise ValidationError(
+                            _("Reserved extension OID is not allowed: %s") % oid
+                        )
                     crit = ext_data.get("critical", False)
                     raw_val = self._parse_custom_extension_value(ext_data.get("value"))
                     builder = builder.add_extension(
@@ -747,6 +760,16 @@ class BaseX509(models.Model):
                 else:
                     raise ValidationError(_("Unsupported extension: %s") % name)
         return builder
+
+    def _get_reserved_extension_oids(self):
+        reserved = {
+            "2.16.840.1.113730.1.1",
+            "2.16.840.1.113730.1.13",
+        }
+        for value in ExtensionOID.__dict__.values():
+            if isinstance(value, x509.ObjectIdentifier):
+                reserved.add(value.dotted_string)
+        return reserved
 
     def renew(self):
         self.serial_number = self._generate_serial_number()

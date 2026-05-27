@@ -4,7 +4,7 @@ from datetime import timezone as dt_timezone
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
-from cryptography.x509.oid import NameOID
+from cryptography.x509.oid import ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from openwisp_utils.tests import AssertNumQueriesSubTestMixin
@@ -799,3 +799,52 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 gen_cert.renew()
                 gen_cert.refresh_from_db()
                 self.assertNotEqual(original_pem, gen_cert.certificate)
+
+    def test_custom_extension_hex_restricted_to_octet(self):
+        """Test that hex encoding is strictly limited to OCTET strings."""
+        ca = self._create_ca()
+        cert_invalid = Cert(
+            name="test-hex-ia5",
+            ca=ca,
+            extensions=[{"oid": "1.2.3.4.5", "value": "ASN1:IA5:hex:ff"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert_invalid.full_clean()
+        self.assertIn(
+            "Hex values are only supported for OCTET strings", str(cm.exception)
+        )
+        cert_valid = Cert(
+            name="test-hex-octet",
+            ca=ca,
+            extensions=[{"oid": "1.2.3.4.5", "value": "ASN1:OCTET:hex:ff"}],
+        )
+        cert_valid.full_clean()
+
+    def test_custom_extension_invalid_hex_format(self):
+        """Test that malformed hex strings are caught and handled gracefully."""
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-bad-hex",
+            ca=ca,
+            extensions=[
+                {"oid": "1.2.3.4.5", "value": "ASN1:OCTET:hex:not-a-hex-string"}
+            ],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.full_clean()
+        self.assertIn("Invalid hex string provided for ASN1 value", str(cm.exception))
+
+    def test_custom_extension_rejects_reserved_oid(self):
+        """Test that standard/reserved OIDs cannot be injected as custom extensions."""
+        reserved_oid = ExtensionOID.EXTENDED_KEY_USAGE.dotted_string
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-reserved-oid",
+            ca=ca,
+            extensions=[{"oid": reserved_oid, "value": "ASN1:UTF8:string:test"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.full_clean()
+        self.assertIn(
+            f"Reserved extension OID is not allowed: {reserved_oid}", str(cm.exception)
+        )

@@ -57,7 +57,8 @@ Current features
 - Import existing certificates
 - Certificate revocation
 - CRL view (public or protected)
-- Possibility to specify x509 extensions on each certificate
+- Possibility to specify x509 extensions on each certificate, including
+  custom private OIDs with strict ASN.1 validation
 - Random serial numbers based on uuid4 integers (see `why is this a good
   idea
   <https://crypto.stackexchange.com/questions/257/unpredictability-of-x-509-serial-numbers>`_)
