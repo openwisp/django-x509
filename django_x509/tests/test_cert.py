@@ -18,6 +18,30 @@ class TestCert(AssertNumQueriesSubTestMixin, TestX509Mixin, TestCase):
     tests for Cert model
     """
 
+    @staticmethod
+    def _decode_der_primitive(data):
+        if not data:
+            raise ValueError("Empty DER data")
+        tag = data[0]
+        if len(data) < 2:
+            raise ValueError("DER data too short")
+        length_byte = data[1]
+        if length_byte & 0x80 == 0:
+            length = length_byte
+            header_len = 2
+        else:
+            num_len_bytes = length_byte & 0x7F
+            if num_len_bytes == 0:
+                raise ValueError("Indefinite length not supported")
+            if len(data) < 2 + num_len_bytes:
+                raise ValueError("DER length truncated")
+            length = int.from_bytes(data[2 : 2 + num_len_bytes], "big")  # noqa: E203
+            header_len = 2 + num_len_bytes
+        payload = data[header_len : header_len + length]  # noqa: E203
+        if len(payload) != length or len(data) != header_len + length:
+            raise ValueError("DER length mismatch")
+        return tag, length, payload
+
     import_certificate = """
 -----BEGIN CERTIFICATE-----
 MIIDNjCCAh6gAwIBAgIDAeJAMA0GCSqGSIb3DQEBCwUAMHcxEzARBgNVBAMMCmlt
@@ -353,6 +377,26 @@ tsND+97h9r73S+UTOhepQTDB
         )
         self.assertFalse(e3.critical)
 
+    def test_custom_oid_roundtrip_der_parsing(self):
+        long_val = "a" * 128
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.12",
+                "value": f"ASN1:UTF8:string:{long_val}",
+                "critical": True,
+            }
+        ]
+        cert = self._create_cert(extensions=extensions)
+        x509_obj = x509.load_pem_x509_certificate(cert.certificate.encode("utf-8"))
+        ext = x509_obj.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.12")
+        )
+        self.assertTrue(ext.critical)
+        tag, length, payload = self._decode_der_primitive(ext.value.value)
+        self.assertEqual(tag, 0x0C)
+        self.assertEqual(length, len(long_val))
+        self.assertEqual(payload, long_val.encode("utf-8"))
+
     def test_oid_parser_validation_errors(self):
         """Test that invalid custom OID formats raise correct ValidationErrors"""
         invalid_scenarios = [
@@ -485,6 +529,33 @@ tsND+97h9r73S+UTOhepQTDB
             self.assertIn("Extension format invalid", str(msg))
         else:
             self.fail("ValidationError not raised")
+
+    def test_custom_oid_payload_too_large(self):
+        long_val = "a" * (64 * 1024 + 1)
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.12",
+                "value": f"ASN1:UTF8:string:{long_val}",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("ASN1 payload too large", str(cm.exception))
+
+    def test_extension_identifier_ambiguous(self):
+        extensions = [
+            {
+                "name": "extendedKeyUsage",
+                "oid": "1.3.6.1.4.1.55555.1.13",
+                "value": "clientAuth",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn(
+            "Extension identifier cannot include both 'name' and 'oid'",
+            str(cm.exception),
+        )
 
     def test_custom_oid_hex_value(self):
         extensions = [

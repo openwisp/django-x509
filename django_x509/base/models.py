@@ -37,6 +37,20 @@ DIGEST_CHOICES = (
     ("sha512", "SHA512"),
 )
 
+MAX_CUSTOM_EXTENSION_PAYLOAD_LEN = 64 * 1024
+
+_RESERVED_EXTENSION_OIDS = frozenset(
+    {
+        "2.16.840.1.113730.1.1",
+        "2.16.840.1.113730.1.13",
+        *[
+            value.dotted_string
+            for value in ExtensionOID.__dict__.values()
+            if isinstance(value, x509.ObjectIdentifier)
+        ],
+    }
+)
+
 
 def default_validity_start():
     """
@@ -87,6 +101,11 @@ def default_digest_algorithm():
 
 
 def _encode_der_length(length):
+    """
+    Encodes an integer length into an ASN.1 DER length byte sequence.
+    Handles both short form (length < 128) and long form (length >= 128)
+    encoding rules as defined by the ASN.1 DER standard.
+    """
     if length < 0:
         raise ValueError("Invalid DER length")
     if length < 128:
@@ -96,6 +115,11 @@ def _encode_der_length(length):
 
 
 def _encode_der_value(tag, payload):
+    """
+    Constructs a complete ASN.1 DER TLV (Tag-Length-Value) byte sequence.
+    Combines the specified ASN.1 tag, the dynamically calculated DER length
+    of the payload, and the payload bytes into a single encoded byte string.
+    """
     return bytes([tag]) + _encode_der_length(len(payload)) + payload
 
 
@@ -534,6 +558,10 @@ class BaseX509(models.Model):
             has_identifier = "name" in ext or "oid" in ext
             if not has_identifier:
                 raise ValidationError(msg)
+            if "name" in ext and "oid" in ext:
+                raise ValidationError(
+                    _("Extension identifier cannot include both 'name' and 'oid'")
+                )
             if "oid" in ext:
                 if "value" not in ext:
                     raise ValidationError(msg)
@@ -557,6 +585,13 @@ class BaseX509(models.Model):
                 raise ValidationError(msg)
 
     def _parse_custom_extension_value(self, value):
+        """
+        Parses and encodes a custom X.509 extension value into DER format.
+
+        Expects a formatted string,validates the input against
+        allowed types and size limits, and returns
+        the raw DER-encoded bytes representing the payload.
+        """
         if not isinstance(value, str) or not value:
             raise ValidationError(_("Custom OID values must be a non-empty string"))
         if not value.startswith("ASN1:"):
@@ -582,7 +617,16 @@ class BaseX509(models.Model):
                 raise ValidationError(
                     _("Hex values are only supported for OCTET strings")
                 )
-            raw = raw.replace(" ", "").replace(":", "").replace("-", "")
+            allowed_separators = {" ", ":", "-"}
+            allowed_hex = set("0123456789abcdefABCDEF")
+            invalid_chars = [
+                ch
+                for ch in raw
+                if ch not in allowed_hex and ch not in allowed_separators
+            ]
+            if invalid_chars:
+                raise ValidationError(_("Invalid hex string provided for ASN1 value"))
+            raw = "".join(ch for ch in raw if ch not in allowed_separators)
             try:
                 payload = bytes.fromhex(raw)
             except ValueError:
@@ -613,6 +657,13 @@ class BaseX509(models.Model):
         else:
             raise ValidationError(
                 _("Unsupported value kind: %s. Use 'hex' or 'string'") % value_kind
+            )
+        if len(payload) > MAX_CUSTOM_EXTENSION_PAYLOAD_LEN:
+            raise ValidationError(
+                _(
+                    "ASN1 payload too large (max %s bytes)"
+                    % MAX_CUSTOM_EXTENSION_PAYLOAD_LEN
+                )
             )
         return _encode_der_value(tag_map[asn1_type], payload)
 
@@ -773,14 +824,7 @@ class BaseX509(models.Model):
         return builder
 
     def _get_reserved_extension_oids(self):
-        reserved = {
-            "2.16.840.1.113730.1.1",
-            "2.16.840.1.113730.1.13",
-        }
-        for value in ExtensionOID.__dict__.values():
-            if isinstance(value, x509.ObjectIdentifier):
-                reserved.add(value.dotted_string)
-        return reserved
+        return _RESERVED_EXTENSION_OIDS
 
     def renew(self):
         self.serial_number = self._generate_serial_number()
