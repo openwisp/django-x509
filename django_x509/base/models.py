@@ -660,10 +660,8 @@ class BaseX509(models.Model):
             )
         if len(payload) > MAX_CUSTOM_EXTENSION_PAYLOAD_LEN:
             raise ValidationError(
-                _(
-                    "ASN1 payload too large (max %s bytes)"
-                    % MAX_CUSTOM_EXTENSION_PAYLOAD_LEN
-                )
+                _("ASN1 payload too large (max %(max_bytes)s bytes)")
+                % {"max_bytes": MAX_CUSTOM_EXTENSION_PAYLOAD_LEN}
             )
         return _encode_der_value(tag_map[asn1_type], payload)
 
@@ -733,7 +731,12 @@ class BaseX509(models.Model):
             for ext_data in self.extensions:
                 if "oid" in ext_data:
                     oid = ext_data.get("oid")
-                    normalized_oid = x509.ObjectIdentifier(oid).dotted_string
+                    try:
+                        normalized_oid = x509.ObjectIdentifier(oid).dotted_string
+                    except (TypeError, ValueError):
+                        raise ValidationError(
+                            _("Invalid OID format: %s") % oid
+                        ) from None
                     if normalized_oid in reserved_oids:
                         raise ValidationError(
                             _("Reserved extension OID is not allowed: %s")
