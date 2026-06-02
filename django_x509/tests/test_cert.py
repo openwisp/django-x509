@@ -439,6 +439,12 @@ tsND+97h9r73S+UTOhepQTDB
         x509_obj = cert.x509
         self.assertEqual(x509_obj.serial_number, 3)
 
+    def test_serial_number_db_matches_certificate(self):
+        cert = self._create_cert()
+        cert.refresh_from_db()
+        cert_serial_hex = format(cert.x509.serial_number, "x")
+        self.assertEqual(int(cert_serial_hex, 16), int(cert.serial_number))
+
     def test_bad_serial_number_cert(self):
         try:
             self._create_cert(serial_number="notIntegers")
