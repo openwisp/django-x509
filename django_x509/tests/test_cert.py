@@ -442,9 +442,6 @@ tsND+97h9r73S+UTOhepQTDB
     def test_serial_number_db_matches_certificate(self):
         cert = self._create_cert()
         cert.refresh_from_db()
-        # The serial number in the X.509 certificate is encoded as a big-endian
-        # hex integer in the DER structure. Convert it to int and verify it
-        # exactly equals the value stored in the database.
         cert_serial_hex = format(cert.x509.serial_number, "x")
         self.assertEqual(int(cert_serial_hex, 16), int(cert.serial_number))
 
