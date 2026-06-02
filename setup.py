@@ -21,7 +21,7 @@ setup(
     install_requires=[
         "openwisp-utils[celery] @ "
         "https://github.com/openwisp/openwisp-utils/archive/refs/heads/1.3.tar.gz",
-        "pyopenssl>=25.3.0,<26.0.0",
+        "pyopenssl>=25.3.0,<27.0.0",
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
