@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timedelta
 
+import jsonschema
 import swapper
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -16,6 +17,7 @@ from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
 
 from .. import settings as app_settings
+from ..schemas import get_schema_item_options
 
 KEY_LENGTH_CHOICES = (
     ("256", "256 (ECDSA)"),
@@ -36,6 +38,23 @@ DIGEST_CHOICES = (
     ("sha384", "SHA384"),
     ("sha512", "SHA512"),
 )
+
+SUPPORTED_EXTENDED_KEY_USAGE_VALUES = {
+    "clientauth",
+    "serverauth",
+    "codesigning",
+    "emailprotection",
+}
+
+SUPPORTED_NS_CERT_TYPE_VALUES = {
+    "client",
+    "server",
+    "email",
+    "objsign",
+    "sslca",
+    "emailca",
+    "objca",
+}
 
 
 def default_validity_start():
@@ -157,19 +176,20 @@ class BaseX509(models.Model):
     def __str__(self):
         return self.name
 
-    def clean_fields(self, *args, **kwargs):
+    def clean_fields(self, exclude=None):
         # importing existing certificate
         # must be done here in order to validate imported fields
         # and fill private and public key before validation fails
         if self._state.adding and self.certificate and self.private_key:
             self._validate_pem()
             self._import()
-        super().clean_fields(*args, **kwargs)
+        super().clean_fields(exclude=exclude)
+        if not exclude or "extensions" not in exclude:
+            self._validate_extensions()
 
     def clean(self):
         if self.serial_number:
             self._validate_serial_number()
-        self._verify_extension_format()
         # when importing, both public and private must be present
         if (self.certificate and not self.private_key) or (
             self.private_key and not self.certificate
@@ -505,19 +525,180 @@ class BaseX509(models.Model):
                 _("Cryptographic signature verification failed: CA does not match.")
             )
 
-    def _verify_extension_format(self):
-        """
-        (internal use only)
-        verifies the format of ``self.extension`` is correct
-        """
-        msg = "Extension format invalid"
+    def _get_extensions_schema(self):
+        if hasattr(self, "ca"):
+            return app_settings.get_cert_extensions_schema()
+        return app_settings.get_ca_extensions_schema()
+
+    def _normalize_extensions(self, schema):
+        if self.extensions is None:
+            self.extensions = []
+            return
         if not isinstance(self.extensions, list):
-            raise ValidationError(msg)
+            return
+        options = get_schema_item_options(schema)
+        normalized = []
         for ext in self.extensions:
             if not isinstance(ext, dict):
-                raise ValidationError(msg)
-            if not ("name" in ext and "critical" in ext and "value" in ext):
-                raise ValidationError(msg)
+                normalized.append(ext)
+                continue
+            normalized_ext = ext.copy()
+            branch = options.get(normalized_ext.get("name"), {})
+            value_schema = branch.get("properties", {}).get("value", {})
+            if value_schema.get("type") == "array" and isinstance(
+                normalized_ext.get("value"), str
+            ):
+                normalized_ext["value"] = [
+                    value.strip()
+                    for value in normalized_ext["value"].split(",")
+                    if value.strip()
+                ]
+            normalized.append(normalized_ext)
+        self.extensions = normalized
+
+    def _get_best_extensions_error(self, errors):
+        error = jsonschema.exceptions.best_match(errors)
+        while error.context:
+            nested_error = jsonschema.exceptions.best_match(error.context)
+            if nested_error is error:
+                break
+            error = nested_error
+        return error
+
+    def _format_extensions_error(self, error):
+        path = []
+        for segment in error.absolute_path:
+            if isinstance(segment, int):
+                path.append(f"[{segment}]")
+            elif path:
+                path.append(f".{segment}")
+            else:
+                path.append(str(segment))
+        message = error.message
+        if path:
+            return _("Extensions data at %(path)s: %(message)s") % {
+                "path": "".join(path),
+                "message": message,
+            }
+        return _("Extensions data: %(message)s") % {"message": message}
+
+    def _raise_extensions_validation_error(self, path, message):
+        if path:
+            raise ValidationError(
+                {
+                    "extensions": _("Extensions data at %(path)s: %(message)s")
+                    % {"path": path, "message": message}
+                }
+            )
+        raise ValidationError(
+            {"extensions": _("Extensions data: %(message)s") % {"message": message}}
+        )
+
+    def _get_extension_values(self, value):
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return value.split(",")
+        return []
+
+    def _get_der_length_bytes(self, length):
+        if length < 128:
+            return bytes([length])
+        return b"\x81" + bytes([length])
+
+    def _validate_supported_extensions(self):
+        seen_extension_names = set()
+        for index, ext in enumerate(self.extensions or []):
+            if not isinstance(ext, dict):
+                continue
+            path = f"[{index}]"
+            name = ext.get("name")
+            critical = ext.get("critical", False)
+            value = ext.get("value", "")
+            if not isinstance(critical, bool):
+                self._raise_extensions_validation_error(
+                    f"{path}.critical", _("Critical flag must be a boolean value.")
+                )
+            if name in seen_extension_names:
+                self._raise_extensions_validation_error(
+                    f"{path}.name",
+                    _("Duplicate extension is not allowed: %s") % name,
+                )
+            if name == "nsComment":
+                if not isinstance(value, str):
+                    self._raise_extensions_validation_error(
+                        f"{path}.value",
+                        _("nsComment extension requires a string value."),
+                    )
+                if not value:
+                    self._raise_extensions_validation_error(
+                        f"{path}.value", _("nsComment extension requires a value.")
+                    )
+                value_bytes = value.encode("utf-8")
+                if len(value_bytes) > 255:
+                    self._raise_extensions_validation_error(
+                        f"{path}.value",
+                        _("nsComment value exceeds maximum length of 255 bytes"),
+                    )
+                seen_extension_names.add(name)
+                continue
+            if name == "extendedKeyUsage":
+                values = self._get_extension_values(value)
+                if not values:
+                    self._raise_extensions_validation_error(
+                        f"{path}.value",
+                        _(
+                            "extendedKeyUsage extension requires at least "
+                            "one valid value."
+                        ),
+                    )
+                for raw_value in values:
+                    cleaned_value = (
+                        raw_value.strip().lower()
+                        if isinstance(raw_value, str)
+                        else str(raw_value).strip().lower()
+                    )
+                    if cleaned_value not in SUPPORTED_EXTENDED_KEY_USAGE_VALUES:
+                        self._raise_extensions_validation_error(
+                            f"{path}.value",
+                            _("Unsupported extendedKeyUsage value: %s") % cleaned_value,
+                        )
+                seen_extension_names.add(name)
+                continue
+            if name == "nsCertType":
+                values = self._get_extension_values(value)
+                if not values:
+                    self._raise_extensions_validation_error(
+                        f"{path}.value",
+                        _("nsCertType extension requires at least one valid type."),
+                    )
+                for raw_value in values:
+                    cleaned_value = (
+                        raw_value.strip().lower()
+                        if isinstance(raw_value, str)
+                        else str(raw_value).strip().lower()
+                    )
+                    if cleaned_value not in SUPPORTED_NS_CERT_TYPE_VALUES:
+                        self._raise_extensions_validation_error(
+                            f"{path}.value",
+                            _("Unsupported nsCertType value: %s") % cleaned_value,
+                        )
+                seen_extension_names.add(name)
+                continue
+            self._raise_extensions_validation_error(
+                f"{path}.name", _("Unsupported extension: %s") % name
+            )
+
+    def _validate_extensions(self):
+        schema = self._get_extensions_schema()
+        self._normalize_extensions(schema)
+        validator_cls = jsonschema.validators.validator_for(schema)
+        validator = validator_cls(schema)
+        errors = list(validator.iter_errors(self.extensions))
+        if errors:
+            error = self._get_best_extensions_error(errors)
+            raise ValidationError({"extensions": self._format_extensions_error(error)})
+        self._validate_supported_extensions()
 
     def _add_extensions(self, builder, public_key):
         """
@@ -594,8 +775,9 @@ class BaseX509(models.Model):
                         "emailprotection": ExtendedKeyUsageOID.EMAIL_PROTECTION,
                     }
                     oids = []
-                    for v in val.split(","):
-                        v_clean = v.strip().lower()
+                    values = self._get_extension_values(val)
+                    for v in values:
+                        v_clean = str(v).strip().lower()
                         if v_clean not in eku_map:
                             raise ValidationError(
                                 _("Unsupported extendedKeyUsage value: %s") % v_clean
@@ -611,11 +793,14 @@ class BaseX509(models.Model):
                         raise ValidationError(
                             _("nsComment extension requires a value.")
                         )
-                    if len(val) > 255:
+                    val_bytes = val.encode("utf-8")
+                    if len(val_bytes) > 255:
                         raise ValidationError(
                             _("nsComment value exceeds maximum length of 255 bytes")
                         )
-                    raw_val = b"\x16" + bytes([len(val)]) + val.encode("utf-8")
+                    raw_val = (
+                        b"\x16" + self._get_der_length_bytes(len(val_bytes)) + val_bytes
+                    )
                     builder = builder.add_extension(
                         x509.UnrecognizedExtension(
                             x509.ObjectIdentifier("2.16.840.1.113730.1.13"), raw_val
@@ -634,8 +819,9 @@ class BaseX509(models.Model):
                         "objca": 0x01,
                     }
                     bits = 0
-                    for v in val.split(","):
-                        v_clean = v.strip().lower()
+                    values = self._get_extension_values(val)
+                    for v in values:
+                        v_clean = str(v).strip().lower()
                         if v_clean not in ns_cert_type_map:
                             raise ValidationError(
                                 _("Unsupported nsCertType value: %s") % v_clean

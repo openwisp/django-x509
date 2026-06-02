@@ -1,12 +1,17 @@
+import json
+import re
 from copy import deepcopy
+from html import unescape
 
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from openwisp_utils.tests import AdminActionPermTestMixin
 from swapper import load_model
+
+from django_x509.base.admin import BaseAdmin
 
 from . import MessagingRequest
 
@@ -154,6 +159,67 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
         cert_fields.insert(index, "extensions")
         cert_fields.insert(pass_index, "passphrase")
 
+    def test_ca_extensions_widget(self):
+        ma = self.ca_admin(Ca, self.site)
+        widget = ma.get_form(request).base_fields["extensions"].widget
+        html = widget.media.render()
+        rendered = widget.render("extensions", [])
+        self.assertIn("django-x509/js/extensions-widget.js", html)
+        self.assertIn("django-x509/css/extensions-widget.css", html)
+        self.assertIn("x509-extensions-widget", rendered)
+        self.assertIn('data-extension-label="Extension"', rendered)
+        self.assertIn('data-critical-label="Critical"', rendered)
+        self.assertIn('data-value-label="Value"', rendered)
+        self.assertIn("nsComment", rendered)
+        self.assertNotIn("extendedKeyUsage", rendered)
+        schema_attr = re.search(r'data-schema="([^"]+)"', rendered)
+        self.assertIsNotNone(schema_attr)
+        self.assertEqual(
+            json.loads(unescape(schema_attr.group(1)))["title"], "CA extensions"
+        )
+
+    def test_cert_extensions_widget(self):
+        readonly_fields = self.cert_admin.readonly_fields[:]
+        try:
+            ma = self.cert_admin(Cert, self.site)
+            widget = ma.get_form(request).base_fields["extensions"].widget
+            rendered = widget.render("extensions", [])
+            self.assertIn("nsComment", rendered)
+            self.assertIn("extendedKeyUsage", rendered)
+        finally:
+            self.cert_admin.readonly_fields = readonly_fields
+
+    @override_settings(
+        DJANGO_X509_CERT_EXTENSIONS_SCHEMA={
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {
+                        "title": "Comment only",
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "name": {"const": "nsComment"},
+                            "critical": {"type": "boolean", "default": False},
+                            "value": {"type": "string", "minLength": 1},
+                        },
+                        "required": ["name", "critical", "value"],
+                    }
+                ]
+            },
+        }
+    )
+    def test_cert_extensions_widget_uses_overridden_schema(self):
+        readonly_fields = self.cert_admin.readonly_fields[:]
+        try:
+            ma = self.cert_admin(Cert, self.site)
+            widget = ma.get_form(request).base_fields["extensions"].widget
+            rendered = widget.render("extensions", [])
+            self.assertIn("nsComment", rendered)
+            self.assertNotIn("extendedKeyUsage", rendered)
+        finally:
+            self.cert_admin.readonly_fields = readonly_fields
+
     def test_default_fieldsets_ca(self):
         ma = self.ca_admin(Ca, self.site)
         self.assertEqual(ma.get_fieldsets(request), [(None, {"fields": ca_fields})])
@@ -190,6 +256,19 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
         m = list(request.get_messages())
         self.assertEqual(len(m), 1)
         self.assertEqual(str(m[0]), "1 certificate was revoked.")
+
+    def test_revoke_action_multiple(self):
+        req = MessagingRequest()
+        req.user = MockSuperUser()
+        cert = Cert.objects.create(name="test_cert_2", ca=self.ca)
+        ma = self.cert_admin(Cert, self.site)
+        ma.revoke_action(req, [self.cert, cert])
+        message = req.get_message_strings()
+        self.assertEqual(message, ["2 certificates were revoked."])
+
+    def test_base_admin_default_extensions_schema(self):
+        ma = BaseAdmin(Ca, self.site)
+        self.assertEqual(ma.get_extensions_schema(), [])
 
     def test_revoke_action_perms(self):
         user = User.objects.create(

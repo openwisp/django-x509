@@ -1,5 +1,7 @@
 from django.conf import settings
 
+from . import schemas
+
 DEFAULT_CERT_VALIDITY = getattr(settings, "DJANGO_X509_DEFAULT_CERT_VALIDITY", 365)
 DEFAULT_CA_VALIDITY = getattr(settings, "DJANGO_X509_DEFAULT_CA_VALIDITY", 3650)
 DEFAULT_KEY_LENGTH = str(getattr(settings, "DJANGO_X509_DEFAULT_KEY_LENGTH", "2048"))
@@ -21,3 +23,11 @@ CERT_KEYUSAGE_VALUE = getattr(
     settings, "DJANGO_X509_CERT_KEYUSAGE_VALUE", "digitalSignature, keyEncipherment"
 )  # noqa
 CRL_PROTECTED = getattr(settings, "DJANGO_X509_CRL_PROTECTED", False)
+
+
+def get_ca_extensions_schema():
+    return schemas.get_ca_extensions_schema()
+
+
+def get_cert_extensions_schema():
+    return schemas.get_cert_extensions_schema()

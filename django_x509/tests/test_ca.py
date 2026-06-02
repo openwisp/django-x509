@@ -303,8 +303,7 @@ tsND+97h9r73S+UTOhepQTDB
         try:
             self._create_ca(extensions=extensions)
         except ValidationError as e:
-            msg = e.message_dict.get("__all__", [str(e)])[0]
-            self.assertIn("Extension format invalid", str(msg))
+            self.assertIn("extensions", e.message_dict)
         else:
             self.fail("ValidationError not raised")
 
@@ -313,9 +312,7 @@ tsND+97h9r73S+UTOhepQTDB
         try:
             self._create_ca(extensions=extensions)
         except ValidationError as e:
-            # verify error message
-            msg = e.message_dict.get("__all__", [str(e)])[0]
-            self.assertIn("Extension format invalid", str(msg))
+            self.assertIn("extensions", e.message_dict)
         else:
             self.fail("ValidationError not raised")
 

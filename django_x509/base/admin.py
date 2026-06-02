@@ -10,6 +10,8 @@ from django.utils.translation import ngettext
 
 from django_x509 import settings as app_settings
 
+from .widgets import ExtensionsWidget
+
 
 class X509Form(forms.ModelForm):
     OPERATION_CHOICES = (
@@ -79,6 +81,13 @@ class BaseAdmin(ModelAdmin):
             fields.remove("passphrase")
         return fields
 
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super().get_form(request, obj, change=change, **kwargs)
+        extensions = form.base_fields.get("extensions")
+        if extensions:
+            extensions.widget = ExtensionsWidget(schema=self.get_extensions_schema())
+        return form
+
     def get_context(self, data, ca_count=0, cert_count=0):
         context = dict()
         if ca_count:
@@ -102,6 +111,9 @@ class BaseAdmin(ModelAdmin):
             )
         context.update({"opts": self.model._meta, "data": data})
         return context
+
+    def get_extensions_schema(self):
+        return []
 
 
 class AbstractCaAdmin(BaseAdmin):
@@ -133,6 +145,9 @@ class AbstractCaAdmin(BaseAdmin):
 
     class Media:
         js = ("admin/js/jquery.init.js", "django-x509/js/x509-admin.js")
+
+    def get_extensions_schema(self):
+        return app_settings.get_ca_extensions_schema()
 
     def get_urls(self):
         return [
@@ -223,6 +238,9 @@ class AbstractCertAdmin(BaseAdmin):
 
     class Media:
         js = ("admin/js/jquery.init.js", "django-x509/js/x509-admin.js")
+
+    def get_extensions_schema(self):
+        return app_settings.get_cert_extensions_schema()
 
     def ca_url(self, obj):
         url = reverse(

@@ -1,0 +1,125 @@
+.x509-extensions-widget {
+  max-width: 60rem;
+}
+
+.x509-extensions-widget__message {
+  color: var(--error-fg);
+  margin-bottom: 0.75rem;
+}
+
+.x509-extensions-row {
+  background: var(--darkened-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--body-fg);
+  margin-bottom: 0.75rem;
+  padding: 0.9rem;
+}
+
+.x509-extensions-row__header {
+  align-items: start;
+  column-gap: 1rem;
+  display: grid;
+  row-gap: 0.75rem;
+  grid-template-areas:
+    "select remove"
+    "critical remove";
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.x509-extensions-row__field {
+  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.x509-extensions-row__field--select {
+  grid-area: select;
+  max-width: 20rem;
+}
+
+.x509-extensions-row__toggle {
+  grid-area: critical;
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.x509-extensions-row__label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.x509-extensions-row__description {
+  color: var(--body-quiet-color);
+  margin: 0.65rem 0 0.4rem;
+}
+
+.x509-extensions-row__body {
+  margin-top: 0.75rem;
+}
+
+.x509-extensions-choice-list {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.x509-extensions-choice {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.x509-extensions-input,
+.x509-extensions-select {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.x509-extensions-select {
+  min-width: 16rem;
+}
+
+.x509-extensions-remove {
+  grid-area: remove;
+  align-self: start;
+  justify-self: end;
+}
+
+.x509-extensions-raw {
+  margin-top: 0.75rem;
+}
+
+.x509-extensions-raw summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+@media screen and (max-width: 767px) {
+  .x509-extensions-row__header {
+    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .x509-extensions-row__field {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .x509-extensions-row__toggle {
+    margin-top: 0;
+  }
+
+  .x509-extensions-input,
+  .x509-extensions-select {
+    width: 100%;
+  }
+}

@@ -4,7 +4,11 @@ Changelog
 Version 1.4.0 [unreleased]
 --------------------------
 
-Work in progress.
+Changes
+~~~~~~~
+
+- Added schema-backed validation and a simplified admin editor for CA and
+  certificate extensions.
 
 Version 1.3.0 [2025-10-23]
 --------------------------
