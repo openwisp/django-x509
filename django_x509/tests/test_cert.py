@@ -9,6 +9,8 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from openwisp_utils.tests import AssertNumQueriesSubTestMixin
 
+from django_x509.base.models import MAX_CUSTOM_EXTENSION_PAYLOAD_LEN
+
 from .. import settings as app_settings
 from . import Ca, Cert, TestX509Mixin
 
@@ -531,7 +533,7 @@ tsND+97h9r73S+UTOhepQTDB
             self.fail("ValidationError not raised")
 
     def test_custom_oid_payload_too_large(self):
-        long_val = "a" * (64 * 1024 + 1)
+        long_val = "a" * (MAX_CUSTOM_EXTENSION_PAYLOAD_LEN + 1)
         extensions = [
             {
                 "oid": "1.3.6.1.4.1.55555.1.12",
