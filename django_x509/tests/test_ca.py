@@ -320,24 +320,54 @@ tsND+97h9r73S+UTOhepQTDB
         else:
             self.fail("ValidationError not raised")
 
-    def test_unsupported_extension_validation_error(self):
-        ca = Ca(
-            name="Test CA",
-            key_length="2048",
-            digest="sha256",
-            country_code="IT",
-            state="RM",
-            city="Rome",
-            organization_name="OpenWISP",
-            email="test@test.com",
-            common_name="openwisp.org",
-            extensions=[
-                {"name": "unsupportedExtension", "critical": False, "value": "test"}
-            ],
-        )
-        with self.assertRaises(ValidationError) as cm:
-            ca.full_clean()
-        self.assertIn("Unsupported extension: unsupportedExtension", str(cm.exception))
+    def test_generation_validation_errors(self):
+        with self.subTest("unsupported extension"):
+            ca = Ca(
+                name="Test CA",
+                key_length="2048",
+                digest="sha256",
+                country_code="IT",
+                state="RM",
+                city="Rome",
+                organization_name="OpenWISP",
+                email="test@test.com",
+                common_name="openwisp.org",
+                extensions=[
+                    {
+                        "name": "unsupportedExtension",
+                        "critical": False,
+                        "value": "test",
+                    }
+                ],
+            )
+            with self.assertRaises(ValidationError) as cm:
+                ca.full_clean()
+            self.assertIn(
+                "Unsupported extension: unsupportedExtension", str(cm.exception)
+            )
+        with self.subTest("unexpected generation error"):
+            ca = Ca(
+                name="Test CA",
+                key_length="2048",
+                digest="sha256",
+                country_code="IT",
+                state="RM",
+                city="Rome",
+                organization_name="OpenWISP",
+                email="test@test.com",
+                common_name="openwisp.org",
+            )
+            with patch.object(Ca, "_generate", side_effect=ValueError("backend error")):
+                with self.assertLogs("django_x509.base.models", level="ERROR") as logs:
+                    with self.assertRaises(ValidationError) as cm:
+                        ca.full_clean()
+            self.assertIn(
+                "Certificate generation failed due to invalid certificate parameters.",
+                str(cm.exception),
+            )
+            self.assertNotIn("backend error", str(cm.exception))
+            self.assertIn("Certificate generation failed", logs.output[0])
+            self.assertIsNotNone(logs.records[0].exc_info)
 
     def test_full_clean_save_generates_once(self):
         ca = Ca(

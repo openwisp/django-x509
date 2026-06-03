@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta
 
@@ -16,6 +17,8 @@ from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
 
 from .. import settings as app_settings
+
+logger = logging.getLogger(__name__)
 
 KEY_LENGTH_CHOICES = (
     ("256", "256 (ECDSA)"),
@@ -200,7 +203,13 @@ class BaseX509(models.Model):
             except ValidationError:
                 raise
             except (TypeError, ValueError) as e:
-                raise ValidationError(str(e)) from e
+                logger.exception("Certificate generation failed")
+                raise ValidationError(
+                    _(
+                        "Certificate generation failed due to invalid "
+                        "certificate parameters."
+                    )
+                ) from e
 
     def full_clean(self, *args, **kwargs):
         """
