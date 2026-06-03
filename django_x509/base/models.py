@@ -581,8 +581,11 @@ class BaseX509(models.Model):
                 if "critical" in ext and not isinstance(ext.get("critical"), bool):
                     raise ValidationError(msg)
                 self._parse_custom_extension_value(ext["value"])
-            elif not ("critical" in ext and "value" in ext):
-                raise ValidationError(msg)
+            else:
+                if "value" not in ext:
+                    raise ValidationError(msg)
+                if "critical" in ext and not isinstance(ext["critical"], bool):
+                    raise ValidationError(msg)
 
     def _parse_custom_extension_value(self, value):
         """
@@ -728,6 +731,7 @@ class BaseX509(models.Model):
         builder = builder.add_extension(aki, critical=False)
         if self.extensions:
             reserved_oids = self._get_reserved_extension_oids()
+            seen_custom_oids = set()
             for ext_data in self.extensions:
                 if "oid" in ext_data:
                     oid = ext_data.get("oid")
@@ -742,6 +746,12 @@ class BaseX509(models.Model):
                             _("Reserved extension OID is not allowed: %s")
                             % normalized_oid
                         )
+                    if normalized_oid in seen_custom_oids:
+                        raise ValidationError(
+                            _("Duplicate extension OID is not allowed: %s")
+                            % normalized_oid
+                        )
+                    seen_custom_oids.add(normalized_oid)
                     crit = ext_data.get("critical", False)
                     raw_val = self._parse_custom_extension_value(ext_data.get("value"))
                     builder = builder.add_extension(
