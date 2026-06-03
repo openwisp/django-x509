@@ -250,9 +250,9 @@ The ``value`` must be a string in the form ``ASN1:<TYPE>:<KIND>:<VALUE>``:
 - ``<VALUE>`` is the payload. With ``string`` the value may itself contain
   colons; everything after the third colon is treated as the value.
 
-The encoded payload (after DER encoding) must not exceed the configured
-maximum size limit. If the payload is too large, validation will reject
-the extension with a clear error message.
+The raw ASN.1 payload must not exceed the configured maximum size limit.
+If the payload is too large, validation will reject the extension with a
+clear error message before DER wrapping is added.
 
 Practical example
 ~~~~~~~~~~~~~~~~~

@@ -619,6 +619,31 @@ tsND+97h9r73S+UTOhepQTDB
             cert.full_clean()
         self.assertIn("Unsupported extension: unsupportedExtension", str(cm.exception))
 
+    def test_unexpected_generation_error(self):
+        cert = Cert(
+            name="TestCert",
+            ca=self._create_ca(),
+            key_length="2048",
+            digest="sha256",
+            country_code="IT",
+            state="RM",
+            city="Rome",
+            organization_name="Test",
+            email="test@test.com",
+            common_name="openwisp.org",
+        )
+        with patch.object(Cert, "_generate", side_effect=ValueError("backend error")):
+            with self.assertLogs("django_x509.base.models", level="ERROR") as logs:
+                with self.assertRaises(ValidationError) as cm:
+                    cert.full_clean()
+        self.assertIn(
+            "Certificate generation failed due to invalid certificate parameters.",
+            str(cm.exception),
+        )
+        self.assertNotIn("backend error", str(cm.exception))
+        self.assertIn("Certificate generation failed", logs.output[0])
+        self.assertIsNotNone(logs.records[0].exc_info)
+
     def test_full_clean_save_generates_once(self):
         cert = Cert(
             name="TestCert",
