@@ -1010,3 +1010,54 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertIn(
             f"Duplicate extension OID is not allowed: {oid}", str(cm.exception)
         )
+
+    def test_name_based_missing_value(self):
+        extensions = [{"name": "nsCertType"}]
+        try:
+            self._create_cert(extensions=extensions)
+        except ValidationError as e:
+            msg = e.message_dict.get("__all__", [str(e)])[0]
+            self.assertIn("Extension format invalid", str(msg))
+        else:
+            self.fail("ValidationError not raised")
+
+    def test_name_based_invalid_critical_type(self):
+        extensions = [{"name": "nsCertType", "value": "client", "critical": "yes"}]
+        try:
+            self._create_cert(extensions=extensions)
+        except ValidationError as e:
+            msg = e.message_dict.get("__all__", [str(e)])[0]
+            self.assertIn("Extension format invalid", str(msg))
+        else:
+            self.fail("ValidationError not raised")
+
+    def test_duplicate_oid_direct_save(self):
+        oid = "1.3.6.1.4.1.55555.1.12"
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-dup-direct",
+            ca=ca,
+            extensions=[
+                {"oid": oid, "value": "ASN1:UTF8:string:test1"},
+                {"oid": oid, "value": "ASN1:UTF8:string:test2"},
+            ],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn(
+            f"Duplicate extension OID is not allowed: {oid}", str(cm.exception)
+        )
+
+    def test_reserved_oid_direct_save(self):
+        reserved_oid = ExtensionOID.EXTENDED_KEY_USAGE.dotted_string
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-res-direct",
+            ca=ca,
+            extensions=[{"oid": reserved_oid, "value": "ASN1:UTF8:string:test1"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn(
+            f"Reserved extension OID is not allowed: {reserved_oid}", str(cm.exception)
+        )
