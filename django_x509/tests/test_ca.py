@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
+from unittest.mock import patch
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -318,6 +319,43 @@ tsND+97h9r73S+UTOhepQTDB
             self.assertIn("Extension format invalid", str(msg))
         else:
             self.fail("ValidationError not raised")
+
+    def test_unsupported_extension_validation_error(self):
+        ca = Ca(
+            name="Test CA",
+            key_length="2048",
+            digest="sha256",
+            country_code="IT",
+            state="RM",
+            city="Rome",
+            organization_name="OpenWISP",
+            email="test@test.com",
+            common_name="openwisp.org",
+            extensions=[
+                {"name": "unsupportedExtension", "critical": False, "value": "test"}
+            ],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            ca.full_clean()
+        self.assertIn("Unsupported extension: unsupportedExtension", str(cm.exception))
+
+    def test_full_clean_save_generates_once(self):
+        ca = Ca(
+            name="Test CA",
+            key_length="2048",
+            digest="sha256",
+            country_code="IT",
+            state="RM",
+            city="Rome",
+            organization_name="OpenWISP",
+            email="test@test.com",
+            common_name="openwisp.org",
+        )
+        with patch.object(Ca, "_generate", wraps=ca._generate) as mocked_generate:
+            ca.full_clean()
+            self.assertEqual(mocked_generate.call_count, 1)
+            ca.save()
+            self.assertEqual(mocked_generate.call_count, 1)
 
     def test_get_revoked_certs(self):
         ca = self._create_ca()
