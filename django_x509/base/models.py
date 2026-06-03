@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta
 
@@ -16,6 +17,8 @@ from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
 
 from .. import settings as app_settings
+
+logger = logging.getLogger(__name__)
 
 KEY_LENGTH_CHOICES = (
     ("256", "256 (ECDSA)"),
@@ -186,12 +189,45 @@ class BaseX509(models.Model):
                 {"key_length": _("Unsupported key length: %s") % self.key_length}
             )
 
-    def save(self, *args, **kwargs):
+    def _generate_if_needed(self):
+        """
+        Generates a new x509 certificate unless already generated.
+        Used during validation and save.
+        """
         if self._state.adding and not self.certificate and not self.private_key:
-            # auto generate serial number
+            # Keep generated material on the instance so save does not repeat it.
             if not self.serial_number:
                 self.serial_number = self._generate_serial_number()
-            self._generate()
+            try:
+                self._generate()
+            except ValidationError:
+                raise
+            except (TypeError, ValueError) as e:
+                logger.exception("Certificate generation failed")
+                raise ValidationError(
+                    _(
+                        "Certificate generation failed due to invalid "
+                        "certificate parameters."
+                    )
+                ) from e
+
+    def full_clean(self, *args, **kwargs):
+        """
+        Generate after Django's standard validation pipeline, not in clean().
+        Generating in clean() would mutate serial_number, certificate and
+        private_key before validate_unique() runs, changing existing validation
+        behavior. Doing it here still turns generation failures into
+        ValidationError instances for forms/admin while preserving the normal
+        validation order.
+        """
+        super().full_clean(*args, **kwargs)
+        self._generate_if_needed()
+
+    def save(self, *args, **kwargs):
+        """
+        Enforces generation of x509 certificate also if validation is skipped.
+        """
+        self._generate_if_needed()
         super().save(*args, **kwargs)
 
     @cached_property
