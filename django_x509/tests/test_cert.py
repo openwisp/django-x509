@@ -598,6 +598,7 @@ tsND+97h9r73S+UTOhepQTDB
         )
         self.assertEqual(ext.value.value[:3], b"\x0c\x81\x80")
         self.assertEqual(ext.value.value[3:], long_val.encode("utf-8"))
+
     def test_unsupported_extension_validation_error(self):
         cert = Cert(
             name="TestCert",
