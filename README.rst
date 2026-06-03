@@ -215,8 +215,9 @@ that includes both is rejected.
 Built-in (``name``-based) extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These entries require ``name``, ``value`` and ``critical``. The supported
-names are ``extendedKeyUsage``, ``nsComment`` and ``nsCertType``:
+These entries require ``name`` and ``value``. The ``critical`` key is
+optional and defaults to ``false``. The supported names are
+``extendedKeyUsage``, ``nsComment`` and ``nsCertType``:
 
 .. code-block:: json
 
