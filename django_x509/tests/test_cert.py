@@ -1061,3 +1061,56 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertIn(
             f"Reserved extension OID is not allowed: {reserved_oid}", str(cm.exception)
         )
+
+    def test_invalid_oid_direct_save(self):
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-invalid-oid-direct",
+            ca=ca,
+            extensions=[{"oid": "invalid.oid", "value": "ASN1:UTF8:string:test"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn("Invalid OID format", str(cm.exception))
+
+    def test_invalid_extended_key_usage(self):
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-invalid-eku",
+            ca=ca,
+            extensions=[{"name": "extendedKeyUsage", "value": "invalidEKU"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn("Unsupported extendedKeyUsage value", str(cm.exception))
+
+    def test_invalid_nscomment(self):
+        ca = self._create_ca()
+        cert1 = Cert(
+            name="test-empty-comment",
+            ca=ca,
+            extensions=[{"name": "nsComment", "value": ""}],
+        )
+        with self.assertRaises(ValidationError) as cm1:
+            cert1.save()
+        self.assertIn("nsComment extension requires a value", str(cm1.exception))
+
+        cert2 = Cert(
+            name="test-long-comment",
+            ca=ca,
+            extensions=[{"name": "nsComment", "value": "a" * 256}],
+        )
+        with self.assertRaises(ValidationError) as cm2:
+            cert2.save()
+        self.assertIn("exceeds maximum length", str(cm2.exception))
+
+    def test_invalid_nscerttype(self):
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-invalid-nscerttype",
+            ca=ca,
+            extensions=[{"name": "nsCertType", "value": "invalidType"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn("Unsupported nsCertType value", str(cm.exception))
