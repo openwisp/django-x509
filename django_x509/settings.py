@@ -21,3 +21,4 @@ CERT_KEYUSAGE_VALUE = getattr(
     settings, "DJANGO_X509_CERT_KEYUSAGE_VALUE", "digitalSignature, keyEncipherment"
 )  # noqa
 CRL_PROTECTED = getattr(settings, "DJANGO_X509_CRL_PROTECTED", False)
+EXPIRATION_NOTICE_DAYS = getattr(settings, "DJANGO_X509_EXPIRATION_NOTICE_DAYS", 3)

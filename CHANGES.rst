@@ -6,6 +6,24 @@ Version 1.4.0 [unreleased]
 
 Work in progress.
 
+Features
+~~~~~~~~
+
+- Added configurable expiration notices, certificate expired status in the
+  admin, and CA automatic renewal modes.
+
+Changes
+~~~~~~~
+
+- Added a daily Celery task and overrideable Django signals for expiring
+  and expired x509 objects.
+
+Dependencies
+++++++++++++
+
+- Bumped ``openwisp-utils`` to the ``[celery]`` extra to support the
+  expiration task.
+
 Version 1.3.0 [2025-10-23]
 --------------------------
 
