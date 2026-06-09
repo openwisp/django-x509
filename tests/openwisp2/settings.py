@@ -1,8 +1,6 @@
 import os
-import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TESTING = sys.argv[1:2] == ["test"]
 
 DEBUG = True
 
@@ -36,17 +34,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "openwisp2.urls"
 
-ASGI_APPLICATION = "openwisp2.routing.application"
-if not TESTING:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": ["redis://localhost/3"]},
-        }
-    }
-else:
-    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
-
 TIME_ZONE = "Europe/Rome"
 LANGUAGE_CODE = "en-gb"
 USE_TZ = True
@@ -73,29 +60,6 @@ TEMPLATES = [
         },
     }
 ]
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://localhost/0",
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-    },
-    "sessions": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://localhost/1",
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-    },
-}
-
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "sessions"
-
-if not TESTING:
-    CELERY_BROKER_URL = "redis://localhost/2"
-else:
-    CELERY_TASK_ALWAYS_EAGER = True
-    CELERY_TASK_EAGER_PROPAGATES = True
-    CELERY_BROKER_URL = "memory://"
 
 if os.environ.get("SAMPLE_APP", False):
     INSTALLED_APPS.remove("django_x509")
