@@ -884,7 +884,7 @@ class BaseX509(models.Model):
             self.validity_end = default_ca_validity_end()
         self._generate()
         self.save()
-        x509_renewed.send(sender=self.__class__, instance=self)
+        x509_renewed.send_robust(sender=self.__class__, instance=self)
 
     def _generate_serial_number(self):
         return uuid.uuid4().int

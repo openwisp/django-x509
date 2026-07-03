@@ -426,6 +426,13 @@ Signals
 
 - ``instance``: instance of ``Ca`` or ``Cert`` which was renewed
 
+  .. warning::
+
+      The ``Ca`` and ``Cert`` instance carries sensitive data
+      (``private_key`` and ``passphrase``). Avoid logging or serializing
+      the full instance in signal receivers, to prevent accidentally
+      exposing secrets.
+
 This signal is emitted whenever the ``renew()`` method of a ``Ca`` or
 ``Cert`` instance completes successfully.
 
