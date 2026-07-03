@@ -10,8 +10,10 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from openwisp_utils.tests import catch_signal
 
 from .. import settings as app_settings
+from ..signals import x509_renewed
 from . import UTC_TIME, Ca, TestX509Mixin, datetime_to_string
 
 
@@ -797,6 +799,23 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         cert_obj = x509.load_pem_x509_certificate(cert.certificate.encode())
         pem_serial = cert_obj.serial_number
         self.assertEqual(int(cert.serial_number), pem_serial)
+
+    def test_x509_renewed_signal_sent(self):
+        ca = self._create_ca()
+        certs = [
+            self._create_cert(ca=ca, name="cert1"),
+            self._create_cert(ca=ca, name="cert2"),
+            self._create_cert(ca=ca, name="cert3"),
+        ]
+        with catch_signal(x509_renewed) as handler:
+            ca.renew()
+            self.assertEqual(handler.call_count, 1 + len(certs))
+            calls = handler.call_args_list
+            self.assertEqual(calls[0].kwargs["sender"], Ca)
+            self.assertEqual(calls[0].kwargs["instance"], ca)
+            for i, cert in enumerate(certs, start=1):
+                self.assertEqual(calls[i].kwargs["sender"], cert.__class__)
+                self.assertEqual(calls[i].kwargs["instance"], cert)
 
     def test_ca_ecdsa_full_lifecycle(self):
         curves_to_test = [

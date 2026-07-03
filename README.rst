@@ -414,6 +414,25 @@ Value of the ``keyUsage`` x509 extension for new end-entity certificates.
 Whether the view for downloading Certificate Revocation Lists should be
 protected with authentication or not.
 
+Signals
+-------
+
+``x509_renewed``
+~~~~~~~~~~~~~~~~
+
+**Path**: ``django_x509.signals.x509_renewed``
+
+**Arguments**:
+
+- ``instance``: instance of ``Ca`` or ``Cert`` which was renewed
+
+This signal is emitted whenever the ``renew()`` method of a ``Ca`` or
+``Cert`` instance completes successfully.
+
+When a ``Ca`` instance is renewed, all of its child certificates are
+renewed automatically. As a result, this signal is emitted once for the
+renewed CA and once for each renewed child certificate.
+
 Extending django-x509
 ---------------------
 
