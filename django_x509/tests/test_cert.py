@@ -882,7 +882,8 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
     def test_x509_renewed_signal_sent(self):
         cert = self._create_cert()
         with catch_signal(x509_renewed) as handler:
-            cert.renew()
+            with self.captureOnCommitCallbacks(execute=True):
+                cert.renew()
             handler.assert_called_once()
             call_kwargs = handler.call_args.kwargs
             self.assertEqual(call_kwargs["sender"], Cert)

@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
@@ -884,7 +884,9 @@ class BaseX509(models.Model):
             self.validity_end = default_ca_validity_end()
         self._generate()
         self.save()
-        x509_renewed.send_robust(sender=self.__class__, instance=self)
+        transaction.on_commit(
+            lambda: x509_renewed.send_robust(sender=self.__class__, instance=self)
+        )
 
     def _generate_serial_number(self):
         return uuid.uuid4().int

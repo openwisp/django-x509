@@ -440,6 +440,13 @@ When a ``Ca`` instance is renewed, all of its child certificates are
 renewed automatically. As a result, this signal is emitted once for the
 renewed CA and once for each renewed child certificate.
 
+The signal is sent via `transaction.on_commit()
+<https://docs.djangoproject.com/en/stable/topics/db/transactions/#django.db.transaction.on_commit>`_,
+so receivers are guaranteed to run only after the renewal has been
+successfully committed to the database. If the transaction is rolled back
+(for example, because ``renew()`` was called inside a bulk operation that
+later fails), the signal will not be sent at all.
+
 Extending django-x509
 ---------------------
 

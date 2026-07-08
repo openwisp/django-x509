@@ -808,7 +808,8 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self._create_cert(ca=ca, name="cert3"),
         ]
         with catch_signal(x509_renewed) as handler:
-            ca.renew()
+            with self.captureOnCommitCallbacks(execute=True):
+                ca.renew()
             self.assertEqual(handler.call_count, 1 + len(certs))
             calls = handler.call_args_list
             self.assertEqual(calls[0].kwargs["sender"], Ca)
