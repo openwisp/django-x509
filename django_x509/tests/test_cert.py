@@ -8,11 +8,12 @@ from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from openwisp_utils.tests import AssertNumQueriesSubTestMixin
+from openwisp_utils.tests import AssertNumQueriesSubTestMixin, catch_signal
 
 from django_x509.base.models import MAX_CUSTOM_EXTENSION_PAYLOAD_LEN
 
 from .. import settings as app_settings
+from ..signals import x509_renewed
 from . import Ca, Cert, TestX509Mixin
 
 
@@ -877,6 +878,15 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(old_ca_key, ca.private_key)
         self.assertEqual(old_ca_end, ca.validity_end)
         self.assertEqual(old_ca_serial_number, ca.serial_number)
+
+    def test_x509_renewed_signal_sent(self):
+        cert = self._create_cert()
+        with catch_signal(x509_renewed) as handler:
+            cert.renew()
+            handler.assert_called_once()
+            call_kwargs = handler.call_args.kwargs
+            self.assertEqual(call_kwargs["sender"], Cert)
+            self.assertEqual(call_kwargs["instance"], cert)
 
     def test_cert_common_name_length(self):
         common_name = "a" * 65

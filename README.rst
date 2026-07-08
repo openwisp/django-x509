@@ -414,6 +414,40 @@ Value of the ``keyUsage`` x509 extension for new end-entity certificates.
 Whether the view for downloading Certificate Revocation Lists should be
 protected with authentication or not.
 
+Signals
+-------
+
+``x509_renewed``
+~~~~~~~~~~~~~~~~
+
+**Path**: ``django_x509.signals.x509_renewed``
+
+**Arguments**:
+
+- ``instance``: instance of ``Ca`` or ``Cert`` which was renewed
+
+  .. warning::
+
+      The ``Ca`` and ``Cert`` instance carries sensitive data
+      (``private_key`` and ``passphrase``). Avoid logging or serializing
+      the full instance in signal receivers, to prevent accidentally
+      exposing secrets.
+
+This signal is emitted whenever the ``renew()`` method of a ``Ca`` or
+``Cert`` instance completes successfully.
+
+When a ``Ca`` instance is renewed, all of its child certificates are
+renewed automatically. As a result, this signal is emitted once for the
+renewed CA and once for each renewed child certificate.
+
+The signal is sent synchronously from within ``renew()``, which may itself
+be running inside an outer database transaction. If the transaction is
+later rolled back, the signal will still have been sent even though the
+renewal was not persisted. Receivers that must only act once the renewal
+is durably committed should defer their own logic with
+`transaction.on_commit()
+<https://docs.djangoproject.com/en/stable/topics/db/transactions/#django.db.transaction.on_commit>`_.
+
 Extending django-x509
 ---------------------
 
