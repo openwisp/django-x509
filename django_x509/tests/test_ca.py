@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -14,7 +15,7 @@ from openwisp_utils.tests import catch_signal
 
 from .. import settings as app_settings
 from ..signals import x509_renewed
-from . import UTC_TIME, Ca, TestX509Mixin, datetime_to_string
+from . import UTC_TIME, Ca, Cert, TestX509Mixin, datetime_to_string
 
 
 def get_crl_revoked_certs(crl):
@@ -28,6 +29,12 @@ class TestCa(TestX509Mixin, TestCase):
     """
 
     app_label = Ca._meta.app_label
+
+    def test_model_ordering_and_primary_key(self):
+        self.assertEqual(Ca._meta.ordering, ("-created",))
+        self.assertEqual(Cert._meta.ordering, ("-created",))
+        self.assertIsInstance(Ca._meta.pk, models.AutoField)
+        self.assertIsInstance(Cert._meta.pk, models.AutoField)
 
     def _prepare_revoked(self):
         ca = self._create_ca()
@@ -813,7 +820,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             calls = handler.call_args_list
             self.assertEqual(calls[0].kwargs["sender"], Ca)
             self.assertEqual(calls[0].kwargs["instance"], ca)
-            for i, cert in enumerate(certs, start=1):
+            for i, cert in enumerate(reversed(certs), start=1):
                 self.assertEqual(calls[i].kwargs["sender"], cert.__class__)
                 self.assertEqual(calls[i].kwargs["instance"], cert)
 

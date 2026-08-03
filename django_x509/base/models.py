@@ -899,6 +899,7 @@ class AbstractCa(BaseX509):
         abstract = True
         verbose_name = _("CA")
         verbose_name_plural = _("CAs")
+        ordering = ("-created",)
 
     def get_revoked_certs(self):
         """
@@ -986,6 +987,7 @@ class AbstractCert(BaseX509):
         verbose_name = _("certificate")
         verbose_name_plural = _("certificates")
         unique_together = ("ca", "serial_number")
+        ordering = ("-created",)
 
     def revoke(self):
         """
