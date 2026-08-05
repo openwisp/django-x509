@@ -26,7 +26,6 @@ class TestCustomCert(TestX509Mixin, TestCase):
         CustomCert.objects.filter(pk=newest.pk).update(
             created=created + timedelta(days=1)
         )
-
         self.assertEqual(CustomCert._meta.ordering, ("-created", "-pk"))
         self.assertEqual(
             list(CustomCert.objects.values_list("pk", flat=True)),

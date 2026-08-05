@@ -44,7 +44,6 @@ class TestCa(TestX509Mixin, TestCase):
         Cert.objects.filter(pk=newest_cert.pk).update(
             created=created + timedelta(days=1)
         )
-
         self.assertEqual(Ca._meta.ordering, ("-created", "-pk"))
         self.assertEqual(Cert._meta.ordering, ("-created", "-pk"))
         self.assertIsInstance(Ca._meta.pk, models.AutoField)
