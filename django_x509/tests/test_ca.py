@@ -31,10 +31,32 @@ class TestCa(TestX509Mixin, TestCase):
     app_label = Ca._meta.app_label
 
     def test_model_ordering_and_primary_key(self):
-        self.assertEqual(Ca._meta.ordering, ("-created",))
-        self.assertEqual(Cert._meta.ordering, ("-created",))
+        old_ca = Ca.objects.create(name="Old CA")
+        tied_ca = Ca.objects.create(name="Tied CA")
+        newest_ca = Ca.objects.create(name="Newest CA")
+        old_cert = Cert.objects.create(name="Old cert", ca=old_ca)
+        tied_cert = Cert.objects.create(name="Tied cert", ca=tied_ca)
+        newest_cert = Cert.objects.create(name="Newest cert", ca=newest_ca)
+        created = datetime(2026, 1, 1, tzinfo=dt_timezone.utc)
+        Ca.objects.filter(pk__in=[old_ca.pk, tied_ca.pk]).update(created=created)
+        Ca.objects.filter(pk=newest_ca.pk).update(created=created + timedelta(days=1))
+        Cert.objects.filter(pk__in=[old_cert.pk, tied_cert.pk]).update(created=created)
+        Cert.objects.filter(pk=newest_cert.pk).update(
+            created=created + timedelta(days=1)
+        )
+
+        self.assertEqual(Ca._meta.ordering, ("-created", "-pk"))
+        self.assertEqual(Cert._meta.ordering, ("-created", "-pk"))
         self.assertIsInstance(Ca._meta.pk, models.AutoField)
         self.assertIsInstance(Cert._meta.pk, models.AutoField)
+        self.assertEqual(
+            list(Ca.objects.values_list("pk", flat=True)),
+            [newest_ca.pk, tied_ca.pk, old_ca.pk],
+        )
+        self.assertEqual(
+            list(Cert.objects.values_list("pk", flat=True)),
+            [newest_cert.pk, tied_cert.pk, old_cert.pk],
+        )
 
     def _prepare_revoked(self):
         ca = self._create_ca()
@@ -406,6 +428,7 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertEqual(ca.get_revoked_certs().count(), 1)
         c2.revoke()
         self.assertEqual(ca.get_revoked_certs().count(), 2)
+        self.assertFalse(ca.get_revoked_certs().ordered)
         now = timezone.now()
         # expired certificates are not counted
         start = now - timedelta(days=6650)

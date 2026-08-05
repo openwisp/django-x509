@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.AlterModelOptions(
             name="ca",
             options={
-                "ordering": ("-created",),
+                "ordering": ("-created", "-pk"),
                 "verbose_name": "CA",
                 "verbose_name_plural": "CAs",
             },
@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
         migrations.AlterModelOptions(
             name="cert",
             options={
-                "ordering": ("-created",),
+                "ordering": ("-created", "-pk"),
                 "verbose_name": "certificate",
                 "verbose_name_plural": "certificates",
             },
@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
         migrations.AlterModelOptions(
             name="customcert",
             options={
-                "ordering": ("-created",),
+                "ordering": ("-created", "-pk"),
                 "verbose_name": "certificate",
                 "verbose_name_plural": "certificates",
             },
