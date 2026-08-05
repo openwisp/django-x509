@@ -836,13 +836,16 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self._create_cert(ca=ca, name="cert2"),
             self._create_cert(ca=ca, name="cert3"),
         ]
+        created = datetime(2026, 1, 1, tzinfo=dt_timezone.utc)
+        Cert.objects.filter(pk__in=[certs[0].pk, certs[1].pk]).update(created=created)
+        Cert.objects.filter(pk=certs[2].pk).update(created=created + timedelta(days=1))
         with catch_signal(x509_renewed) as handler:
             ca.renew()
             self.assertEqual(handler.call_count, 1 + len(certs))
             calls = handler.call_args_list
             self.assertEqual(calls[0].kwargs["sender"], Ca)
             self.assertEqual(calls[0].kwargs["instance"], ca)
-            for i, cert in enumerate(reversed(certs), start=1):
+            for i, cert in enumerate([certs[2], certs[1], certs[0]], start=1):
                 self.assertEqual(calls[i].kwargs["sender"], cert.__class__)
                 self.assertEqual(calls[i].kwargs["instance"], cert)
 
