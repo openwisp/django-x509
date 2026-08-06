@@ -54,6 +54,7 @@ If instructions conflict, repository config and CI workflows win first, docs nex
 
 - Preserve object-level permissions and swappable model support when present.
 - Cover both default and swapped-model apps when changing model resolution, dependency generation, or settings handling.
+- Apps under `tests/openwisp2/sample_*` are disposable test and example projects, not maintained deployments. Prefer updating their existing migrations to keep them minimal. Add an append-only migration only when an important change needs documented upgrade guidance for users who customized their OpenWISP modules.
 - Be careful with certificate authority state, certificate revocation, serial numbers, extensions, private key handling, admin actions, and migrations.
 
 ## Security Notes
