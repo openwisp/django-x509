@@ -62,6 +62,7 @@ If instructions conflict, repository config and CI workflows win first, docs nex
 - Cover both default and swapped-model apps when changing model resolution, dependency generation, or settings handling.
 - Apps under `tests/openwisp2/sample_*` are disposable test and example projects, not maintained deployments. Prefer updating their existing migrations to keep them minimal. Add an append-only migration only when an important change needs documented upgrade guidance for users who customized their OpenWISP modules.
 - Be careful with certificate authority state, certificate revocation, serial numbers, extensions, private key handling, admin actions, and migrations.
+- Treat email addresses as case-insensitive when identifying, deduplicating, importing, migrating, or searching users by email. Use `email__iexact` for direct and `Q()` ORM lookups. Keep username matching case-sensitive unless explicitly required. Normalize email records this module owns to lowercase, and cover casing-only inputs, including legacy mixed-case records when relevant.
 
 ## Security Rules
 
