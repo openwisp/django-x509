@@ -33,7 +33,7 @@ If instructions conflict, repository config and CI workflows win first, docs nex
 - Add an explanatory commit body only for substantial changes, new features, or non-obvious bug fixes. The releaser automatically publishes the subject of `[feature]`, `[change]`, `[change!]`, `[deps]`, and `[fix]` commits, including scoped variants, in the changelog. Write those subjects in clear, user-friendly language suitable for release notes.
 - Send new commits in response to review feedback instead of amending existing commits.
 
-## Development Notes
+## Development Rules
 
 - Respect module boundaries and encapsulation. The module that owns a model, stored state, lifecycle, or domain invariant must expose the cohesive public operation that reads or changes it. Integrations must use that operation, not write its fields, coordinate multi-step changes to its internal state, or depend on its storage representation. Prefer behavior-oriented public APIs over setters for internal flags. When an integration needs a missing capability, add it to the owning module with invariant tests, then call it from the integration.
 - Preserve public APIs, migrations, swappable model behavior, certificate generation semantics, and integration points unless explicitly required.
@@ -54,7 +54,7 @@ If instructions conflict, repository config and CI workflows win first, docs nex
 - Keep helpers and classes used by only one test method inside that method. Promote them to class or module scope only when genuinely reused.
 - Keep tests quiet on success. When code under test writes to stdout or stderr, use `capture_stdout`, `capture_stderr`, or `capture_any_output` from `openwisp_utils.tests` and assert the expected output. Do not leave unasserted output, logs, or warnings in test runs.
 
-## Django Notes
+## Django Rules
 
 - Build internal URLs with named URL patterns and `reverse()` or `reverse_lazy()`, including in tests. Use the appropriate namespace and URL arguments.
 - In the main behavior test for non-trivial, frequently called views, include `assertNumQueries()` with representative data to enforce an intentional query budget and catch N+1 queries. Use `AssertNumQueriesSubTestMixin` from `openwisp_utils.tests` where available: it records the query-count check as a subtest, so subsequent assertions in the method still run. Change the expected count only when the extra queries are necessary and understood.
@@ -64,7 +64,7 @@ If instructions conflict, repository config and CI workflows win first, docs nex
 - Apps under `tests/openwisp2/sample_*` are disposable test and example projects, not maintained deployments. Prefer updating their existing migrations to keep them minimal. Add an append-only migration only when an important change needs documented upgrade guidance for users who customized their OpenWISP modules.
 - Be careful with certificate authority state, certificate revocation, serial numbers, extensions, private key handling, admin actions, and migrations.
 
-## Security Notes
+## Security Rules
 
 - Watch for private key exposure, unsafe file paths, weak certificate options, invalid extensions, and secrets.
 - Preserve validation around CA material, certificate material, revocation, downloads, and uploaded/generated files.
