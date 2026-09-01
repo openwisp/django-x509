@@ -1,10 +1,46 @@
 Changelog
 =========
 
-Version 1.4.0 [unreleased]
+Version 1.4.0 [2026-09-01]
 --------------------------
 
-Work in progress.
+Features
+~~~~~~~~
+
+- Added support for `custom X.509 extensions using structured ASN.1 DER
+  encoding <https://github.com/openwisp/django-x509/issues/222>`_.
+- Added support for `ECDSA certificates
+  <https://github.com/openwisp/django-x509/issues/118>`_.
+
+Changes
+~~~~~~~
+
+Other changes
++++++++++++++
+
+- Replaced ``jsonfield.JSONField`` with `Django's models.JSONField
+  <https://github.com/openwisp/django-x509/issues/181>`_.
+- `Migrated certificate generation from PyOpenSSL to cryptography
+  <https://github.com/openwisp/django-x509/issues/131>`_.
+
+Dependencies
+++++++++++++
+
+- Removed the hard dependency on Django. Projects using django-x509 must
+  now explicitly define their Django dependency.
+- Bumped ``openwisp-utils`` from ``~=1.2.0`` to `~=1.3.0
+  <https://github.com/openwisp/openwisp-utils/blob/1.3.0/CHANGES.rst>`_.
+- Bumped ``pyopenssl`` from ``~=25.3.0`` to `>=25.3.0,<27.0.0
+  <https://www.pyopenssl.org/en/26.0.0/changelog.html>`_.
+- Dropped support for Python ``3.9``.
+
+Bugfixes
+~~~~~~~~
+
+- Fixed `validation of unsupported X.509 extensions
+  <https://github.com/openwisp/django-x509/issues/230>`_.
+- Fixed validation of encrypted private keys without a passphrase.
+- Fixed X.509 admin functionality when using the standard Django admin.
 
 Version 1.3.0 [2025-10-23]
 --------------------------
