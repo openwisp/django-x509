@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 1.5.0 [unreleased]
+--------------------------
+
+Work in progress.
+
 Version 1.4.0 [2026-09-01]
 --------------------------
 
