@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+      - "1.4"
   pull_request:
     branches:
       - master
+      - "1.4"
       - "gsoc26-x509-certificate-generator-templates"
 
 jobs:
