@@ -899,6 +899,7 @@ class AbstractCa(BaseX509):
         abstract = True
         verbose_name = _("CA")
         verbose_name_plural = _("CAs")
+        ordering = ("-created", "-pk")
 
     def get_revoked_certs(self):
         """
@@ -908,7 +909,7 @@ class AbstractCa(BaseX509):
         now = timezone.now()
         return self.cert_set.filter(
             revoked=True, validity_start__lte=now, validity_end__gte=now
-        )
+        ).order_by()
 
     def renew(self):
         """
@@ -986,6 +987,7 @@ class AbstractCert(BaseX509):
         verbose_name = _("certificate")
         verbose_name_plural = _("certificates")
         unique_together = ("ca", "serial_number")
+        ordering = ("-created", "-pk")
 
     def revoke(self):
         """

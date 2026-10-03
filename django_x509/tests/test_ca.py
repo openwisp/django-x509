@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -14,7 +15,7 @@ from openwisp_utils.tests import catch_signal
 
 from .. import settings as app_settings
 from ..signals import x509_renewed
-from . import UTC_TIME, Ca, TestX509Mixin, datetime_to_string
+from . import UTC_TIME, Ca, Cert, TestX509Mixin, datetime_to_string
 
 
 def get_crl_revoked_certs(crl):
@@ -28,6 +29,33 @@ class TestCa(TestX509Mixin, TestCase):
     """
 
     app_label = Ca._meta.app_label
+
+    def test_model_ordering_and_primary_key(self):
+        old_ca = Ca.objects.create(name="Old CA")
+        tied_ca = Ca.objects.create(name="Tied CA")
+        newest_ca = Ca.objects.create(name="Newest CA")
+        old_cert = Cert.objects.create(name="Old cert", ca=old_ca)
+        tied_cert = Cert.objects.create(name="Tied cert", ca=tied_ca)
+        newest_cert = Cert.objects.create(name="Newest cert", ca=newest_ca)
+        created = datetime(2026, 1, 1, tzinfo=dt_timezone.utc)
+        Ca.objects.filter(pk__in=[old_ca.pk, tied_ca.pk]).update(created=created)
+        Ca.objects.filter(pk=newest_ca.pk).update(created=created + timedelta(days=1))
+        Cert.objects.filter(pk__in=[old_cert.pk, tied_cert.pk]).update(created=created)
+        Cert.objects.filter(pk=newest_cert.pk).update(
+            created=created + timedelta(days=1)
+        )
+        self.assertEqual(Ca._meta.ordering, ("-created", "-pk"))
+        self.assertEqual(Cert._meta.ordering, ("-created", "-pk"))
+        self.assertIsInstance(Ca._meta.pk, models.AutoField)
+        self.assertIsInstance(Cert._meta.pk, models.AutoField)
+        self.assertEqual(
+            list(Ca.objects.values_list("pk", flat=True)),
+            [newest_ca.pk, tied_ca.pk, old_ca.pk],
+        )
+        self.assertEqual(
+            list(Cert.objects.values_list("pk", flat=True)),
+            [newest_cert.pk, tied_cert.pk, old_cert.pk],
+        )
 
     def _prepare_revoked(self):
         ca = self._create_ca()
@@ -399,6 +427,7 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertEqual(ca.get_revoked_certs().count(), 1)
         c2.revoke()
         self.assertEqual(ca.get_revoked_certs().count(), 2)
+        self.assertFalse(ca.get_revoked_certs().ordered)
         now = timezone.now()
         # expired certificates are not counted
         start = now - timedelta(days=6650)
@@ -807,13 +836,16 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self._create_cert(ca=ca, name="cert2"),
             self._create_cert(ca=ca, name="cert3"),
         ]
+        created = datetime(2026, 1, 1, tzinfo=dt_timezone.utc)
+        Cert.objects.filter(pk__in=[certs[0].pk, certs[1].pk]).update(created=created)
+        Cert.objects.filter(pk=certs[2].pk).update(created=created + timedelta(days=1))
         with catch_signal(x509_renewed) as handler:
             ca.renew()
             self.assertEqual(handler.call_count, 1 + len(certs))
             calls = handler.call_args_list
             self.assertEqual(calls[0].kwargs["sender"], Ca)
             self.assertEqual(calls[0].kwargs["instance"], ca)
-            for i, cert in enumerate(certs, start=1):
+            for i, cert in enumerate([certs[2], certs[1], certs[0]], start=1):
                 self.assertEqual(calls[i].kwargs["sender"], cert.__class__)
                 self.assertEqual(calls[i].kwargs["instance"], cert)
 
