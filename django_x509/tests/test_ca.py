@@ -419,6 +419,43 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
+    @patch("django_x509.base.models.timezone.now")
+    def test_crl_revocation_dates(self, mocked_now):
+        now = datetime.now(dt_timezone.utc).replace(microsecond=0)
+        for missing_date in (False, True):
+            with self.subTest(missing_date=missing_date):
+                mocked_now.return_value = now - timedelta(hours=1)
+                ca = self._create_ca(validity_start=now - timedelta(days=1))
+                cert = self._create_cert(ca=ca, validity_start=now - timedelta(days=1))
+                cert.revoke()
+                revoked_at = cert.revoked_at
+                mocked_now.return_value = now - timedelta(minutes=30)
+                cert.name = "Updated certificate"
+                if missing_date:
+                    cert.revoked_at = None
+                cert.save()
+                ca.cert_set.filter(pk=cert.pk).update(
+                    modified=now - timedelta(minutes=30)
+                )
+                cert.refresh_from_db()
+                expected = cert.modified if missing_date else revoked_at
+                for generated_at in (now, now + timedelta(minutes=5)):
+                    mocked_now.return_value = generated_at
+                    crl = x509.load_pem_x509_crl(ca.crl)
+                    self.assertEqual(len(crl), 1)
+                    self.assertEqual(crl[0].serial_number, int(cert.serial_number))
+                    self.assertEqual(
+                        crl[0].revocation_date_utc,
+                        expected,
+                        "CRL generation must preserve the stored revocation date "
+                        "or use the last modification time when it is unavailable",
+                    )
+                    self.assertEqual(crl.last_update_utc, generated_at)
+                    self.assertEqual(
+                        crl.next_update_utc, generated_at + timedelta(days=1)
+                    )
+                    self.assertTrue(crl.is_signature_valid(ca.pkey.public_key()))
+
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
         path = reverse("admin:crl", args=[ca.pk])

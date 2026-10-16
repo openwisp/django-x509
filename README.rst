@@ -414,6 +414,20 @@ Value of the ``keyUsage`` x509 extension for new end-entity certificates.
 Whether the view for downloading Certificate Revocation Lists should be
 protected with authentication or not.
 
+Certificate revocation lists
+----------------------------
+
+Revoke certificates using ``cert.revoke()`` so that their revocation time
+is recorded in ``revoked_at``. Each entry in ``ca.crl`` uses that
+timestamp, which does not change when the CRL is generated again. For
+revoked records without ``revoked_at``, the certificate's last
+modification time is used as a fallback; it is not necessarily the actual
+revocation time.
+
+The CRL-wide ``thisUpdate`` and ``nextUpdate`` describe its issuance and
+freshness, not the latest certificate revocation. They are refreshed on
+each generation, with ``nextUpdate`` set to one day after ``thisUpdate``.
+
 Signals
 -------
 

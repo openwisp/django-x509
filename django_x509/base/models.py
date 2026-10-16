@@ -945,7 +945,7 @@ class AbstractCa(BaseX509):
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))
-                .revocation_date(now)
+                .revocation_date(cert.revoked_at or cert.modified)
                 .add_extension(
                     x509.CRLReason(x509.ReasonFlags.unspecified),
                     critical=False,
