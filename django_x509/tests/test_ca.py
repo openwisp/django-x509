@@ -507,7 +507,7 @@ tsND+97h9r73S+UTOhepQTDB
                     path = reverse(f"admin:{url_name}", args=[ca.pk])
                     for generated_at in (now, now + timedelta(minutes=5)):
                         mocked_now.return_value = generated_at
-                        with self.assertNumQueries(3):
+                        with self.assertNumQueries(2):
                             response = self.client.get(
                                 path,
                                 HTTP_IF_MODIFIED_SINCE=http_date(expected.timestamp()),
@@ -546,6 +546,25 @@ tsND+97h9r73S+UTOhepQTDB
                 revoked_at,
                 "A new revocation must advance the CA's revocation timestamp",
             )
+
+    @patch("django_x509.base.models.timezone.now")
+    def test_crl_last_modified_mixed_dates(self, mocked_now):
+        now = datetime.now(dt_timezone.utc)
+        mocked_now.return_value = now
+        start = now - timedelta(days=1)
+        ca = self._create_ca(validity_start=start)
+        recorded = self._create_cert(ca=ca, validity_start=start)
+        mocked_now.return_value = now - timedelta(hours=2)
+        recorded.revoke()
+        missing = self._create_cert(ca=ca, validity_start=start)
+        missing.revoke()
+        modified = now - timedelta(hours=1)
+        ca.cert_set.filter(pk=missing.pk).update(revoked_at=None, modified=modified)
+        self.assertEqual(
+            ca.crl_last_modified,
+            modified,
+            "The effective revocation timestamp must determine Last-Modified",
+        )
 
     def test_crl_view_403(self):
         setattr(app_settings, "CRL_PROTECTED", True)

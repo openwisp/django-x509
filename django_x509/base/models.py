@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
@@ -927,6 +928,9 @@ class AbstractCa(BaseX509):
         """
         Returns up to date CRL of this CA
         """
+        return self._build_crl(self.get_revoked_certs())
+
+    def _build_crl(self, revoked_certs):
         ca_cert = x509.load_pem_x509_certificate(self.certificate.encode())
         pkey_kwargs = {"password": None}
         if self.passphrase:
@@ -941,7 +945,7 @@ class AbstractCa(BaseX509):
             .last_update(now)
             .next_update(now + timedelta(days=1))
         )
-        for cert in self.get_revoked_certs():
+        for cert in revoked_certs:
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))
@@ -959,10 +963,20 @@ class AbstractCa(BaseX509):
         )
         return crl.public_bytes(encoding=serialization.Encoding.PEM)
 
+    def _get_crl_last_modified(self, revoked_certs):
+        return max(
+            (cert.revoked_at or cert.modified for cert in revoked_certs),
+            default=self.created,
+        )
+
     @property
     def crl_last_modified(self):
         """Latest entry revocation time, or CA creation time for an empty CRL."""
-        cert = self.get_revoked_certs().order_by("-revoked_at", "-modified").first()
+        cert = (
+            self.get_revoked_certs()
+            .order_by(Coalesce("revoked_at", "modified").desc())
+            .first()
+        )
         return cert.revoked_at or cert.modified if cert else self.created
 
 

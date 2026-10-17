@@ -426,8 +426,8 @@ The ``Last-Modified`` HTTP response header indicates when the last revoked
 certificate was added to the list, using its ``revoked_at`` timestamp. If
 that timestamp is unavailable, the certificate's ``modified`` timestamp is
 used instead. Unlike the CRL generation time, this value stays stable
-across downloads until a later revocation is included. An empty list uses
-the CA's creation time.
+while the included certificate set and its effective timestamps remain
+unchanged. An empty list uses the CA's creation time.
 
 Signals
 -------

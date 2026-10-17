@@ -148,11 +148,10 @@ class AbstractCaAdmin(BaseAdmin):
         if app_settings.CRL_PROTECTED and not authenticated:
             return HttpResponse(_("Forbidden"), status=403, content_type="text/plain")
         instance = get_object_or_404(self.model, pk=pk)
-        # Read metadata first so a concurrent revocation cannot give an older
-        # CRL body a newer Last-Modified timestamp.
-        last_modified = instance.crl_last_modified
+        revoked_certs = list(instance.get_revoked_certs())
+        last_modified = instance._get_crl_last_modified(revoked_certs)
         return HttpResponse(
-            instance.crl,
+            instance._build_crl(revoked_certs),
             status=200,
             content_type="application/x-pem-file",
             headers={"Last-Modified": http_date(last_modified.timestamp())},
