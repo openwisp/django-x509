@@ -959,6 +959,12 @@ class AbstractCa(BaseX509):
         )
         return crl.public_bytes(encoding=serialization.Encoding.PEM)
 
+    @property
+    def crl_last_modified(self):
+        """Latest entry revocation time, or CA creation time for an empty CRL."""
+        cert = self.get_revoked_certs().order_by("-revoked_at", "-modified").first()
+        return cert.revoked_at or cert.modified if cert else self.created
+
 
 AbstractCa._meta.get_field("validity_end").default = default_ca_validity_end
 

@@ -417,16 +417,17 @@ protected with authentication or not.
 Certificate revocation lists
 ----------------------------
 
-Revoke certificates using ``cert.revoke()`` so that their revocation time
-is recorded in ``revoked_at``. Each entry in ``ca.crl`` uses that
-timestamp, which does not change when the CRL is generated again. For
-revoked records without ``revoked_at``, the certificate's last
-modification time is used as a fallback; it is not necessarily the actual
-revocation time.
+Certificate Revocation Lists (CRLs) are available at
+``/admin/django_x509/ca/<pk>.crl``, where ``<pk>`` is the CA's primary
+key. For a custom app, replace ``django_x509`` with its app label. Access
+is controlled by ``DJANGO_X509_CRL_PROTECTED``, described above.
 
-The CRL-wide ``thisUpdate`` and ``nextUpdate`` describe its issuance and
-freshness, not the latest certificate revocation. They are refreshed on
-each generation, with ``nextUpdate`` set to one day after ``thisUpdate``.
+The ``Last-Modified`` HTTP response header indicates when the last revoked
+certificate was added to the list, using its ``revoked_at`` timestamp. If
+that timestamp is unavailable, the certificate's ``modified`` timestamp is
+used instead. Unlike the CRL generation time, this value stays stable
+across downloads until a later revocation is included. An empty list uses
+the CA's creation time.
 
 Signals
 -------
