@@ -928,9 +928,6 @@ class AbstractCa(BaseX509):
         """
         Returns up to date CRL of this CA
         """
-        return self._build_crl(self.get_revoked_certs())
-
-    def _build_crl(self, revoked_certs):
         ca_cert = x509.load_pem_x509_certificate(self.certificate.encode())
         pkey_kwargs = {"password": None}
         if self.passphrase:
@@ -945,7 +942,9 @@ class AbstractCa(BaseX509):
             .last_update(now)
             .next_update(now + timedelta(days=1))
         )
-        for cert in revoked_certs:
+        last_modified = self.created
+        for cert in self.get_revoked_certs().iterator():
+            last_modified = max(last_modified, cert.revoked_at or cert.modified)
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))
@@ -961,17 +960,14 @@ class AbstractCa(BaseX509):
             private_key=private_key,
             algorithm=hashes.SHA256(),
         )
+        self._last_crl_modified = last_modified
         return crl.public_bytes(encoding=serialization.Encoding.PEM)
-
-    def _get_crl_last_modified(self, revoked_certs):
-        return max(
-            (cert.revoked_at or cert.modified for cert in revoked_certs),
-            default=self.created,
-        )
 
     @property
     def crl_last_modified(self):
         """Latest entry revocation time, or CA creation time for an empty CRL."""
+        if hasattr(self, "_last_crl_modified"):
+            return self._last_crl_modified
         cert = (
             self.get_revoked_certs()
             .order_by(Coalesce("revoked_at", "modified").desc())
