@@ -10,7 +10,6 @@ from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
@@ -942,13 +941,14 @@ class AbstractCa(BaseX509):
             .last_update(now)
             .next_update(now + timedelta(days=1))
         )
-        last_modified = self.created
+        crl_last_modified = self.created
         for cert in self.get_revoked_certs().iterator():
-            last_modified = max(last_modified, cert.revoked_at or cert.modified)
+            revoked_at = cert.revoked_at or cert.modified
+            crl_last_modified = max(crl_last_modified, revoked_at)
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))
-                .revocation_date(cert.revoked_at or cert.modified)
+                .revocation_date(revoked_at)
                 .add_extension(
                     x509.CRLReason(x509.ReasonFlags.unspecified),
                     critical=False,
@@ -960,20 +960,8 @@ class AbstractCa(BaseX509):
             private_key=private_key,
             algorithm=hashes.SHA256(),
         )
-        self._last_crl_modified = last_modified
+        self.crl_last_modified = crl_last_modified
         return crl.public_bytes(encoding=serialization.Encoding.PEM)
-
-    @property
-    def crl_last_modified(self):
-        """Latest entry revocation time, or CA creation time for an empty CRL."""
-        if hasattr(self, "_last_crl_modified"):
-            return self._last_crl_modified
-        cert = (
-            self.get_revoked_certs()
-            .order_by(Coalesce("revoked_at", "modified").desc())
-            .first()
-        )
-        return cert.revoked_at or cert.modified if cert else self.created
 
 
 AbstractCa._meta.get_field("validity_end").default = default_ca_validity_end

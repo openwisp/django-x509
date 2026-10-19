@@ -148,13 +148,13 @@ class AbstractCaAdmin(BaseAdmin):
         if app_settings.CRL_PROTECTED and not authenticated:
             return HttpResponse(_("Forbidden"), status=403, content_type="text/plain")
         instance = get_object_or_404(self.model, pk=pk)
-        crl = instance.crl
-        last_modified = instance.crl_last_modified
         return HttpResponse(
-            crl,
+            instance.crl,
             status=200,
             content_type="application/x-pem-file",
-            headers={"Last-Modified": http_date(last_modified.timestamp())},
+            headers={
+                "Last-Modified": http_date(instance.crl_last_modified.timestamp())
+            },
         )
 
     @action(description=_("Renew selected CAs"), permissions=["change"])

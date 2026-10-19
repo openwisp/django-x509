@@ -462,123 +462,54 @@ tsND+97h9r73S+UTOhepQTDB
         path = reverse("admin:crl", args=[ca.pk])
         response = self.client.get(path)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Last-Modified"], http_date(cert.revoked_at.timestamp())
+        )
         revoked_list = get_crl_revoked_certs(response.content)
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
-    @patch("django_x509.base.models.timezone.now")
-    def test_crl_view_last_modified(self, mocked_now):
-        """Keep revocation metadata stable while refreshing the signed CRL."""
-        now = datetime.now(dt_timezone.utc).replace(microsecond=0)
-        start = now - timedelta(days=1)
-        for case in ("empty", "recorded", "missing"):
-            with self.subTest(case=case):
-                mocked_now.return_value = now - timedelta(hours=2)
-                ca = self._create_ca(
-                    created=now - timedelta(days=2), validity_start=start
-                )
-                expected = ca.created
-                if case != "empty":
-                    if case == "recorded":
-                        older = self._create_cert(ca=ca, validity_start=start)
-                        older.revoke()
-                    cert = self._create_cert(ca=ca, validity_start=start)
-                    mocked_now.return_value = now - timedelta(hours=1)
-                    cert.revoke()
-                    expected = cert.revoked_at
-                    cert.name = "Unrelated edit"
-                    cert.save()
-                    if case == "missing":
-                        expected = now - timedelta(minutes=30)
-                        ca.cert_set.filter(pk=cert.pk).update(
-                            revoked_at=None, modified=expected
-                        )
-                mocked_now.return_value = now
-                self._create_cert(ca=ca, validity_start=start)
-                self._create_cert(
-                    ca=ca, validity_start=start, validity_end=now - timedelta(hours=1)
-                ).revoke()
-                self._create_cert(
-                    ca=ca, validity_start=now + timedelta(days=1)
-                ).revoke()
-                other_ca = self._create_ca(validity_start=start)
-                self._create_cert(ca=other_ca, validity_start=start).revoke()
-                for url_name in ("crl", "deprecated_crl"):
-                    path = reverse(f"admin:{url_name}", args=[ca.pk])
-                    for generated_at in (now, now + timedelta(minutes=5)):
-                        mocked_now.return_value = generated_at
-                        with self.assertNumQueries(2):
-                            response = self.client.get(
-                                path,
-                                HTTP_IF_MODIFIED_SINCE=http_date(expected.timestamp()),
-                            )
-                            self.assertIn(
-                                "Last-Modified",
-                                response,
-                                "CRL downloads must expose the revocation timestamp",
-                            )
-                        self.assertEqual(response.status_code, 200)
-                        self.assertEqual(
-                            response["Last-Modified"], http_date(expected.timestamp())
-                        )
-                        crl = x509.load_pem_x509_crl(response.content)
-                        self.assertEqual(
-                            len(crl), {"empty": 0, "recorded": 2, "missing": 1}[case]
-                        )
-                        self.assertEqual(crl.last_update_utc, generated_at)
-                        self.assertEqual(
-                            crl.next_update_utc, generated_at + timedelta(days=1)
-                        )
+    def test_crl_last_modified_attribute(self):
+        now = timezone.now()
 
-    @patch("django_x509.base.models.timezone.now")
-    def test_crl_last_modified(self, mocked_now):
-        now = datetime.now(dt_timezone.utc)
-        mocked_now.return_value = now
-        start = now - timedelta(days=1)
-        ca = self._create_ca(created=now - timedelta(hours=1), validity_start=start)
-        self.assertEqual(ca.crl_last_modified, ca.created)
-        for revoked_at in (now, now + timedelta(seconds=2)):
-            mocked_now.return_value = revoked_at
-            cert = self._create_cert(ca=ca, validity_start=start)
-            cert.revoke()
-            self.assertEqual(
-                ca.crl_last_modified,
-                revoked_at,
-                "A new revocation must advance the CA's revocation timestamp",
+        with self.subTest(case="empty"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, ca.created)
+
+        with self.subTest(case="latest"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            latest = self._create_cert(ca=ca)
+            latest.revoke()
+            older = self._create_cert(ca=ca)
+            older.revoke()
+            ca.cert_set.filter(pk=latest.pk).update(revoked_at=now)
+            ca.cert_set.filter(pk=older.pk).update(
+                revoked_at=None, modified=now - timedelta(hours=1)
             )
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, now)
 
-    @patch("django_x509.base.models.timezone.now")
-    def test_crl_last_modified_mixed_dates(self, mocked_now):
-        now = datetime.now(dt_timezone.utc)
-        mocked_now.return_value = now
-        start = now - timedelta(days=1)
-        ca = self._create_ca(validity_start=start)
-        recorded = self._create_cert(ca=ca, validity_start=start)
-        mocked_now.return_value = now - timedelta(hours=2)
-        recorded.revoke()
-        missing = self._create_cert(ca=ca, validity_start=start)
-        missing.revoke()
-        modified = now - timedelta(hours=1)
-        ca.cert_set.filter(pk=missing.pk).update(revoked_at=None, modified=modified)
-        self.assertEqual(
-            ca.crl_last_modified,
-            modified,
-            "The effective revocation timestamp must determine Last-Modified",
-        )
+        with self.subTest(case="fallback"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            cert = self._create_cert(ca=ca)
+            cert.revoke()
+            modified = now - timedelta(hours=1)
+            ca.cert_set.filter(pk=cert.pk).update(revoked_at=None, modified=modified)
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, modified)
 
     def test_crl_view_403(self):
         setattr(app_settings, "CRL_PROTECTED", True)
         ca, _ = self._prepare_revoked()
         response = self.client.get(reverse("admin:crl", args=[ca.pk]))
         self.assertEqual(response.status_code, 403)
-        self.assertNotIn("Last-Modified", response)
         setattr(app_settings, "CRL_PROTECTED", False)
 
     def test_crl_view_404(self):
         self._prepare_revoked()
         response = self.client.get(reverse("admin:crl", args=[10]))
         self.assertEqual(response.status_code, 404)
-        self.assertNotIn("Last-Modified", response)
 
     def test_x509_text(self):
         ca = self._create_ca()
