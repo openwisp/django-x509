@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import http_date
 from openwisp_utils.tests import catch_signal
 
 from .. import settings as app_settings
@@ -419,14 +420,84 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
+    @patch("django_x509.base.models.timezone.now")
+    def test_crl_revocation_dates(self, mocked_now):
+        now = datetime.now(dt_timezone.utc).replace(microsecond=0)
+        for missing_date in (False, True):
+            with self.subTest(missing_date=missing_date):
+                mocked_now.return_value = now - timedelta(hours=1)
+                ca = self._create_ca(validity_start=now - timedelta(days=1))
+                cert = self._create_cert(ca=ca, validity_start=now - timedelta(days=1))
+                cert.revoke()
+                revoked_at = cert.revoked_at
+                mocked_now.return_value = now - timedelta(minutes=30)
+                cert.name = "Updated certificate"
+                if missing_date:
+                    cert.revoked_at = None
+                cert.save()
+                ca.cert_set.filter(pk=cert.pk).update(
+                    modified=now - timedelta(minutes=30)
+                )
+                cert.refresh_from_db()
+                expected = cert.modified if missing_date else revoked_at
+                for generated_at in (now, now + timedelta(minutes=5)):
+                    mocked_now.return_value = generated_at
+                    crl = x509.load_pem_x509_crl(ca.crl)
+                    self.assertEqual(len(crl), 1)
+                    self.assertEqual(crl[0].serial_number, int(cert.serial_number))
+                    self.assertEqual(
+                        crl[0].revocation_date_utc,
+                        expected,
+                        "CRL generation must preserve the stored revocation date "
+                        "or use the last modification time when it is unavailable",
+                    )
+                    self.assertEqual(crl.last_update_utc, generated_at)
+                    self.assertEqual(
+                        crl.next_update_utc, generated_at + timedelta(days=1)
+                    )
+                    self.assertTrue(crl.is_signature_valid(ca.pkey.public_key()))
+
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
         path = reverse("admin:crl", args=[ca.pk])
         response = self.client.get(path)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Last-Modified"], http_date(cert.revoked_at.timestamp())
+        )
         revoked_list = get_crl_revoked_certs(response.content)
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
+
+    def test_crl_last_modified_attribute(self):
+        now = timezone.now()
+
+        with self.subTest(case="empty"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, ca.created)
+
+        with self.subTest(case="latest"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            latest = self._create_cert(ca=ca)
+            latest.revoke()
+            older = self._create_cert(ca=ca)
+            older.revoke()
+            ca.cert_set.filter(pk=latest.pk).update(revoked_at=now)
+            ca.cert_set.filter(pk=older.pk).update(
+                revoked_at=None, modified=now - timedelta(hours=1)
+            )
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, now)
+
+        with self.subTest(case="fallback"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            cert = self._create_cert(ca=ca)
+            cert.revoke()
+            modified = now - timedelta(hours=1)
+            ca.cert_set.filter(pk=cert.pk).update(revoked_at=None, modified=modified)
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, modified)
 
     def test_crl_view_403(self):
         setattr(app_settings, "CRL_PROTECTED", True)

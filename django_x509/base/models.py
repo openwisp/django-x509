@@ -941,11 +941,14 @@ class AbstractCa(BaseX509):
             .last_update(now)
             .next_update(now + timedelta(days=1))
         )
-        for cert in self.get_revoked_certs():
+        crl_last_modified = self.created
+        for cert in self.get_revoked_certs().iterator():
+            revoked_at = cert.revoked_at or cert.modified
+            crl_last_modified = max(crl_last_modified, revoked_at)
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))
-                .revocation_date(now)
+                .revocation_date(revoked_at)
                 .add_extension(
                     x509.CRLReason(x509.ReasonFlags.unspecified),
                     critical=False,
@@ -957,6 +960,7 @@ class AbstractCa(BaseX509):
             private_key=private_key,
             algorithm=hashes.SHA256(),
         )
+        self.crl_last_modified = crl_last_modified
         return crl.public_bytes(encoding=serialization.Encoding.PEM)
 
 
