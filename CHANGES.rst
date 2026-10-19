@@ -1,6 +1,22 @@
 Changelog
 =========
 
+Version 1.4.1 [2026-10-19]
+--------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Preserved certificate revocation dates in CRLs `#247
+  <https://github.com/openwisp/django-x509/issues/247>`_
+
+  Preserved revoked certificate dates in generated CRLs and added the
+  Last-Modified response header for CRL downloads.
+
+  CRL generation streams revoked certificates, uses modified as a fallback
+  when ``revoked_at`` is absent, and records the latest effective
+  timestamp for the response.
+
 Version 1.4.0 [2026-09-01]
 --------------------------
 
