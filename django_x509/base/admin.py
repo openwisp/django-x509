@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.utils.http import http_date
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
@@ -148,7 +149,12 @@ class AbstractCaAdmin(BaseAdmin):
             return HttpResponse(_("Forbidden"), status=403, content_type="text/plain")
         instance = get_object_or_404(self.model, pk=pk)
         return HttpResponse(
-            instance.crl, status=200, content_type="application/x-pem-file"
+            instance.crl,
+            status=200,
+            content_type="application/x-pem-file",
+            headers={
+                "Last-Modified": http_date(instance.crl_last_modified.timestamp())
+            },
         )
 
     @action(description=_("Renew selected CAs"), permissions=["change"])
