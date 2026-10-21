@@ -5,11 +5,12 @@ on:
     branches:
       - master
       - "1.4"
+      - "[0-9]+.[0-9]+"
   pull_request:
     branches:
       - master
       - "1.4"
-      - "gsoc26-x509-certificate-generator-templates"
+      - "[0-9]+.[0-9]+"
 
 jobs:
   build:
