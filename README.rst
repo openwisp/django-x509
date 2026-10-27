@@ -78,7 +78,7 @@ Project goals
 Dependencies
 ------------
 
-- Python >= 3.10
+- Python >= 3.11
 - Django >= 5.2.0
 - OpenSSL
 
