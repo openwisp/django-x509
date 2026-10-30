@@ -1124,3 +1124,56 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         with self.assertRaises(ValidationError) as cm:
             cert.save()
         self.assertIn("Unsupported nsCertType value", str(cm.exception))
+
+    def test_nscomment_der_encoding_long_value(self):
+        # a comment of 128+ bytes requires DER long-form length encoding;
+        # a single length byte produces malformed DER (regression test)
+        comment = "a" * 130
+        cert = self._create_cert(
+            extensions=[{"name": "nsComment", "value": comment}],
+        )
+        ns_oid = x509.ObjectIdentifier("2.16.840.1.113730.1.13")
+        ext = cert.x509.extensions.get_extension_for_oid(ns_oid)
+        tag, length, payload = self._decode_der_primitive(ext.value.value)
+        self.assertEqual(tag, 0x16)
+        self.assertEqual(length, 130)
+        self.assertEqual(payload.decode("ascii"), comment)
+        # long-form length: 0x81 (one following length byte) then 130
+        self.assertEqual(ext.value.value[:3], b"\x16\x81\x82")
+
+    def test_nscomment_der_encoding_multibyte_value(self):
+        # the length must count UTF-8 bytes, not characters
+        comment = "\u00e9" * 60  # 60 chars, 120 UTF-8 bytes
+        cert = self._create_cert(
+            extensions=[{"name": "nsComment", "value": comment}],
+        )
+        ns_oid = x509.ObjectIdentifier("2.16.840.1.113730.1.13")
+        ext = cert.x509.extensions.get_extension_for_oid(ns_oid)
+        tag, length, payload = self._decode_der_primitive(ext.value.value)
+        self.assertEqual(tag, 0x16)
+        self.assertEqual(length, 120)
+        self.assertEqual(payload, comment.encode("utf-8"))
+
+    def test_nscerttype_der_encoding_combined_flags(self):
+        # the BIT STRING unused-bits byte must be the number of trailing
+        # zero bits, not a hardcoded 7 - with a hardcoded 7 every flag
+        # except SSL Client is silently dropped (regression test)
+        cert = self._create_cert(
+            extensions=[{"name": "nsCertType", "value": "client,server"}],
+        )
+        ns_oid = x509.ObjectIdentifier("2.16.840.1.113730.1.1")
+        ext = cert.x509.extensions.get_extension_for_oid(ns_oid)
+        self.assertEqual(ext.value.value, b"\x03\x02\x06\xc0")
+
+    def test_nscerttype_der_encoding_all_flags(self):
+        cert = self._create_cert(
+            extensions=[
+                {
+                    "name": "nsCertType",
+                    "value": "client,server,email,objsign,sslca,emailca,objca",
+                }
+            ],
+        )
+        ns_oid = x509.ObjectIdentifier("2.16.840.1.113730.1.1")
+        ext = cert.x509.extensions.get_extension_for_oid(ns_oid)
+        self.assertEqual(ext.value.value, b"\x03\x02\x00\xf7")
