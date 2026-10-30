@@ -827,11 +827,15 @@ class BaseX509(models.Model):
                         raise ValidationError(
                             _("nsComment extension requires a value.")
                         )
-                    if len(val) > 255:
+                    payload = val.encode("utf-8")
+                    if len(payload) > 255:
                         raise ValidationError(
                             _("nsComment value exceeds maximum length of 255 bytes")
                         )
-                    raw_val = b"\x16" + bytes([len(val)]) + val.encode("utf-8")
+                    # DER-encode the length properly: a single length byte is
+                    # only valid for payloads shorter than 128 bytes, and the
+                    # length must count UTF-8 bytes, not characters
+                    raw_val = _encode_der_value(0x16, payload)
                     builder = builder.add_extension(
                         x509.UnrecognizedExtension(
                             x509.ObjectIdentifier("2.16.840.1.113730.1.13"), raw_val
@@ -861,7 +865,15 @@ class BaseX509(models.Model):
                         raise ValidationError(
                             _("nsCertType extension requires at least one valid type.")
                         )
-                    raw_val = bytes([0x03, 0x02, 0x07, bits])
+                    # DER BIT STRING: the unused-bits byte must be the number
+                    # of trailing zero bits, not a hardcoded 7 - otherwise
+                    # every flag except SSL Client is silently dropped
+                    unused_bits = 0
+                    remaining = bits
+                    while remaining & 1 == 0:
+                        unused_bits += 1
+                        remaining >>= 1
+                    raw_val = bytes([0x03, 0x02, unused_bits, bits])
                     builder = builder.add_extension(
                         x509.UnrecognizedExtension(
                             x509.ObjectIdentifier("2.16.840.1.113730.1.1"),
