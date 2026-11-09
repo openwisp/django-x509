@@ -887,14 +887,14 @@ class BaseX509(models.Model):
         self.serial_number = self._generate_serial_number()
         # Extend from the chosen expiry date to honor the user's intended validity.
         start, end = self.validity_start, self.validity_end
+        if start and timezone.is_naive(start):
+            start = start.replace(tzinfo=dt_timezone.utc)
+        if end and timezone.is_naive(end):
+            end = end.replace(tzinfo=dt_timezone.utc)
         self.validity_start = default_validity_start()
         if settings.USE_TZ:
             self.validity_start = self.validity_start.replace(tzinfo=dt_timezone.utc)
-        if start and end:
-            if timezone.is_naive(start):
-                start = start.replace(tzinfo=dt_timezone.utc)
-            if timezone.is_naive(end):
-                end = end.replace(tzinfo=dt_timezone.utc)
+        if start and end and end > start:
             if (start.month, start.day, start.time()) == (
                 end.month,
                 end.day,
@@ -908,6 +908,10 @@ class BaseX509(models.Model):
                     )
             else:
                 self.validity_end = end + (end - start)
+            now = datetime.now(dt_timezone.utc)
+            if self.validity_end <= now:
+                # Keep the chosen period when the extension is still expired.
+                self.validity_end = now + (end - start)
             if not settings.USE_TZ:
                 self.validity_end = self.validity_end.replace(tzinfo=None)
         elif hasattr(self, "ca"):

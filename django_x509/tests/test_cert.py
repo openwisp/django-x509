@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from openwisp_utils.tests import AssertNumQueriesSubTestMixin, catch_signal
 
 from django_x509.base.models import MAX_CUSTOM_EXTENSION_PAYLOAD_LEN
@@ -952,10 +952,13 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 )
 
     def test_renew_missing_validity_uses_default(self):
-        for field in ("validity_start", "validity_end"):
+        for field in ("validity_start", "validity_end", "invalid_period"):
             with self.subTest(field=field):
                 cert = self._create_cert()
-                setattr(cert, field, None)
+                if field == "invalid_period":
+                    cert.validity_start = cert.validity_end
+                else:
+                    setattr(cert, field, None)
                 expected = datetime.now(dt_timezone.utc) + timedelta(
                     days=app_settings.DEFAULT_CERT_VALIDITY
                 )
@@ -966,6 +969,22 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                     cert.renew()
                 cert.refresh_from_db()
                 self.assertEqual(cert.validity_end, expected)
+
+    def test_renew_long_expired(self):
+        for use_tz in (True, False):
+            for duration in (timedelta(days=365), timedelta(hours=1)):
+                with self.subTest(use_tz=use_tz, duration=duration):
+                    with override_settings(USE_TZ=use_tz):
+                        now = datetime.now(dt_timezone.utc)
+                        if not use_tz:
+                            now = now.replace(tzinfo=None)
+                        cert = self._create_cert(
+                            validity_start=now - duration * 4,
+                            validity_end=now - duration * 3,
+                        )
+                        cert.renew()
+                        cert.refresh_from_db()
+                        self.assertGreaterEqual(cert.validity_end, now + duration)
 
     def test_x509_renewed_signal_sent(self):
         cert = self._create_cert()

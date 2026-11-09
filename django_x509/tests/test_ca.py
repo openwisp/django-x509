@@ -887,6 +887,23 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 ca.refresh_from_db()
                 self.assertEqual(ca.validity_end, expected)
 
+    def test_renew_long_expired_child(self):
+        for use_tz in (True, False):
+            with self.subTest(use_tz=use_tz), override_settings(USE_TZ=use_tz):
+                now = datetime.now(dt_timezone.utc)
+                if not use_tz:
+                    now = now.replace(tzinfo=None)
+                duration = timedelta(days=365)
+                ca = self._create_ca(validity_start=now - duration)
+                cert = self._create_cert(
+                    ca=ca,
+                    validity_start=now - duration * 4,
+                    validity_end=now - duration * 3,
+                )
+                ca.renew()
+                cert.refresh_from_db()
+                self.assertGreaterEqual(cert.validity_end, now + duration)
+
     def test_ca_common_name_length(self):
         common_name = "a" * 65
         with self.assertRaises(ValidationError) as cm:
@@ -929,7 +946,9 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 cert = self._create_cert(ca=ca, validity_start=start, validity_end=end)
                 renewal_time = datetime.now()
                 with patch("django_x509.base.models.datetime", wraps=datetime) as clock:
-                    clock.now.return_value = renewal_time
+                    clock.now.side_effect = lambda tz=None: (
+                        datetime.now(tz) if tz else renewal_time
+                    )
                     ca.renew()
                 expected_start = (renewal_time - timedelta(days=1)).replace(
                     hour=0, minute=0, second=0, microsecond=0

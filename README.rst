@@ -455,7 +455,8 @@ This signal is emitted whenever the ``renew()`` method of a ``Ca`` or
 Renewal uses the existing validity dates to honor the period chosen by the
 user. For example, a two-year certificate expiring on December 30, 2026 is
 renewed until December 30, 2028. The start date is reset to the previous
-day to prevent invalid date ranges.
+day to prevent invalid date ranges. If the extended expiry is already
+past, renewal uses the chosen period from the current time instead.
 
 When a ``Ca`` instance is renewed, its non-revoked child certificates are
 renewed automatically. Revoked certificates are not renewed, and calling
