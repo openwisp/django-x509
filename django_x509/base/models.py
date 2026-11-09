@@ -879,7 +879,13 @@ class BaseX509(models.Model):
         return _RESERVED_EXTENSION_OIDS
 
     def renew(self):
+        """Renew using the existing dates to honor the user's chosen validity period.
+
+        Generate a new key and certificate, reset the start date, and send the
+        renewal signal. Use the default period if validity dates are missing.
+        """
         self.serial_number = self._generate_serial_number()
+        # Extend from the chosen expiry date to honor the user's intended validity.
         start, end = self.validity_start, self.validity_end
         self.validity_start = default_validity_start()
         if settings.USE_TZ:
