@@ -1014,10 +1014,14 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             )
             cert = self._create_cert(ca=ca, validity_start=now - timedelta(days=30))
             old_certificate = cert.certificate
+            old_serial = cert.serial_number
+            old_start = cert.validity_start
             with self.assertRaisesMessage(
                 ValidationError, "Cannot renew a certificate with an expired CA."
             ):
                 cert.renew()
+            self.assertEqual(cert.serial_number, old_serial)
+            self.assertEqual(cert.validity_start, old_start)
             cert.refresh_from_db()
             self.assertEqual(cert.certificate, old_certificate)
 

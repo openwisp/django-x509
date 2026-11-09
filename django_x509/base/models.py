@@ -884,6 +884,13 @@ class BaseX509(models.Model):
         Generate a new key and certificate, reset the start date, and send the
         renewal signal. Use the default period if validity dates are missing.
         """
+        ca_end = None
+        if hasattr(self, "ca"):
+            ca_end = self.ca.x509.not_valid_after_utc
+            if ca_end <= datetime.now(dt_timezone.utc):
+                raise ValidationError(
+                    _("Cannot renew a certificate with an expired CA.")
+                )
         self.serial_number = self._generate_serial_number()
         # Extend from the chosen expiry date to honor the user's intended validity.
         start, end = self.validity_start, self.validity_end
@@ -930,12 +937,7 @@ class BaseX509(models.Model):
             self.validity_end = default_cert_validity_end()
         else:
             self.validity_end = default_ca_validity_end()
-        if hasattr(self, "ca"):
-            ca_end = self.ca.x509.not_valid_after_utc
-            if ca_end <= datetime.now(dt_timezone.utc):
-                raise ValidationError(
-                    _("Cannot renew a certificate with an expired CA.")
-                )
+        if ca_end is not None:
             if not settings.USE_TZ:
                 ca_end = ca_end.replace(tzinfo=None)
             # Clients may reject the certificate once its issuing CA expires.
