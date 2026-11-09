@@ -888,9 +888,21 @@ class BaseX509(models.Model):
         # Extend from the chosen expiry date to honor the user's intended validity.
         start, end = self.validity_start, self.validity_end
         if start and timezone.is_naive(start):
-            start = start.replace(tzinfo=dt_timezone.utc)
+            start = (
+                timezone.make_aware(start, timezone.get_default_timezone())
+                if settings.USE_TZ
+                else start.replace(tzinfo=dt_timezone.utc)
+            )
         if end and timezone.is_naive(end):
-            end = end.replace(tzinfo=dt_timezone.utc)
+            end = (
+                timezone.make_aware(end, timezone.get_default_timezone())
+                if settings.USE_TZ
+                else end.replace(tzinfo=dt_timezone.utc)
+            )
+        if start:
+            start = start.astimezone(dt_timezone.utc)
+        if end:
+            end = end.astimezone(dt_timezone.utc)
         self.validity_start = default_validity_start()
         if settings.USE_TZ:
             self.validity_start = self.validity_start.replace(tzinfo=dt_timezone.utc)

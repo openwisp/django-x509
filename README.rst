@@ -457,6 +457,8 @@ user. For example, a two-year certificate expiring on December 30, 2026 is
 renewed until December 30, 2028. The start date is reset to the previous
 day to prevent invalid date ranges. If the extended expiry is already
 past, renewal uses the chosen period from the current time instead.
+Repeated early renewals can increase the period because each renewal uses
+the current start and expiry dates.
 
 When a ``Ca`` instance is renewed, its non-revoked child certificates are
 renewed automatically. Revoked certificates are not renewed, and calling

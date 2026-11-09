@@ -951,6 +951,17 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                     cert.validity_end, datetime(*renewed_end, tzinfo=dt_timezone.utc)
                 )
 
+    @override_settings(USE_TZ=True, TIME_ZONE="Europe/Rome")
+    def test_renew_before_refresh_uses_saved_dates(self):
+        with self.assertWarns(RuntimeWarning) as warning:
+            cert = self._create_cert()
+        self.assertIn("received a naive datetime", str(warning.warning))
+        saved = Cert.objects.get(pk=cert.pk)
+        expected = saved.validity_end + (saved.validity_end - saved.validity_start)
+        cert.renew()
+        cert.refresh_from_db()
+        self.assertEqual(cert.validity_end, expected)
+
     def test_renew_missing_validity_uses_default(self):
         for field in ("validity_start", "validity_end", "invalid_period"):
             with self.subTest(field=field):
