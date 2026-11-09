@@ -838,7 +838,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self._create_cert(
                 ca=ca,
                 name="cert2",
-                validity_start=end - timedelta(days=90),
+                validity_start=end - timedelta(days=1000),
                 validity_end=end,
             ),
         ]
@@ -879,8 +879,8 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 self.assertGreater(c.validity_end, old["end"])
                 self.assertEqual(
                     c.validity_end,
-                    old["end"] + old["duration"],
-                    f"{c.name} should be renewed for its own validity period",
+                    min(old["end"] + old["duration"], ca.x509.not_valid_after_utc),
+                    f"{c.name} should not outlive the renewed CA",
                 )
 
     def test_renew_long_expired_child(self):

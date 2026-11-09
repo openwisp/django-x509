@@ -938,7 +938,8 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
     def test_renew_preserves_validity_duration(self, clock):
         clock.now.side_effect = lambda tz=None: datetime(2026, 11, 9, tzinfo=tz)
         ca = self._create_ca(
-            validity_start=datetime(2026, 11, 8, tzinfo=dt_timezone.utc)
+            validity_start=datetime(2026, 11, 8, tzinfo=dt_timezone.utc),
+            validity_end=datetime(2200, 1, 1, tzinfo=dt_timezone.utc),
         )
         cases = (
             ((2024, 11, 10), (2026, 11, 9), (2028, 11, 7)),
@@ -981,6 +982,44 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                     cert.renew()
                 cert.refresh_from_db()
                 self.assertEqual(cert.validity_end, expected)
+
+    def test_renew_ca_validity(self):
+        for use_tz in (True, False):
+            with self.subTest(use_tz=use_tz), override_settings(USE_TZ=use_tz):
+                now = datetime.now(dt_timezone.utc).replace(microsecond=0)
+                if not use_tz:
+                    now = now.replace(tzinfo=None)
+                ca_end = now + timedelta(days=600)
+                ca = self._create_ca(
+                    validity_start=now - timedelta(days=365), validity_end=ca_end
+                )
+                for duration in (timedelta(days=90), timedelta(days=729)):
+                    with self.subTest(duration=duration):
+                        cert = self._create_cert(
+                            ca=ca, validity_start=now - duration, validity_end=now
+                        )
+                        cert.renew()
+                        cert.refresh_from_db()
+                        self.assertEqual(cert.validity_end, min(now + duration, ca_end))
+                        self.assertEqual(
+                            cert.x509.not_valid_after_utc,
+                            cert.validity_end.replace(tzinfo=dt_timezone.utc),
+                        )
+
+        with self.subTest(case="expired CA"):
+            now = datetime.now(dt_timezone.utc).replace(microsecond=0)
+            ca = self._create_ca(
+                validity_start=now - timedelta(days=365),
+                validity_end=now - timedelta(days=1),
+            )
+            cert = self._create_cert(ca=ca, validity_start=now - timedelta(days=30))
+            old_certificate = cert.certificate
+            with self.assertRaisesMessage(
+                ValidationError, "Cannot renew a certificate with an expired CA."
+            ):
+                cert.renew()
+            cert.refresh_from_db()
+            self.assertEqual(cert.certificate, old_certificate)
 
     def test_x509_renewed_signal_sent(self):
         cert = self._create_cert()

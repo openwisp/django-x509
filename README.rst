@@ -460,6 +460,9 @@ past, renewal uses the chosen period from the current time instead.
 Repeated early renewals can increase the period because each renewal uses
 the current start and expiry dates.
 
+A renewed certificate cannot expire after its CA, because clients may
+reject it once the CA expires. Renew the CA first if it has expired.
+
 When a ``Ca`` instance is renewed, its non-revoked child certificates are
 renewed automatically. Revoked certificates are not renewed, and calling
 ``renew()`` on a revoked certificate raises ``ValidationError`` with the
