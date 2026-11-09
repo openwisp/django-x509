@@ -897,11 +897,20 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 end = start + timedelta(days=1)
                 ca = self._create_ca(validity_start=start, validity_end=end)
                 cert = self._create_cert(ca=ca, validity_start=start, validity_end=end)
-                ca.renew()
+                renewal_time = datetime.now()
+                with patch("django_x509.base.models.datetime", wraps=datetime) as clock:
+                    clock.now.return_value = renewal_time
+                    ca.renew()
+                expected_start = (renewal_time - timedelta(days=1)).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                if use_tz:
+                    expected_start = expected_start.replace(tzinfo=dt_timezone.utc)
                 ca.refresh_from_db()
                 cert.refresh_from_db()
                 for instance in (ca, cert):
                     with self.subTest(model=instance.__class__.__name__):
+                        self.assertEqual(instance.validity_start, expected_start)
                         self.assertLess(instance.validity_start, now)
                         self.assertGreater(instance.validity_end, now)
                         self.assertEqual(
