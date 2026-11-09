@@ -889,6 +889,27 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         pem_serial = cert_obj.serial_number
         self.assertEqual(int(cert.serial_number), pem_serial)
 
+    def test_renew_future_validity(self):
+        now = timezone.now()
+        start = now + timedelta(days=4000)
+        end = start + timedelta(days=1)
+        ca = self._create_ca(validity_start=start, validity_end=end)
+        cert = self._create_cert(ca=ca, validity_start=start, validity_end=end)
+        ca.renew()
+        ca.refresh_from_db()
+        cert.refresh_from_db()
+        for instance in (ca, cert):
+            with self.subTest(model=instance.__class__.__name__):
+                self.assertLess(instance.validity_start, now)
+                self.assertGreater(instance.validity_end, now)
+                self.assertEqual(
+                    instance.x509.not_valid_before_utc, instance.validity_start
+                )
+                self.assertEqual(
+                    instance.x509.not_valid_after_utc,
+                    instance.validity_end.replace(microsecond=0),
+                )
+
     def test_x509_renewed_signal_sent(self):
         ca = self._create_ca()
         certs = [

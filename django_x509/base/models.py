@@ -1,6 +1,7 @@
 import logging
 import uuid
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 import swapper
 from cryptography import x509
@@ -8,6 +9,7 @@ from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID, NameOID
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils import timezone
@@ -878,6 +880,9 @@ class BaseX509(models.Model):
 
     def renew(self):
         self.serial_number = self._generate_serial_number()
+        self.validity_start = default_validity_start()
+        if settings.USE_TZ:
+            self.validity_start = self.validity_start.replace(tzinfo=dt_timezone.utc)
         if hasattr(self, "ca"):
             self.validity_end = default_cert_validity_end()
         else:

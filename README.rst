@@ -451,6 +451,9 @@ Signals
 This signal is emitted whenever the ``renew()`` method of a ``Ca`` or
 ``Cert`` instance completes successfully.
 
+Renewal resets the validity start to the previous day to prevent a future
+start date from causing an invalid validity period and a renewal failure.
+
 When a ``Ca`` instance is renewed, its non-revoked child certificates are
 renewed automatically. Revoked certificates are not renewed, and calling
 ``renew()`` on a revoked certificate raises ``ValidationError`` with the

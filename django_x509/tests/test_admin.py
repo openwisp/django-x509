@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib import admin, messages
@@ -7,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from openwisp_utils.tests import AdminActionPermTestMixin
 from swapper import load_model
 
@@ -365,6 +367,27 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
                 ),
             ],
         )
+
+    def test_renew_future_cert_action(self):
+        now = timezone.now()
+        start = now + timedelta(days=4000)
+        ca = Ca.objects.create(name="test_ca")
+        cert = Cert.objects.create(
+            name="test_cert",
+            ca=ca,
+            validity_start=start,
+            validity_end=start + timedelta(days=1),
+        )
+        self.client.force_login(User.objects.create_superuser(username="admin"))
+        response = self.client.post(
+            reverse(f"admin:{self.app_label}_cert_changelist"),
+            {"action": "renew_cert", "_selected_action": [str(cert.pk)], "post": "yes"},
+        )
+        self.assertEqual(response.status_code, 302)
+        cert.refresh_from_db()
+        self.assertLess(cert.validity_start, now)
+        self.assertGreater(cert.validity_end, now)
+        self.assertEqual(cert.x509.not_valid_before_utc, cert.validity_start)
 
     def test_renew_cert_action_perms(self):
         user = User.objects.create(
