@@ -935,14 +935,21 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(cert.validity_end, end + duration)
 
     def test_renew_preserves_calendar_years(self):
-        start = datetime(2024, 12, 30, tzinfo=dt_timezone.utc)
-        end = datetime(2026, 12, 30, tzinfo=dt_timezone.utc)
-        cert = self._create_cert(validity_start=start, validity_end=end)
-        cert.renew()
-        cert.refresh_from_db()
-        self.assertEqual(
-            cert.validity_end, datetime(2028, 12, 30, tzinfo=dt_timezone.utc)
+        cases = (
+            ((2024, 12, 30), (2026, 12, 30), (2028, 12, 30)),
+            ((2092, 2, 29), (2096, 2, 29), (2100, 2, 28)),
         )
+        for start, end, renewed_end in cases:
+            with self.subTest(start=start, end=end):
+                cert = self._create_cert(
+                    validity_start=datetime(*start, tzinfo=dt_timezone.utc),
+                    validity_end=datetime(*end, tzinfo=dt_timezone.utc),
+                )
+                cert.renew()
+                cert.refresh_from_db()
+                self.assertEqual(
+                    cert.validity_end, datetime(*renewed_end, tzinfo=dt_timezone.utc)
+                )
 
     def test_renew_missing_validity_uses_default(self):
         for field in ("validity_start", "validity_end"):
