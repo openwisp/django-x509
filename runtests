@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+coverage erase
+coverage run runtests.py --parallel
+SAMPLE_APP=1 coverage run runtests.py --parallel
+coverage combine
+coverage xml
