@@ -997,7 +997,8 @@ class AbstractCert(BaseX509):
     @transaction.atomic
     def renew(self):
         self.refresh_from_db(
-            from_queryset=self.__class__._base_manager.select_for_update()
+            fields=["revoked", "revoked_at"],
+            from_queryset=self.__class__._base_manager.select_for_update(),
         )
         if self.revoked:
             raise ValidationError(

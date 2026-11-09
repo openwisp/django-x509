@@ -890,6 +890,19 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         crl = x509.load_pem_x509_crl(cert.ca.crl)
         self.assertIn(int(serial), [entry.serial_number for entry in crl])
 
+    def test_renew_with_unsaved_changes(self):
+        cert = self._create_cert()
+        cert.passphrase = "new-passphrase"
+        cert.notes = "updated notes"
+        cert.renew()
+        cert.refresh_from_db()
+        self.assertEqual(cert.passphrase, "new-passphrase")
+        self.assertEqual(cert.notes, "updated notes")
+        key = serialization.load_pem_private_key(
+            cert.private_key.encode(), password=b"new-passphrase"
+        )
+        self.assertIsNotNone(key)
+
     def test_renew(self):
         cert = self._create_cert()
         old_cert = cert.certificate
