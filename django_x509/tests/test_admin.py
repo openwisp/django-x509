@@ -302,6 +302,28 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
             req.get_message_strings(), ["Cannot renew a revoked certificate."]
         )
 
+    def test_renew_mixed_cert_action(self):
+        req = deepcopy(request)
+        req.POST.update({"post": "yes"})
+        self.cert.revoke()
+        revoked_serial = self.cert.serial_number
+        active = Cert.objects.create(name="active_cert", ca=self.cert.ca)
+        active_serial = active.serial_number
+        ma = self.cert_admin(Cert, self.site)
+        ma.renew_cert(req, [self.cert, active])
+        self.cert.refresh_from_db()
+        active.refresh_from_db()
+        self.assertTrue(self.cert.revoked)
+        self.assertEqual(int(self.cert.serial_number), int(revoked_serial))
+        self.assertNotEqual(int(active.serial_number), int(active_serial))
+        self.assertEqual(
+            req.get_message_strings(),
+            [
+                "Cannot renew a revoked certificate.",
+                "1 Certificate has been successfully renewed",
+            ],
+        )
+
     def test_renew_cert_action_perms(self):
         user = User.objects.create(
             username="tester", email="tester@openwisp.org", is_staff=True
