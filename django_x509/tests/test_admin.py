@@ -1,8 +1,10 @@
 from copy import deepcopy
+from unittest.mock import patch
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from openwisp_utils.tests import AdminActionPermTestMixin
@@ -288,6 +290,81 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
         self.assertEqual(old_ca_serial_number, ca.serial_number)
         self.assertEqual(len(message), 1)
         self.assertEqual(message[0], "1 Certificate has been successfully renewed")
+
+    def test_renew_revoked_cert_action(self):
+        req = deepcopy(request)
+        req.POST.update({"post": "yes"})
+        self.cert.revoke()
+        serial = self.cert.serial_number
+        ma = self.cert_admin(Cert, self.site)
+        ma.renew_cert(req, [self.cert])
+        self.cert.refresh_from_db()
+        self.assertEqual(int(self.cert.serial_number), int(serial))
+        self.assertEqual(
+            [(m.level, str(m)) for m in req.get_messages()],
+            [
+                (
+                    messages.ERROR,
+                    "Renewal failed because all selected certificates "
+                    "are already revoked.",
+                )
+            ],
+        )
+
+    def test_renew_mixed_cert_action(self):
+        req = deepcopy(request)
+        req.POST.update({"post": "yes"})
+        self.cert.revoke()
+        revoked_serial = self.cert.serial_number
+        active = Cert.objects.create(name="active_cert", ca=self.cert.ca)
+        active_serial = active.serial_number
+        ma = self.cert_admin(Cert, self.site)
+        ma.renew_cert(req, [self.cert, active])
+        self.cert.refresh_from_db()
+        active.refresh_from_db()
+        self.assertTrue(self.cert.revoked)
+        self.assertEqual(int(self.cert.serial_number), int(revoked_serial))
+        self.assertNotEqual(int(active.serial_number), int(active_serial))
+        self.assertEqual(
+            [(m.level, str(m)) for m in req.get_messages()],
+            [
+                (messages.SUCCESS, "1 Certificate has been successfully renewed"),
+                (
+                    messages.WARNING,
+                    "Some certificates were not renewed because they are "
+                    "already revoked.",
+                ),
+            ],
+        )
+
+    def test_renew_cert_action_with_other_validation_error(self):
+        req = deepcopy(request)
+        req.POST.update({"post": "yes"})
+        self.cert.revoke()
+        active = Cert.objects.create(name="active_cert", ca=self.cert.ca)
+        self.cert.revoked = False
+        active.revoked = True
+        ma = self.cert_admin(Cert, self.site)
+        with patch.object(
+            Cert,
+            "renew",
+            side_effect=[
+                ValidationError("revoked", code="revoked"),
+                ValidationError("Invalid data"),
+            ],
+        ):
+            ma.renew_cert(req, [self.cert, active])
+        self.assertEqual(
+            [(m.level, str(m)) for m in req.get_messages()],
+            [
+                (messages.ERROR, "Invalid data"),
+                (
+                    messages.ERROR,
+                    "Some certificates were not renewed because they are "
+                    "already revoked.",
+                ),
+            ],
+        )
 
     def test_renew_cert_action_perms(self):
         user = User.objects.create(
