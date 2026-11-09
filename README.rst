@@ -182,11 +182,12 @@ Launch development server:
 
 You can access the admin interface at http://127.0.0.1:8000/admin/.
 
-Run tests with:
+Run the full test suite, including the swapped sample app, from the
+repository root with:
 
 .. code-block:: shell
 
-    ./runtests.py
+    ./runtests
 
 Install and run on docker
 -------------------------
