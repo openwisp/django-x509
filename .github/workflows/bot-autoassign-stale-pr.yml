@@ -1,0 +1,20 @@
+name: Stale PR Management
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: bot-autoassign-stale-pr-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  manage-stale-prs-python:
+    if: github.repository == 'openwisp/django-x509'
+    permissions:
+      contents: read
+    uses: openwisp/openwisp-actions/.github/workflows/reusable-bot-autoassign.yml@61f8fad5c4f6b9b1cf47eb396c2e1c8392aed52f # 0.1.1
+    with:
+      bot_command: stale_pr
+    secrets:
+      OPENWISP_BOT_APP_ID: ${{ secrets.OPENWISP_BOT_APP_ID }}
+      OPENWISP_BOT_PRIVATE_KEY: ${{ secrets.OPENWISP_BOT_PRIVATE_KEY }}

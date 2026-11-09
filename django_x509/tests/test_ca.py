@@ -1,16 +1,20 @@
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
+from unittest.mock import patch
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import http_date
+from openwisp_utils.tests import catch_signal
 
 from .. import settings as app_settings
+from ..signals import x509_renewed
 from . import UTC_TIME, Ca, TestX509Mixin, datetime_to_string
 
 
@@ -319,6 +323,73 @@ tsND+97h9r73S+UTOhepQTDB
         else:
             self.fail("ValidationError not raised")
 
+    def test_generation_validation_errors(self):
+        with self.subTest("unsupported extension"):
+            ca = Ca(
+                name="Test CA",
+                key_length="2048",
+                digest="sha256",
+                country_code="IT",
+                state="RM",
+                city="Rome",
+                organization_name="OpenWISP",
+                email="test@test.com",
+                common_name="openwisp.org",
+                extensions=[
+                    {
+                        "name": "unsupportedExtension",
+                        "critical": False,
+                        "value": "test",
+                    }
+                ],
+            )
+            with self.assertRaises(ValidationError) as cm:
+                ca.full_clean()
+            self.assertIn(
+                "Unsupported extension: unsupportedExtension", str(cm.exception)
+            )
+        with self.subTest("unexpected generation error"):
+            ca = Ca(
+                name="Test CA",
+                key_length="2048",
+                digest="sha256",
+                country_code="IT",
+                state="RM",
+                city="Rome",
+                organization_name="OpenWISP",
+                email="test@test.com",
+                common_name="openwisp.org",
+            )
+            with patch.object(Ca, "_generate", side_effect=ValueError("backend error")):
+                with self.assertLogs("django_x509.base.models", level="ERROR") as logs:
+                    with self.assertRaises(ValidationError) as cm:
+                        ca.full_clean()
+            self.assertIn(
+                "Certificate generation failed due to invalid certificate parameters.",
+                str(cm.exception),
+            )
+            self.assertNotIn("backend error", str(cm.exception))
+            self.assertIn("Certificate generation failed", logs.output[0])
+            self.assertIsNotNone(logs.records[0].exc_info)
+
+    def test_full_clean_save_generates_once(self):
+        ca = Ca(
+            name="Test CA",
+            key_length="2048",
+            digest="sha256",
+            country_code="IT",
+            state="RM",
+            city="Rome",
+            organization_name="OpenWISP",
+            email="test@test.com",
+            common_name="openwisp.org",
+        )
+        with patch.object(Ca, "_generate", wraps=ca._generate) as mocked_generate:
+            ca.full_clean()
+            self.assertEqual(mocked_generate.call_count, 1)
+            ca.save()
+            self.assertEqual(mocked_generate.call_count, 1)
+
     def test_get_revoked_certs(self):
         ca = self._create_ca()
         c1 = self._create_cert(ca=ca)
@@ -349,14 +420,84 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
+    @patch("django_x509.base.models.timezone.now")
+    def test_crl_revocation_dates(self, mocked_now):
+        now = datetime.now(dt_timezone.utc).replace(microsecond=0)
+        for missing_date in (False, True):
+            with self.subTest(missing_date=missing_date):
+                mocked_now.return_value = now - timedelta(hours=1)
+                ca = self._create_ca(validity_start=now - timedelta(days=1))
+                cert = self._create_cert(ca=ca, validity_start=now - timedelta(days=1))
+                cert.revoke()
+                revoked_at = cert.revoked_at
+                mocked_now.return_value = now - timedelta(minutes=30)
+                cert.name = "Updated certificate"
+                if missing_date:
+                    cert.revoked_at = None
+                cert.save()
+                ca.cert_set.filter(pk=cert.pk).update(
+                    modified=now - timedelta(minutes=30)
+                )
+                cert.refresh_from_db()
+                expected = cert.modified if missing_date else revoked_at
+                for generated_at in (now, now + timedelta(minutes=5)):
+                    mocked_now.return_value = generated_at
+                    crl = x509.load_pem_x509_crl(ca.crl)
+                    self.assertEqual(len(crl), 1)
+                    self.assertEqual(crl[0].serial_number, int(cert.serial_number))
+                    self.assertEqual(
+                        crl[0].revocation_date_utc,
+                        expected,
+                        "CRL generation must preserve the stored revocation date "
+                        "or use the last modification time when it is unavailable",
+                    )
+                    self.assertEqual(crl.last_update_utc, generated_at)
+                    self.assertEqual(
+                        crl.next_update_utc, generated_at + timedelta(days=1)
+                    )
+                    self.assertTrue(crl.is_signature_valid(ca.pkey.public_key()))
+
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
         path = reverse("admin:crl", args=[ca.pk])
         response = self.client.get(path)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Last-Modified"], http_date(cert.revoked_at.timestamp())
+        )
         revoked_list = get_crl_revoked_certs(response.content)
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
+
+    def test_crl_last_modified_attribute(self):
+        now = timezone.now()
+
+        with self.subTest(case="empty"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, ca.created)
+
+        with self.subTest(case="latest"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            latest = self._create_cert(ca=ca)
+            latest.revoke()
+            older = self._create_cert(ca=ca)
+            older.revoke()
+            ca.cert_set.filter(pk=latest.pk).update(revoked_at=now)
+            ca.cert_set.filter(pk=older.pk).update(
+                revoked_at=None, modified=now - timedelta(hours=1)
+            )
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, now)
+
+        with self.subTest(case="fallback"):
+            ca = self._create_ca(created=now - timedelta(days=1))
+            cert = self._create_cert(ca=ca)
+            cert.revoke()
+            modified = now - timedelta(hours=1)
+            ca.cert_set.filter(pk=cert.pk).update(revoked_at=None, modified=modified)
+            ca.crl
+            self.assertEqual(ca.crl_last_modified, modified)
 
     def test_crl_view_403(self):
         setattr(app_settings, "CRL_PROTECTED", True)
@@ -665,6 +806,24 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             datetime_to_string(utc_datetime), utc_datetime.strftime(UTC_TIME)
         )
 
+    def test_renew_with_revoked_child(self):
+        ca = self._create_ca()
+        revoked = self._create_cert(ca=ca, name="revoked")
+        active = self._create_cert(ca=ca, name="active")
+        revoked.revoke()
+        serial = revoked.serial_number
+        active_serial = active.serial_number
+        ca.renew()
+        revoked.refresh_from_db()
+        active.refresh_from_db()
+        self.assertTrue(revoked.revoked)
+        self.assertEqual(int(revoked.serial_number), int(serial))
+        self.assertNotEqual(int(active.serial_number), int(active_serial))
+        self.assertIn(
+            int(serial),
+            [entry.serial_number for entry in get_crl_revoked_certs(ca.crl)],
+        )
+
     def test_renew(self):
         ca = self._create_ca()
         certs = [
@@ -699,26 +858,34 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             self.assertGreater(c.validity_end, old["end"])
 
     def test_renew_preserves_validity_duration(self):
-        """
-        Verify that CA renew() preserves the original validity duration
-        instead of resetting to the system default.
-        """
-        custom_days = 1825  # 5 years, different from default 3650
-        default_days = app_settings.DEFAULT_CA_VALIDITY
-        self.assertNotEqual(custom_days, default_days)
-        ca = self._create_ca()
-        # Set a custom validity duration different from the default
-        ca.validity_end = ca.validity_start + timedelta(days=custom_days)
-        ca.save()
-        ca.refresh_from_db()
+        end = timezone.now().replace(microsecond=0)
+        ca_duration = timedelta(days=729)
+        cert_duration = timedelta(days=180)
+        ca = self._create_ca(validity_start=end - ca_duration, validity_end=end)
+        cert = self._create_cert(
+            ca=ca, validity_start=end - cert_duration, validity_end=end
+        )
         ca.renew()
         ca.refresh_from_db()
-        # The renewed CA should NOT use the system default duration.
-        # Verify that the duration is closer to the custom value
-        # than to the default value.
-        renewed_duration = ca.validity_end - ca.validity_start
-        self.assertAlmostEqual(renewed_duration.days, custom_days, delta=2)
-        self.assertNotAlmostEqual(renewed_duration.days, default_days, delta=2)
+        cert.refresh_from_db()
+        self.assertEqual(ca.validity_end, end + ca_duration)
+        self.assertEqual(cert.validity_end, end + cert_duration)
+
+    def test_renew_missing_validity_uses_default(self):
+        for field in ("validity_start", "validity_end"):
+            with self.subTest(field=field):
+                ca = self._create_ca()
+                setattr(ca, field, None)
+                expected = timezone.now() + timedelta(
+                    days=app_settings.DEFAULT_CA_VALIDITY
+                )
+                with patch(
+                    "django_x509.base.models.default_ca_validity_end",
+                    return_value=expected,
+                ):
+                    ca.renew()
+                ca.refresh_from_db()
+                self.assertEqual(ca.validity_end, expected)
 
     def test_ca_common_name_length(self):
         common_name = "a" * 65
@@ -751,6 +918,58 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         cert_obj = x509.load_pem_x509_certificate(cert.certificate.encode())
         pem_serial = cert_obj.serial_number
         self.assertEqual(int(cert.serial_number), pem_serial)
+
+    def test_renew_future_validity(self):
+        for use_tz in (True, False):
+            with self.subTest(use_tz=use_tz), override_settings(USE_TZ=use_tz):
+                now = timezone.now()
+                start = now + timedelta(days=4000)
+                end = start + timedelta(days=1)
+                ca = self._create_ca(validity_start=start, validity_end=end)
+                cert = self._create_cert(ca=ca, validity_start=start, validity_end=end)
+                renewal_time = datetime.now()
+                with patch("django_x509.base.models.datetime", wraps=datetime) as clock:
+                    clock.now.return_value = renewal_time
+                    ca.renew()
+                expected_start = (renewal_time - timedelta(days=1)).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                if use_tz:
+                    expected_start = expected_start.replace(tzinfo=dt_timezone.utc)
+                ca.refresh_from_db()
+                cert.refresh_from_db()
+                for instance in (ca, cert):
+                    with self.subTest(model=instance.__class__.__name__):
+                        self.assertEqual(instance.validity_start, expected_start)
+                        self.assertLess(instance.validity_start, now)
+                        self.assertGreater(instance.validity_end, now)
+                        self.assertEqual(
+                            instance.x509.not_valid_before_utc,
+                            instance.validity_start.replace(tzinfo=dt_timezone.utc),
+                        )
+                        self.assertEqual(
+                            instance.x509.not_valid_after_utc,
+                            instance.validity_end.replace(
+                                microsecond=0, tzinfo=dt_timezone.utc
+                            ),
+                        )
+
+    def test_x509_renewed_signal_sent(self):
+        ca = self._create_ca()
+        certs = [
+            self._create_cert(ca=ca, name="cert1"),
+            self._create_cert(ca=ca, name="cert2"),
+            self._create_cert(ca=ca, name="cert3"),
+        ]
+        with catch_signal(x509_renewed) as handler:
+            ca.renew()
+            self.assertEqual(handler.call_count, 1 + len(certs))
+            calls = handler.call_args_list
+            self.assertEqual(calls[0].kwargs["sender"], Ca)
+            self.assertEqual(calls[0].kwargs["instance"], ca)
+            for i, cert in enumerate(certs, start=1):
+                self.assertEqual(calls[i].kwargs["sender"], cert.__class__)
+                self.assertEqual(calls[i].kwargs["instance"], cert)
 
     def test_ca_ecdsa_full_lifecycle(self):
         curves_to_test = [

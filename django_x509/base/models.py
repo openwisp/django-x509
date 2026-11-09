@@ -1,5 +1,7 @@
+import logging
 import uuid
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 import swapper
 from cryptography import x509
@@ -7,8 +9,9 @@ from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID, NameOID
+from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
@@ -16,6 +19,9 @@ from model_utils.fields import AutoCreatedField, AutoLastModifiedField
 from OpenSSL import crypto
 
 from .. import settings as app_settings
+from ..signals import x509_renewed
+
+logger = logging.getLogger(__name__)
 
 KEY_LENGTH_CHOICES = (
     ("256", "256 (ECDSA)"),
@@ -35,6 +41,20 @@ DIGEST_CHOICES = (
     ("sha256", "SHA256"),
     ("sha384", "SHA384"),
     ("sha512", "SHA512"),
+)
+
+MAX_CUSTOM_EXTENSION_PAYLOAD_LEN = 64 * 1024
+
+_RESERVED_EXTENSION_OIDS = frozenset(
+    {
+        "2.16.840.1.113730.1.1",
+        "2.16.840.1.113730.1.13",
+        *[
+            value.dotted_string
+            for value in ExtensionOID.__dict__.values()
+            if isinstance(value, x509.ObjectIdentifier)
+        ],
+    }
 )
 
 
@@ -84,6 +104,29 @@ def default_digest_algorithm():
     (this avoids to set the exact default value in the database migration)
     """
     return app_settings.DEFAULT_DIGEST_ALGORITHM
+
+
+def _encode_der_length(length):
+    """
+    Encodes an integer length into an ASN.1 DER length byte sequence.
+    Handles both short form (length < 128) and long form (length >= 128)
+    encoding rules as defined by the ASN.1 DER standard.
+    """
+    if length < 0:
+        raise ValueError("Invalid DER length")
+    if length < 128:
+        return bytes([length])
+    length_bytes = length.to_bytes((length.bit_length() + 7) // 8, "big")
+    return bytes([0x80 | len(length_bytes)]) + length_bytes
+
+
+def _encode_der_value(tag, payload):
+    """
+    Constructs a complete ASN.1 DER TLV (Tag-Length-Value) byte sequence.
+    Combines the specified ASN.1 tag, the dynamically calculated DER length
+    of the payload, and the payload bytes into a single encoded byte string.
+    """
+    return bytes([tag]) + _encode_der_length(len(payload)) + payload
 
 
 class BaseX509(models.Model):
@@ -186,12 +229,45 @@ class BaseX509(models.Model):
                 {"key_length": _("Unsupported key length: %s") % self.key_length}
             )
 
-    def save(self, *args, **kwargs):
+    def _generate_if_needed(self):
+        """
+        Generates a new x509 certificate unless already generated.
+        Used during validation and save.
+        """
         if self._state.adding and not self.certificate and not self.private_key:
-            # auto generate serial number
+            # Keep generated material on the instance so save does not repeat it.
             if not self.serial_number:
                 self.serial_number = self._generate_serial_number()
-            self._generate()
+            try:
+                self._generate()
+            except ValidationError:
+                raise
+            except (TypeError, ValueError) as e:
+                logger.exception("Certificate generation failed")
+                raise ValidationError(
+                    _(
+                        "Certificate generation failed due to invalid "
+                        "certificate parameters."
+                    )
+                ) from e
+
+    def full_clean(self, *args, **kwargs):
+        """
+        Generate after Django's standard validation pipeline, not in clean().
+        Generating in clean() would mutate serial_number, certificate and
+        private_key before validate_unique() runs, changing existing validation
+        behavior. Doing it here still turns generation failures into
+        ValidationError instances for forms/admin while preserving the normal
+        validation order.
+        """
+        super().full_clean(*args, **kwargs)
+        self._generate_if_needed()
+
+    def save(self, *args, **kwargs):
+        """
+        Enforces generation of x509 certificate also if validation is skipped.
+        """
+        self._generate_if_needed()
         super().save(*args, **kwargs)
 
     @cached_property
@@ -510,14 +586,126 @@ class BaseX509(models.Model):
         (internal use only)
         verifies the format of ``self.extension`` is correct
         """
-        msg = "Extension format invalid"
+        msg = _("Extension format invalid")
+        reserved_oids = self._get_reserved_extension_oids()
+        seen_custom_oids = set()
         if not isinstance(self.extensions, list):
             raise ValidationError(msg)
         for ext in self.extensions:
             if not isinstance(ext, dict):
                 raise ValidationError(msg)
-            if not ("name" in ext and "critical" in ext and "value" in ext):
+            has_identifier = "name" in ext or "oid" in ext
+            if not has_identifier:
                 raise ValidationError(msg)
+            if "name" in ext and "oid" in ext:
+                raise ValidationError(
+                    _("Extension identifier cannot include both 'name' and 'oid'")
+                )
+            if "oid" in ext:
+                if "value" not in ext:
+                    raise ValidationError(msg)
+                try:
+                    oid = x509.ObjectIdentifier(ext["oid"]).dotted_string
+                except (ValueError, TypeError):
+                    raise ValidationError(_("Invalid OID format: %s") % ext["oid"])
+                if oid in reserved_oids:
+                    raise ValidationError(
+                        _("Reserved extension OID is not allowed: %s") % oid
+                    )
+                if oid in seen_custom_oids:
+                    raise ValidationError(
+                        _("Duplicate extension OID is not allowed: %s") % oid
+                    )
+                seen_custom_oids.add(oid)
+                if "critical" in ext and not isinstance(ext.get("critical"), bool):
+                    raise ValidationError(msg)
+                self._parse_custom_extension_value(ext["value"])
+            else:
+                if "value" not in ext:
+                    raise ValidationError(msg)
+                if "critical" in ext and not isinstance(ext["critical"], bool):
+                    raise ValidationError(msg)
+
+    def _parse_custom_extension_value(self, value):
+        """
+        Parses and encodes a custom X.509 extension value into DER format.
+
+        Expects a formatted string,validates the input against
+        allowed types and size limits, and returns
+        the raw DER-encoded bytes representing the payload.
+        """
+        if not isinstance(value, str) or not value:
+            raise ValidationError(_("Custom OID values must be a non-empty string"))
+        if not value.startswith("ASN1:"):
+            raise ValidationError(_("Custom OID values must start with 'ASN1:'"))
+        try:
+            prefix, asn1_type, value_kind, raw = value.split(":", 3)
+        except ValueError:
+            raise ValidationError(
+                _("Invalid ASN1 format. Expected 'ASN1:<TYPE>:<KIND>:<VALUE>'")
+            ) from None
+        asn1_type = asn1_type.strip().upper()
+        value_kind = value_kind.strip().lower()
+        tag_map = {
+            "UTF8": 0x0C,
+            "IA5": 0x16,
+            "PRINTABLE": 0x13,
+            "OCTET": 0x04,
+        }
+        if asn1_type not in tag_map:
+            raise ValidationError(_("Unsupported ASN1 type: %s") % asn1_type)
+        if value_kind == "hex":
+            if asn1_type != "OCTET":
+                raise ValidationError(
+                    _("Hex values are only supported for OCTET strings")
+                )
+            allowed_separators = {" ", ":", "-"}
+            allowed_hex = set("0123456789abcdefABCDEF")
+            invalid_chars = [
+                ch
+                for ch in raw
+                if ch not in allowed_hex and ch not in allowed_separators
+            ]
+            if invalid_chars:
+                raise ValidationError(_("Invalid hex string provided for ASN1 value"))
+            raw = "".join(ch for ch in raw if ch not in allowed_separators)
+            try:
+                payload = bytes.fromhex(raw)
+            except ValueError:
+                raise ValidationError(
+                    _("Invalid hex string provided for ASN1 value")
+                ) from None
+        elif value_kind == "string":
+            if asn1_type == "IA5":
+                try:
+                    payload = raw.encode("ascii")
+                except UnicodeEncodeError:
+                    raise ValidationError(
+                        _("IA5String value must contain only ASCII characters")
+                    ) from None
+            elif asn1_type == "PRINTABLE":
+                allowed_printable = set(
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    "abcdefghijklmnopqrstuvwxyz"
+                    "0123456789 '()+,-./:=?"
+                )
+                if not all(ch in allowed_printable for ch in raw):
+                    raise ValidationError(
+                        _("PrintableString contains unsupported characters")
+                    )
+                payload = raw.encode("ascii")
+            else:
+                payload = raw.encode("utf-8")
+        else:
+            raise ValidationError(
+                _("Unsupported value kind: %s. Use 'hex' or 'string'") % value_kind
+            )
+        if len(payload) > MAX_CUSTOM_EXTENSION_PAYLOAD_LEN:
+            raise ValidationError(
+                _("ASN1 payload too large (max %(max_bytes)s bytes)")
+                % {"max_bytes": MAX_CUSTOM_EXTENSION_PAYLOAD_LEN}
+            )
+        return _encode_der_value(tag_map[asn1_type], payload)
 
     def _add_extensions(self, builder, public_key):
         """
@@ -581,7 +769,37 @@ class BaseX509(models.Model):
 
         builder = builder.add_extension(aki, critical=False)
         if self.extensions:
+            reserved_oids = self._get_reserved_extension_oids()
+            seen_custom_oids = set()
             for ext_data in self.extensions:
+                if "oid" in ext_data:
+                    oid = ext_data.get("oid")
+                    try:
+                        normalized_oid = x509.ObjectIdentifier(oid).dotted_string
+                    except (TypeError, ValueError):
+                        raise ValidationError(
+                            _("Invalid OID format: %s") % oid
+                        ) from None
+                    if normalized_oid in reserved_oids:
+                        raise ValidationError(
+                            _("Reserved extension OID is not allowed: %s")
+                            % normalized_oid
+                        )
+                    if normalized_oid in seen_custom_oids:
+                        raise ValidationError(
+                            _("Duplicate extension OID is not allowed: %s")
+                            % normalized_oid
+                        )
+                    seen_custom_oids.add(normalized_oid)
+                    crit = ext_data.get("critical", False)
+                    raw_val = self._parse_custom_extension_value(ext_data.get("value"))
+                    builder = builder.add_extension(
+                        x509.UnrecognizedExtension(
+                            x509.ObjectIdentifier(normalized_oid), raw_val
+                        ),
+                        critical=crit,
+                    )
+                    continue
                 name = ext_data.get("name")
                 val = ext_data.get("value", "")
                 crit = ext_data.get("critical", False)
@@ -657,29 +875,42 @@ class BaseX509(models.Model):
                     raise ValidationError(_("Unsupported extension: %s") % name)
         return builder
 
+    def _get_reserved_extension_oids(self):
+        return _RESERVED_EXTENSION_OIDS
+
     def renew(self):
         self.serial_number = self._generate_serial_number()
-        # Preserve the original validity duration instead of
-        # resetting to the system default (security fix).
-        if self.validity_start and self.validity_end:
-            start = self.validity_start
-            end = self.validity_end
-            # Handle mixed naive/aware datetimes: make both naive
-            # before computing the duration (validity_start is
-            # intentionally naive, validity_end is timezone-aware).
-            if timezone.is_naive(start) and not timezone.is_naive(end):
-                end = timezone.make_naive(end)
-            elif not timezone.is_naive(start) and timezone.is_naive(end):
-                start = timezone.make_naive(start)
-            original_duration = end - start
-        elif hasattr(self, "ca"):
-            original_duration = timedelta(days=app_settings.DEFAULT_CERT_VALIDITY)
-        else:
-            original_duration = timedelta(days=app_settings.DEFAULT_CA_VALIDITY)
+        start, end = self.validity_start, self.validity_end
         self.validity_start = default_validity_start()
-        self.validity_end = timezone.now() + original_duration
+        if settings.USE_TZ:
+            self.validity_start = self.validity_start.replace(tzinfo=dt_timezone.utc)
+        if start and end:
+            if timezone.is_naive(start):
+                start = start.replace(tzinfo=dt_timezone.utc)
+            if timezone.is_naive(end):
+                end = end.replace(tzinfo=dt_timezone.utc)
+            if (start.month, start.day, start.time()) == (
+                end.month,
+                end.day,
+                end.time(),
+            ):
+                try:
+                    self.validity_end = end.replace(year=2 * end.year - start.year)
+                except ValueError:
+                    self.validity_end = end.replace(
+                        year=2 * end.year - start.year, day=28
+                    )
+            else:
+                self.validity_end = end + (end - start)
+            if not settings.USE_TZ:
+                self.validity_end = self.validity_end.replace(tzinfo=None)
+        elif hasattr(self, "ca"):
+            self.validity_end = default_cert_validity_end()
+        else:
+            self.validity_end = default_ca_validity_end()
         self._generate()
         self.save()
+        x509_renewed.send_robust(sender=self.__class__, instance=self)
 
     def _generate_serial_number(self):
         return uuid.uuid4().int
@@ -705,6 +936,7 @@ class AbstractCa(BaseX509):
             revoked=True, validity_start__lte=now, validity_end__gte=now
         )
 
+    @transaction.atomic
     def renew(self):
         """
         Renew the certificate, private key and
@@ -713,7 +945,9 @@ class AbstractCa(BaseX509):
         super().renew()
         children = getattr(self, "issued_certificates", getattr(self, "cert_set", None))
         if children:
-            for cert in children.all():
+            for cert in children.select_for_update().iterator():
+                if cert.revoked:
+                    continue
                 cert.ca = self
                 cert.renew()
 
@@ -736,11 +970,14 @@ class AbstractCa(BaseX509):
             .last_update(now)
             .next_update(now + timedelta(days=1))
         )
-        for cert in self.get_revoked_certs():
+        crl_last_modified = self.created
+        for cert in self.get_revoked_certs().iterator():
+            revoked_at = cert.revoked_at or cert.modified
+            crl_last_modified = max(crl_last_modified, revoked_at)
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))
-                .revocation_date(now)
+                .revocation_date(revoked_at)
                 .add_extension(
                     x509.CRLReason(x509.ReasonFlags.unspecified),
                     critical=False,
@@ -752,6 +989,7 @@ class AbstractCa(BaseX509):
             private_key=private_key,
             algorithm=hashes.SHA256(),
         )
+        self.crl_last_modified = crl_last_modified
         return crl.public_bytes(encoding=serialization.Encoding.PEM)
 
 
@@ -782,11 +1020,27 @@ class AbstractCert(BaseX509):
         verbose_name_plural = _("certificates")
         unique_together = ("ca", "serial_number")
 
+    @transaction.atomic
+    def renew(self):
+        self.refresh_from_db(
+            fields=["revoked", "revoked_at"],
+            from_queryset=self.__class__._base_manager.select_for_update(),
+        )
+        if self.revoked:
+            raise ValidationError(
+                _("Cannot renew a revoked certificate."), code="revoked"
+            )
+        return super().renew()
+
+    @transaction.atomic
     def revoke(self):
         """
         * flag certificate as revoked
         * fill in revoked_at DateTimeField
         """
+        self.refresh_from_db(
+            from_queryset=self.__class__._base_manager.select_for_update()
+        )
         now = timezone.now()
         self.revoked = True
         self.revoked_at = now

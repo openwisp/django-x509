@@ -1,15 +1,19 @@
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
+from unittest.mock import patch
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
-from cryptography.x509.oid import NameOID
+from cryptography.x509.oid import ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from openwisp_utils.tests import AssertNumQueriesSubTestMixin
+from openwisp_utils.tests import AssertNumQueriesSubTestMixin, catch_signal
+
+from django_x509.base.models import MAX_CUSTOM_EXTENSION_PAYLOAD_LEN
 
 from .. import settings as app_settings
+from ..signals import x509_renewed
 from . import Ca, Cert, TestX509Mixin
 
 
@@ -17,6 +21,30 @@ class TestCert(AssertNumQueriesSubTestMixin, TestX509Mixin, TestCase):
     """
     tests for Cert model
     """
+
+    @staticmethod
+    def _decode_der_primitive(data):
+        if not data:
+            raise ValueError("Empty DER data")
+        tag = data[0]
+        if len(data) < 2:
+            raise ValueError("DER data too short")
+        length_byte = data[1]
+        if length_byte & 0x80 == 0:
+            length = length_byte
+            header_len = 2
+        else:
+            num_len_bytes = length_byte & 0x7F
+            if num_len_bytes == 0:
+                raise ValueError("Indefinite length not supported")
+            if len(data) < 2 + num_len_bytes:
+                raise ValueError("DER length truncated")
+            length = int.from_bytes(data[2 : 2 + num_len_bytes], "big")  # noqa: E203
+            header_len = 2 + num_len_bytes
+        payload = data[header_len : header_len + length]  # noqa: E203
+        if len(payload) != length or len(data) != header_len + length:
+            raise ValueError("DER length mismatch")
+        return tag, length, payload
 
     import_certificate = """
 -----BEGIN CERTIFICATE-----
@@ -317,6 +345,92 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertTrue(e2.critical)
         self.assertIn(x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH, e2.value)
 
+    def test_custom_oid_extensions(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.1",
+                "value": "ASN1:UTF8:string:f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+                "critical": False,
+            },
+            {
+                "oid": "1.3.6.1.4.1.55555.1.2",
+                "value": "ASN1:UTF8:string:00-B0-D0-63-C2-26",
+                "critical": True,
+            },
+            {
+                "oid": "1.3.6.1.4.1.55555.1.3",
+                "value": "ASN1:UTF8:string:implicit-critical-false",
+            },
+        ]
+        cert = self._create_cert(extensions=extensions)
+        e1 = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.1")
+        )
+        self.assertFalse(e1.critical)
+        self.assertEqual(
+            e1.value.value,
+            b"\x0c$" + b"f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+        )
+        e2 = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.2")
+        )
+        self.assertTrue(e2.critical)
+        self.assertEqual(e2.value.value, b"\x0c\x1100-B0-D0-63-C2-26")
+        e3 = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.3")
+        )
+        self.assertFalse(e3.critical)
+
+    def test_custom_oid_roundtrip_der_parsing(self):
+        long_val = "a" * 128
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.12",
+                "value": f"ASN1:UTF8:string:{long_val}",
+                "critical": True,
+            }
+        ]
+        cert = self._create_cert(extensions=extensions)
+        x509_obj = x509.load_pem_x509_certificate(cert.certificate.encode("utf-8"))
+        ext = x509_obj.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.12")
+        )
+        self.assertTrue(ext.critical)
+        tag, length, payload = self._decode_der_primitive(ext.value.value)
+        self.assertEqual(tag, 0x0C)
+        self.assertEqual(length, len(long_val))
+        self.assertEqual(payload, long_val.encode("utf-8"))
+
+    def test_oid_parser_validation_errors(self):
+        """Test that invalid custom OID formats raise correct ValidationErrors"""
+        invalid_scenarios = [
+            (
+                [{"oid": "1.3.6.1.4.1.55555", "value": "UTF8:string:test"}],
+                "Custom OID values must start with 'ASN1:'",
+            ),
+            (
+                [{"oid": "1.3.6.1.4.1.55555", "value": "ASN1:UTF8:test"}],
+                "Invalid ASN1 format. Expected 'ASN1:<TYPE>:<KIND>:<VALUE>'",
+            ),
+            (
+                [{"oid": "1.3.6.1.4.1.55555", "value": "ASN1:UNKNOWN:string:test"}],
+                "Unsupported ASN1 type: UNKNOWN",
+            ),
+            (
+                [{"oid": "1.3.6.1.4.1.55555", "value": "ASN1:OCTET:hex:zzzzz"}],
+                "Invalid hex string provided for ASN1 value",
+            ),
+            (
+                [{"oid": "not-an-oid", "value": "ASN1:UTF8:string:test"}],
+                "Invalid OID format: not-an-oid",
+            ),
+        ]
+        for extensions, expected_error in invalid_scenarios:
+            with self.subTest(extensions=extensions):
+                with self.assertRaises(ValidationError) as cm:
+                    self._create_cert(extensions=extensions)
+                self.assertIn(expected_error, str(cm.exception))
+
     def test_extensions_error1(self):
         extensions = {}
         try:
@@ -336,6 +450,219 @@ tsND+97h9r73S+UTOhepQTDB
             self.assertIn("Extension format invalid", str(msg))
         else:
             self.fail("ValidationError not raised")
+
+    def test_custom_oid_invalid_oid(self):
+        extensions = [
+            {
+                "oid": "invalid.oid",
+                "value": "ASN1:UTF8:string:test",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("Invalid OID", str(cm.exception))
+
+    def test_custom_oid_invalid_asn1_format(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.3",
+                "value": "UTF8:string:test",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("must start with 'ASN1:'", str(cm.exception))
+
+    def test_custom_oid_invalid_value_kind(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.4",
+                "value": "ASN1:UTF8:blob:test",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("Unsupported value kind", str(cm.exception))
+
+    def test_custom_oid_invalid_ia5_charset(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.5",
+                "value": "ASN1:IA5:string:cafè",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("must contain only ASCII characters", str(cm.exception))
+
+    def test_custom_oid_invalid_printable_charset(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.6",
+                "value": "ASN1:PRINTABLE:string:hello@world",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn(
+            "PrintableString contains unsupported characters", str(cm.exception)
+        )
+
+    def test_custom_oid_missing_value(self):
+        extensions = [{"oid": "1.3.6.1.4.1.55555.1.7"}]
+        try:
+            self._create_cert(extensions=extensions)
+        except ValidationError as e:
+            msg = e.message_dict.get("__all__", [str(e)])[0]
+            self.assertIn("Extension format invalid", str(msg))
+        else:
+            self.fail("ValidationError not raised")
+
+    def test_custom_oid_invalid_critical_type(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.8",
+                "value": "ASN1:UTF8:string:test",
+                "critical": "yes",
+            }
+        ]
+        try:
+            self._create_cert(extensions=extensions)
+        except ValidationError as e:
+            msg = e.message_dict.get("__all__", [str(e)])[0]
+            self.assertIn("Extension format invalid", str(msg))
+        else:
+            self.fail("ValidationError not raised")
+
+    def test_custom_oid_payload_too_large(self):
+        long_val = "a" * (MAX_CUSTOM_EXTENSION_PAYLOAD_LEN + 1)
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.12",
+                "value": f"ASN1:UTF8:string:{long_val}",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("ASN1 payload too large", str(cm.exception))
+
+    def test_extension_identifier_ambiguous(self):
+        extensions = [
+            {
+                "name": "extendedKeyUsage",
+                "oid": "1.3.6.1.4.1.55555.1.13",
+                "value": "clientAuth",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn(
+            "Extension identifier cannot include both 'name' and 'oid'",
+            str(cm.exception),
+        )
+
+    def test_custom_oid_hex_value(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.9",
+                "value": "ASN1:OCTET:hex:0A:0B:0C",
+            }
+        ]
+        cert = self._create_cert(extensions=extensions)
+        ext = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.9")
+        )
+        self.assertEqual(ext.value.value, b"\x04\x03\x0a\x0b\x0c")
+
+    def test_custom_oid_hex_invalid(self):
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.10",
+                "value": "ASN1:OCTET:hex:0G",
+            }
+        ]
+        with self.assertRaises(ValidationError) as cm:
+            self._create_cert(extensions=extensions)
+        self.assertIn("Invalid hex string", str(cm.exception))
+
+    def test_custom_oid_long_length(self):
+        long_val = "a" * 128
+        extensions = [
+            {
+                "oid": "1.3.6.1.4.1.55555.1.11",
+                "value": f"ASN1:UTF8:string:{long_val}",
+            }
+        ]
+        cert = self._create_cert(extensions=extensions)
+        ext = cert.x509.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier("1.3.6.1.4.1.55555.1.11")
+        )
+        self.assertEqual(ext.value.value[:3], b"\x0c\x81\x80")
+        self.assertEqual(ext.value.value[3:], long_val.encode("utf-8"))
+
+    def test_unsupported_extension_validation_error(self):
+        cert = Cert(
+            name="TestCert",
+            ca=self._create_ca(),
+            key_length="2048",
+            digest="sha256",
+            country_code="IT",
+            state="RM",
+            city="Rome",
+            organization_name="Test",
+            email="test@test.com",
+            common_name="openwisp.org",
+            extensions=[
+                {"name": "unsupportedExtension", "critical": False, "value": "test"}
+            ],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.full_clean()
+        self.assertIn("Unsupported extension: unsupportedExtension", str(cm.exception))
+
+    def test_unexpected_generation_error(self):
+        cert = Cert(
+            name="TestCert",
+            ca=self._create_ca(),
+            key_length="2048",
+            digest="sha256",
+            country_code="IT",
+            state="RM",
+            city="Rome",
+            organization_name="Test",
+            email="test@test.com",
+            common_name="openwisp.org",
+        )
+        with patch.object(Cert, "_generate", side_effect=ValueError("backend error")):
+            with self.assertLogs("django_x509.base.models", level="ERROR") as logs:
+                with self.assertRaises(ValidationError) as cm:
+                    cert.full_clean()
+        self.assertIn(
+            "Certificate generation failed due to invalid certificate parameters.",
+            str(cm.exception),
+        )
+        self.assertNotIn("backend error", str(cm.exception))
+        self.assertIn("Certificate generation failed", logs.output[0])
+        self.assertIsNotNone(logs.records[0].exc_info)
+
+    def test_full_clean_save_generates_once(self):
+        cert = Cert(
+            name="TestCert",
+            ca=self._create_ca(),
+            key_length="2048",
+            digest="sha256",
+            country_code="IT",
+            state="RM",
+            city="Rome",
+            organization_name="Test",
+            email="test@test.com",
+            common_name="openwisp.org",
+        )
+        with patch.object(Cert, "_generate", wraps=cert._generate) as mocked_generate:
+            cert.full_clean()
+            self.assertEqual(mocked_generate.call_count, 1)
+            cert.save()
+            self.assertEqual(mocked_generate.call_count, 1)
 
     def test_revoke(self):
         cert = self._create_cert()
@@ -439,6 +766,12 @@ tsND+97h9r73S+UTOhepQTDB
         x509_obj = cert.x509
         self.assertEqual(x509_obj.serial_number, 3)
 
+    def test_serial_number_db_matches_certificate(self):
+        cert = self._create_cert()
+        cert.refresh_from_db()
+        cert_serial_hex = format(cert.x509.serial_number, "x")
+        self.assertEqual(int(cert_serial_hex, 16), int(cert.serial_number))
+
     def test_bad_serial_number_cert(self):
         try:
             self._create_cert(serial_number="notIntegers")
@@ -523,6 +856,53 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         ca.save()
         self.assertIsInstance(ca.pkey, rsa.RSAPrivateKey)
 
+    def test_renew_revoked(self):
+        cert = self._create_cert()
+        stale = Cert.objects.get(pk=cert.pk)
+        cert.revoke()
+        serial = cert.serial_number
+        certificate = cert.certificate
+        for instance in (cert, stale):
+            with self.subTest(stale=instance is stale):
+                with self.assertRaisesMessage(
+                    ValidationError, "Cannot renew a revoked certificate."
+                ) as error:
+                    instance.renew()
+                self.assertEqual(error.exception.code, "revoked")
+                cert.refresh_from_db()
+                self.assertTrue(cert.revoked)
+                self.assertEqual(int(cert.serial_number), int(serial))
+                self.assertEqual(cert.certificate, certificate)
+                crl = x509.load_pem_x509_crl(cert.ca.crl)
+                self.assertIn(int(serial), [entry.serial_number for entry in crl])
+
+    def test_revoke_stale_after_renewal(self):
+        cert = self._create_cert()
+        stale = Cert.objects.get(pk=cert.pk)
+        cert.renew()
+        serial = cert.serial_number
+        certificate = cert.certificate
+        stale.revoke()
+        cert.refresh_from_db()
+        self.assertTrue(cert.revoked)
+        self.assertEqual(int(cert.serial_number), int(serial))
+        self.assertEqual(cert.certificate, certificate)
+        crl = x509.load_pem_x509_crl(cert.ca.crl)
+        self.assertIn(int(serial), [entry.serial_number for entry in crl])
+
+    def test_renew_with_unsaved_changes(self):
+        cert = self._create_cert()
+        cert.passphrase = "new-passphrase"
+        cert.notes = "updated notes"
+        cert.renew()
+        cert.refresh_from_db()
+        self.assertEqual(cert.passphrase, "new-passphrase")
+        self.assertEqual(cert.notes, "updated notes")
+        key = serialization.load_pem_private_key(
+            cert.private_key.encode(), password=b"new-passphrase"
+        )
+        self.assertIsNotNone(key)
+
     def test_renew(self):
         cert = self._create_cert()
         old_cert = cert.certificate
@@ -547,26 +927,47 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(old_ca_serial_number, ca.serial_number)
 
     def test_renew_preserves_validity_duration(self):
-        """
-        Verify that renew() preserves the original validity duration
-        instead of resetting to the system default.
-        """
-        custom_days = 730
-        default_days = app_settings.DEFAULT_CERT_VALIDITY
-        self.assertNotEqual(custom_days, default_days)
-        cert = self._create_cert()
-        # Set a custom validity duration different from the default
-        cert.validity_end = cert.validity_start + timedelta(days=custom_days)
-        cert.save()
-        cert.refresh_from_db()
+        end = datetime.now(dt_timezone.utc).replace(microsecond=0)
+        duration = timedelta(days=729)
+        cert = self._create_cert(validity_start=end - duration, validity_end=end)
         cert.renew()
         cert.refresh_from_db()
-        # The renewed cert should NOT use the system default duration.
-        # Verify that the duration is closer to the custom value
-        # than to the default value.
-        renewed_duration = cert.validity_end - cert.validity_start
-        self.assertAlmostEqual(renewed_duration.days, custom_days, delta=2)
-        self.assertNotAlmostEqual(renewed_duration.days, default_days, delta=2)
+        self.assertEqual(cert.validity_end, end + duration)
+
+    def test_renew_preserves_calendar_years(self):
+        start = datetime(2024, 12, 30, tzinfo=dt_timezone.utc)
+        end = datetime(2026, 12, 30, tzinfo=dt_timezone.utc)
+        cert = self._create_cert(validity_start=start, validity_end=end)
+        cert.renew()
+        cert.refresh_from_db()
+        self.assertEqual(
+            cert.validity_end, datetime(2028, 12, 30, tzinfo=dt_timezone.utc)
+        )
+
+    def test_renew_missing_validity_uses_default(self):
+        for field in ("validity_start", "validity_end"):
+            with self.subTest(field=field):
+                cert = self._create_cert()
+                setattr(cert, field, None)
+                expected = datetime.now(dt_timezone.utc) + timedelta(
+                    days=app_settings.DEFAULT_CERT_VALIDITY
+                )
+                with patch(
+                    "django_x509.base.models.default_cert_validity_end",
+                    return_value=expected,
+                ):
+                    cert.renew()
+                cert.refresh_from_db()
+                self.assertEqual(cert.validity_end, expected)
+
+    def test_x509_renewed_signal_sent(self):
+        cert = self._create_cert()
+        with catch_signal(x509_renewed) as handler:
+            cert.renew()
+            handler.assert_called_once()
+            call_kwargs = handler.call_args.kwargs
+            self.assertEqual(call_kwargs["sender"], Cert)
+            self.assertEqual(call_kwargs["instance"], cert)
 
     def test_cert_common_name_length(self):
         common_name = "a" * 65
@@ -633,3 +1034,174 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 gen_cert.renew()
                 gen_cert.refresh_from_db()
                 self.assertNotEqual(original_pem, gen_cert.certificate)
+
+    def test_custom_extension_hex_restricted_to_octet(self):
+        """Test that hex encoding is strictly limited to OCTET strings."""
+        ca = self._create_ca()
+        cert_invalid = Cert(
+            name="test-hex-ia5",
+            ca=ca,
+            extensions=[{"oid": "1.2.3.4.5", "value": "ASN1:IA5:hex:ff"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert_invalid.full_clean()
+        self.assertIn(
+            "Hex values are only supported for OCTET strings", str(cm.exception)
+        )
+        cert_valid = Cert(
+            name="test-hex-octet",
+            ca=ca,
+            extensions=[{"oid": "1.2.3.4.5", "value": "ASN1:OCTET:hex:ff"}],
+        )
+        cert_valid.full_clean()
+
+    def test_custom_extension_invalid_hex_format(self):
+        """Test that malformed hex strings are caught and handled gracefully."""
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-bad-hex",
+            ca=ca,
+            extensions=[
+                {"oid": "1.2.3.4.5", "value": "ASN1:OCTET:hex:not-a-hex-string"}
+            ],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.full_clean()
+        self.assertIn("Invalid hex string provided for ASN1 value", str(cm.exception))
+
+    def test_custom_extension_rejects_reserved_oid(self):
+        """Test that standard/reserved OIDs cannot be injected as custom extensions."""
+        reserved_oid = ExtensionOID.EXTENDED_KEY_USAGE.dotted_string
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-reserved-oid",
+            ca=ca,
+            extensions=[{"oid": reserved_oid, "value": "ASN1:UTF8:string:test"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.full_clean()
+        self.assertIn(
+            f"Reserved extension OID is not allowed: {reserved_oid}", str(cm.exception)
+        )
+
+    def test_custom_extension_duplicate_oid(self):
+        """Test that duplicate custom OIDs are rejected."""
+        oid = "1.3.6.1.4.1.55555.1.12"
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-dup-oid",
+            ca=ca,
+            extensions=[
+                {"oid": oid, "value": "ASN1:UTF8:string:test1"},
+                {"oid": oid, "value": "ASN1:UTF8:string:test2"},
+            ],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.full_clean()
+        self.assertIn(
+            f"Duplicate extension OID is not allowed: {oid}", str(cm.exception)
+        )
+
+    def test_name_based_missing_value(self):
+        extensions = [{"name": "nsCertType"}]
+        try:
+            self._create_cert(extensions=extensions)
+        except ValidationError as e:
+            msg = e.message_dict.get("__all__", [str(e)])[0]
+            self.assertIn("Extension format invalid", str(msg))
+        else:
+            self.fail("ValidationError not raised")
+
+    def test_name_based_invalid_critical_type(self):
+        extensions = [{"name": "nsCertType", "value": "client", "critical": "yes"}]
+        try:
+            self._create_cert(extensions=extensions)
+        except ValidationError as e:
+            msg = e.message_dict.get("__all__", [str(e)])[0]
+            self.assertIn("Extension format invalid", str(msg))
+        else:
+            self.fail("ValidationError not raised")
+
+    def test_duplicate_oid_direct_save(self):
+        oid = "1.3.6.1.4.1.55555.1.12"
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-dup-direct",
+            ca=ca,
+            extensions=[
+                {"oid": oid, "value": "ASN1:UTF8:string:test1"},
+                {"oid": oid, "value": "ASN1:UTF8:string:test2"},
+            ],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn(
+            f"Duplicate extension OID is not allowed: {oid}", str(cm.exception)
+        )
+
+    def test_reserved_oid_direct_save(self):
+        reserved_oid = ExtensionOID.EXTENDED_KEY_USAGE.dotted_string
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-res-direct",
+            ca=ca,
+            extensions=[{"oid": reserved_oid, "value": "ASN1:UTF8:string:test1"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn(
+            f"Reserved extension OID is not allowed: {reserved_oid}", str(cm.exception)
+        )
+
+    def test_invalid_oid_direct_save(self):
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-invalid-oid-direct",
+            ca=ca,
+            extensions=[{"oid": "invalid.oid", "value": "ASN1:UTF8:string:test"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn("Invalid OID format", str(cm.exception))
+
+    def test_invalid_extended_key_usage(self):
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-invalid-eku",
+            ca=ca,
+            extensions=[{"name": "extendedKeyUsage", "value": "invalidEKU"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn("Unsupported extendedKeyUsage value", str(cm.exception))
+
+    def test_invalid_nscomment(self):
+        ca = self._create_ca()
+        cert1 = Cert(
+            name="test-empty-comment",
+            ca=ca,
+            extensions=[{"name": "nsComment", "value": ""}],
+        )
+        with self.assertRaises(ValidationError) as cm1:
+            cert1.save()
+        self.assertIn("nsComment extension requires a value", str(cm1.exception))
+
+        cert2 = Cert(
+            name="test-long-comment",
+            ca=ca,
+            extensions=[{"name": "nsComment", "value": "a" * 256}],
+        )
+        with self.assertRaises(ValidationError) as cm2:
+            cert2.save()
+        self.assertIn("exceeds maximum length", str(cm2.exception))
+
+    def test_invalid_nscerttype(self):
+        ca = self._create_ca()
+        cert = Cert(
+            name="test-invalid-nscerttype",
+            ca=ca,
+            extensions=[{"name": "nsCertType", "value": "invalidType"}],
+        )
+        with self.assertRaises(ValidationError) as cm:
+            cert.save()
+        self.assertIn("Unsupported nsCertType value", str(cm.exception))

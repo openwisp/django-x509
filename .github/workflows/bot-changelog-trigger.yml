@@ -1,0 +1,44 @@
+name: Changelog Bot Trigger
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions: {}
+
+jobs:
+  check:
+    name: Check approved pull request
+    if: >
+      github.repository == 'openwisp/django-x509' &&
+      github.event.review.state == 'approved' &&
+      (github.event.review.author_association == 'OWNER' ||
+        github.event.review.author_association == 'MEMBER' ||
+        github.event.review.author_association == 'COLLABORATOR')
+    concurrency:
+      group: changelog-trigger-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for noteworthy PR
+        id: check
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if echo "$PR_TITLE" | grep -qiE '^\[(feature|fix|change!?)\]'; then
+            echo "has_noteworthy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save PR metadata
+        if: steps.check.outputs.has_noteworthy == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: echo "$PR_NUMBER" > pr_number
+
+      - name: Upload PR metadata
+        if: steps.check.outputs.has_noteworthy == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: changelog-metadata
+          path: pr_number
+          retention-days: 1
