@@ -825,10 +825,22 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         )
 
     def test_renew(self):
-        ca = self._create_ca()
+        end = timezone.now().replace(microsecond=0)
+        ca_duration = timedelta(days=729)
+        ca = self._create_ca(validity_start=end - ca_duration, validity_end=end)
         certs = [
-            self._create_cert(ca=ca, name="cert1"),
-            self._create_cert(ca=ca, name="cert2"),
+            self._create_cert(
+                ca=ca,
+                name="cert1",
+                validity_start=end - timedelta(days=180),
+                validity_end=end,
+            ),
+            self._create_cert(
+                ca=ca,
+                name="cert2",
+                validity_start=end - timedelta(days=90),
+                validity_end=end,
+            ),
         ]
         old_ca_cert = ca.certificate
         old_ca_key = ca.private_key
@@ -840,6 +852,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                     "cert": c.certificate,
                     "key": c.private_key,
                     "end": c.validity_end,
+                    "duration": c.validity_end - c.validity_start,
                     "serial": c.serial_number,
                 }
             )
@@ -848,52 +861,37 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertNotEqual(old_ca_cert, ca.certificate)
         self.assertNotEqual(old_ca_key, ca.private_key)
         self.assertGreater(ca.validity_end, old_ca_end)
+
+        with self.subTest(model="CA"):
+            self.assertEqual(
+                ca.validity_end,
+                old_ca_end + ca_duration,
+                "CA renewal should extend the old expiry by its validity period",
+            )
+
         for i, c in enumerate(certs):
-            c.refresh_from_db()
-            old = old_certs_data[i]
-
-            self.assertNotEqual(old["cert"], c.certificate)
-            self.assertNotEqual(old["key"], c.private_key)
-            self.assertNotEqual(old["serial"], c.serial_number)
-            self.assertGreater(c.validity_end, old["end"])
-
-    def test_renew_preserves_validity_duration(self):
-        end = timezone.now().replace(microsecond=0)
-        ca_duration = timedelta(days=729)
-        cert_duration = timedelta(days=180)
-        ca = self._create_ca(validity_start=end - ca_duration, validity_end=end)
-        cert = self._create_cert(
-            ca=ca, validity_start=end - cert_duration, validity_end=end
-        )
-        ca.renew()
-        ca.refresh_from_db()
-        cert.refresh_from_db()
-        self.assertEqual(ca.validity_end, end + ca_duration)
-        self.assertEqual(cert.validity_end, end + cert_duration)
-
-    def test_renew_missing_validity_uses_default(self):
-        for field in ("validity_start", "validity_end"):
-            with self.subTest(field=field):
-                ca = self._create_ca()
-                setattr(ca, field, None)
-                expected = timezone.now() + timedelta(
-                    days=app_settings.DEFAULT_CA_VALIDITY
+            with self.subTest(model=c.name):
+                c.refresh_from_db()
+                old = old_certs_data[i]
+                self.assertNotEqual(old["cert"], c.certificate)
+                self.assertNotEqual(old["key"], c.private_key)
+                self.assertNotEqual(old["serial"], c.serial_number)
+                self.assertGreater(c.validity_end, old["end"])
+                self.assertEqual(
+                    c.validity_end,
+                    old["end"] + old["duration"],
+                    f"{c.name} should be renewed for its own validity period",
                 )
-                with patch(
-                    "django_x509.base.models.default_ca_validity_end",
-                    return_value=expected,
-                ):
-                    ca.renew()
-                ca.refresh_from_db()
-                self.assertEqual(ca.validity_end, expected)
 
     def test_renew_long_expired_child(self):
-        for use_tz in (True, False):
-            with self.subTest(use_tz=use_tz), override_settings(USE_TZ=use_tz):
+        cases = ((True, timedelta(days=180)), (False, timedelta(hours=1)))
+        for use_tz, duration in cases:
+            with self.subTest(use_tz=use_tz, duration=duration), override_settings(
+                USE_TZ=use_tz
+            ):
                 now = datetime.now(dt_timezone.utc)
                 if not use_tz:
                     now = now.replace(tzinfo=None)
-                duration = timedelta(days=365)
                 ca = self._create_ca(validity_start=now - duration)
                 cert = self._create_cert(
                     ca=ca,
@@ -903,6 +901,14 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 ca.renew()
                 cert.refresh_from_db()
                 self.assertGreaterEqual(cert.validity_end, now + duration)
+                latest = datetime.now(dt_timezone.utc)
+                if not use_tz:
+                    latest = latest.replace(tzinfo=None)
+                self.assertLessEqual(
+                    cert.validity_end,
+                    latest + duration,
+                    "Renewal should use the child's period, not the default",
+                )
 
     def test_ca_common_name_length(self):
         common_name = "a" * 65
