@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
@@ -910,6 +910,7 @@ class AbstractCa(BaseX509):
             revoked=True, validity_start__lte=now, validity_end__gte=now
         )
 
+    @transaction.atomic
     def renew(self):
         """
         Renew the certificate, private key and
@@ -918,7 +919,9 @@ class AbstractCa(BaseX509):
         super().renew()
         children = getattr(self, "issued_certificates", getattr(self, "cert_set", None))
         if children:
-            for cert in children.all():
+            for cert in children.select_for_update().iterator():
+                if cert.revoked:
+                    continue
                 cert.ca = self
                 cert.renew()
 
@@ -991,11 +994,27 @@ class AbstractCert(BaseX509):
         verbose_name_plural = _("certificates")
         unique_together = ("ca", "serial_number")
 
+    @transaction.atomic
+    def renew(self):
+        self.refresh_from_db(
+            fields=["revoked", "revoked_at"],
+            from_queryset=self.__class__._base_manager.select_for_update(),
+        )
+        if self.revoked:
+            raise ValidationError(
+                _("Cannot renew a revoked certificate."), code="revoked"
+            )
+        return super().renew()
+
+    @transaction.atomic
     def revoke(self):
         """
         * flag certificate as revoked
         * fill in revoked_at DateTimeField
         """
+        self.refresh_from_db(
+            from_queryset=self.__class__._base_manager.select_for_update()
+        )
         now = timezone.now()
         self.revoked = True
         self.revoked_at = now
