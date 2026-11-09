@@ -866,8 +866,9 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             with self.subTest(stale=instance is stale):
                 with self.assertRaisesMessage(
                     ValidationError, "Cannot renew a revoked certificate."
-                ):
+                ) as error:
                     instance.renew()
+                self.assertEqual(error.exception.code, "revoked")
                 cert.refresh_from_db()
                 self.assertTrue(cert.revoked)
                 self.assertEqual(int(cert.serial_number), int(serial))

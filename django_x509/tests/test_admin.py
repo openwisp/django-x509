@@ -342,11 +342,16 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
         req.POST.update({"post": "yes"})
         self.cert.revoke()
         active = Cert.objects.create(name="active_cert", ca=self.cert.ca)
+        self.cert.revoked = False
+        active.revoked = True
         ma = self.cert_admin(Cert, self.site)
         with patch.object(
             Cert,
             "renew",
-            side_effect=[ValidationError("revoked"), ValidationError("Invalid data")],
+            side_effect=[
+                ValidationError("revoked", code="revoked"),
+                ValidationError("Invalid data"),
+            ],
         ):
             ma.renew_cert(req, [self.cert, active])
         self.assertEqual(

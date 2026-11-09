@@ -262,7 +262,7 @@ class AbstractCertAdmin(BaseAdmin):
                 try:
                     cert.renew()
                 except ValidationError as error:
-                    if cert.revoked:
+                    if getattr(error, "code", None) == "revoked":
                         revoked_rows += 1
                     else:
                         other_errors = True

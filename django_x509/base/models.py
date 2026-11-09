@@ -1000,7 +1000,9 @@ class AbstractCert(BaseX509):
             from_queryset=self.__class__._base_manager.select_for_update()
         )
         if self.revoked:
-            raise ValidationError(_("Cannot renew a revoked certificate."))
+            raise ValidationError(
+                _("Cannot renew a revoked certificate."), code="revoked"
+            )
         return super().renew()
 
     @transaction.atomic
