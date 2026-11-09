@@ -856,6 +856,39 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         ca.save()
         self.assertIsInstance(ca.pkey, rsa.RSAPrivateKey)
 
+    def test_renew_revoked(self):
+        cert = self._create_cert()
+        stale = Cert.objects.get(pk=cert.pk)
+        cert.revoke()
+        serial = cert.serial_number
+        certificate = cert.certificate
+        for instance in (cert, stale):
+            with self.subTest(stale=instance is stale):
+                with self.assertRaisesMessage(
+                    ValidationError, "Cannot renew a revoked certificate."
+                ):
+                    instance.renew()
+                cert.refresh_from_db()
+                self.assertTrue(cert.revoked)
+                self.assertEqual(int(cert.serial_number), int(serial))
+                self.assertEqual(cert.certificate, certificate)
+                crl = x509.load_pem_x509_crl(cert.ca.crl)
+                self.assertIn(int(serial), [entry.serial_number for entry in crl])
+
+    def test_revoke_stale_after_renewal(self):
+        cert = self._create_cert()
+        stale = Cert.objects.get(pk=cert.pk)
+        cert.renew()
+        serial = cert.serial_number
+        certificate = cert.certificate
+        stale.revoke()
+        cert.refresh_from_db()
+        self.assertTrue(cert.revoked)
+        self.assertEqual(int(cert.serial_number), int(serial))
+        self.assertEqual(cert.certificate, certificate)
+        crl = x509.load_pem_x509_crl(cert.ca.crl)
+        self.assertIn(int(serial), [entry.serial_number for entry in crl])
+
     def test_renew(self):
         cert = self._create_cert()
         old_cert = cert.certificate

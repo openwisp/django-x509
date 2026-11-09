@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import messages
 from django.contrib.admin import ModelAdmin, action
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import path, reverse
@@ -256,8 +257,16 @@ class AbstractCertAdmin(BaseAdmin):
         if request.POST.get("post"):
             renewed_rows = 0
             for cert in queryset:
-                cert.renew()
+                try:
+                    cert.renew()
+                except ValidationError as error:
+                    self.message_user(
+                        request, "; ".join(error.messages), level=messages.ERROR
+                    )
+                    continue
                 renewed_rows += 1
+            if not renewed_rows:
+                return
             message = ngettext(
                 "%(renewed_rows)d Certificate has been successfully renewed",
                 "%(renewed_rows)d Certificates have been successfully renewed",

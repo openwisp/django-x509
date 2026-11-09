@@ -451,9 +451,11 @@ Signals
 This signal is emitted whenever the ``renew()`` method of a ``Ca`` or
 ``Cert`` instance completes successfully.
 
-When a ``Ca`` instance is renewed, all of its child certificates are
-renewed automatically. As a result, this signal is emitted once for the
-renewed CA and once for each renewed child certificate.
+When a ``Ca`` instance is renewed, its non-revoked child certificates are
+renewed automatically. Revoked certificates are not renewed, and calling
+``renew()`` on a revoked certificate raises ``ValidationError``. As a
+result, this signal is emitted once for the renewed CA and once for each
+renewed child certificate.
 
 The signal is sent synchronously from within ``renew()``, which may itself
 be running inside an outer database transaction. If the transaction is
