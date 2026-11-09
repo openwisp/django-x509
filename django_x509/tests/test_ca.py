@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import NameOID
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import http_date
@@ -888,6 +888,41 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         cert_obj = x509.load_pem_x509_certificate(cert.certificate.encode())
         pem_serial = cert_obj.serial_number
         self.assertEqual(int(cert.serial_number), pem_serial)
+
+    def test_renew_future_validity(self):
+        for use_tz in (True, False):
+            with self.subTest(use_tz=use_tz), override_settings(USE_TZ=use_tz):
+                now = timezone.now()
+                start = now + timedelta(days=4000)
+                end = start + timedelta(days=1)
+                ca = self._create_ca(validity_start=start, validity_end=end)
+                cert = self._create_cert(ca=ca, validity_start=start, validity_end=end)
+                renewal_time = datetime.now()
+                with patch("django_x509.base.models.datetime", wraps=datetime) as clock:
+                    clock.now.return_value = renewal_time
+                    ca.renew()
+                expected_start = (renewal_time - timedelta(days=1)).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                if use_tz:
+                    expected_start = expected_start.replace(tzinfo=dt_timezone.utc)
+                ca.refresh_from_db()
+                cert.refresh_from_db()
+                for instance in (ca, cert):
+                    with self.subTest(model=instance.__class__.__name__):
+                        self.assertEqual(instance.validity_start, expected_start)
+                        self.assertLess(instance.validity_start, now)
+                        self.assertGreater(instance.validity_end, now)
+                        self.assertEqual(
+                            instance.x509.not_valid_before_utc,
+                            instance.validity_start.replace(tzinfo=dt_timezone.utc),
+                        )
+                        self.assertEqual(
+                            instance.x509.not_valid_after_utc,
+                            instance.validity_end.replace(
+                                microsecond=0, tzinfo=dt_timezone.utc
+                            ),
+                        )
 
     def test_x509_renewed_signal_sent(self):
         ca = self._create_ca()
