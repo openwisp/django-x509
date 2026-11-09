@@ -806,6 +806,24 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             datetime_to_string(utc_datetime), utc_datetime.strftime(UTC_TIME)
         )
 
+    def test_renew_with_revoked_child(self):
+        ca = self._create_ca()
+        revoked = self._create_cert(ca=ca, name="revoked")
+        active = self._create_cert(ca=ca, name="active")
+        revoked.revoke()
+        serial = revoked.serial_number
+        active_serial = active.serial_number
+        ca.renew()
+        revoked.refresh_from_db()
+        active.refresh_from_db()
+        self.assertTrue(revoked.revoked)
+        self.assertEqual(int(revoked.serial_number), int(serial))
+        self.assertNotEqual(int(active.serial_number), int(active_serial))
+        self.assertIn(
+            int(serial),
+            [entry.serial_number for entry in get_crl_revoked_certs(ca.crl)],
+        )
+
     def test_renew(self):
         ca = self._create_ca()
         certs = [
