@@ -980,9 +980,10 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 ca = self._create_ca(validity_start=start, validity_end=end)
                 cert = self._create_cert(ca=ca, validity_start=start, validity_end=end)
                 renewal_time = datetime.now()
+                utc_now = datetime.now(dt_timezone.utc)
                 with patch("django_x509.base.models.datetime", wraps=datetime) as clock:
                     clock.now.side_effect = lambda tz=None: (
-                        datetime.now(tz) if tz else renewal_time
+                        utc_now.astimezone(tz) if tz else renewal_time
                     )
                     ca.renew()
                 expected_start = (renewal_time - timedelta(days=1)).replace(
