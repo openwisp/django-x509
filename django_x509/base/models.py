@@ -965,7 +965,9 @@ class AbstractCa(BaseX509):
         Returns revoked certificates of this CA
         (does not include expired certificates)
         """
-        now = timezone.now()
+        now = datetime.now(dt_timezone.utc)
+        if not settings.USE_TZ:
+            now = now.replace(tzinfo=None)
         return self.cert_set.filter(
             revoked=True, validity_start__lte=now, validity_end__gte=now
         )
@@ -998,6 +1000,8 @@ class AbstractCa(BaseX509):
             self.private_key.encode(), **pkey_kwargs
         )
         now = timezone.now()
+        if timezone.is_naive(now):
+            now = timezone.make_aware(now, timezone.get_default_timezone())
         builder = (
             x509.CertificateRevocationListBuilder()
             .issuer_name(ca_cert.subject)
@@ -1008,6 +1012,10 @@ class AbstractCa(BaseX509):
         for cert in self.get_revoked_certs().iterator():
             revoked_at = cert.revoked_at or cert.modified
             crl_last_modified = max(crl_last_modified, revoked_at)
+            if timezone.is_naive(revoked_at):
+                revoked_at = timezone.make_aware(
+                    revoked_at, timezone.get_default_timezone()
+                )
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))

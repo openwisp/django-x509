@@ -420,6 +420,29 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
+    @override_settings(USE_TZ=False, TIME_ZONE="Europe/Athens")
+    def test_crl_renewed_certificate_with_local_time(self):
+        now = datetime.now(dt_timezone.utc).replace(tzinfo=None, microsecond=0)
+        ca = self._create_ca(
+            validity_start=now - timedelta(days=1),
+            validity_end=now + timedelta(days=1),
+        )
+        cert = self._create_cert(
+            ca=ca,
+            validity_start=now - timedelta(hours=2),
+            validity_end=now - timedelta(minutes=90),
+        )
+        cert.renew()
+        cert.revoke()
+        self.assertGreater(cert.x509.not_valid_after_utc, datetime.now(dt_timezone.utc))
+        crl = x509.load_pem_x509_crl(ca.crl)
+        self.assertEqual(
+            [entry.serial_number for entry in crl], [int(cert.serial_number)]
+        )
+        now = datetime.now(dt_timezone.utc)
+        self.assertLessEqual(crl.last_update_utc, now)
+        self.assertLessEqual(crl[0].revocation_date_utc, now)
+
     @patch("django_x509.base.models.timezone.now")
     def test_crl_revocation_dates(self, mocked_now):
         now = datetime.now(dt_timezone.utc).replace(microsecond=0)
