@@ -919,12 +919,12 @@ class BaseX509(models.Model):
                 end.day,
                 end.time(),
             ):
+                renewed_year = end.year + (end.year - start.year)
                 try:
-                    self.validity_end = end.replace(year=2 * end.year - start.year)
+                    self.validity_end = end.replace(year=renewed_year)
+                # February 29 does not exist in non-leap years.
                 except ValueError:
-                    self.validity_end = end.replace(
-                        year=2 * end.year - start.year, day=28
-                    )
+                    self.validity_end = end.replace(year=renewed_year, day=28)
             else:
                 self.validity_end = end + (end - start)
             now = datetime.now(dt_timezone.utc)
