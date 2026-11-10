@@ -441,7 +441,13 @@ tsND+97h9r73S+UTOhepQTDB
         )
         now = datetime.now(dt_timezone.utc)
         self.assertLessEqual(crl.last_update_utc, now)
-        self.assertLessEqual(crl[0].revocation_date_utc, now)
+        revoked_at = timezone.make_aware(
+            cert.revoked_at, timezone.get_default_timezone()
+        )
+        self.assertEqual(
+            crl[0].revocation_date_utc,
+            revoked_at.astimezone(dt_timezone.utc).replace(microsecond=0),
+        )
 
     @patch("django_x509.base.models.timezone.now")
     def test_crl_revocation_dates(self, mocked_now):
