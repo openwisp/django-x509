@@ -879,14 +879,69 @@ class BaseX509(models.Model):
         return _RESERVED_EXTENSION_OIDS
 
     def renew(self):
+        """Renew using the existing dates to honor the user's chosen validity period.
+
+        Generate a new key and certificate, reset the start date, and send the
+        renewal signal. Use the default period if validity dates are missing.
+        """
+        ca_end = None
+        if hasattr(self, "ca"):
+            ca_end = self.ca.x509.not_valid_after_utc
+            if ca_end <= datetime.now(dt_timezone.utc):
+                raise ValidationError(
+                    _("Cannot renew a certificate with an expired CA.")
+                )
         self.serial_number = self._generate_serial_number()
+        # Extend from the chosen expiry date to honor the user's intended validity.
+        start, end = self.validity_start, self.validity_end
+        if start and timezone.is_naive(start):
+            start = (
+                timezone.make_aware(start, timezone.get_default_timezone())
+                if settings.USE_TZ
+                else start.replace(tzinfo=dt_timezone.utc)
+            )
+        if end and timezone.is_naive(end):
+            end = (
+                timezone.make_aware(end, timezone.get_default_timezone())
+                if settings.USE_TZ
+                else end.replace(tzinfo=dt_timezone.utc)
+            )
+        if start:
+            start = start.astimezone(dt_timezone.utc)
+        if end:
+            end = end.astimezone(dt_timezone.utc)
         self.validity_start = default_validity_start()
         if settings.USE_TZ:
             self.validity_start = self.validity_start.replace(tzinfo=dt_timezone.utc)
-        if hasattr(self, "ca"):
+        if start and end and end > start:
+            if (start.month, start.day, start.time()) == (
+                end.month,
+                end.day,
+                end.time(),
+            ):
+                renewed_year = end.year + (end.year - start.year)
+                try:
+                    self.validity_end = end.replace(year=renewed_year)
+                # February 29 does not exist in non-leap years.
+                except ValueError:
+                    self.validity_end = end.replace(year=renewed_year, day=28)
+            else:
+                self.validity_end = end + (end - start)
+            now = datetime.now(dt_timezone.utc)
+            if self.validity_end <= now:
+                # Keep the chosen period when the extension is still expired.
+                self.validity_end = now + (end - start)
+            if not settings.USE_TZ:
+                self.validity_end = self.validity_end.replace(tzinfo=None)
+        elif hasattr(self, "ca"):
             self.validity_end = default_cert_validity_end()
         else:
             self.validity_end = default_ca_validity_end()
+        if ca_end is not None:
+            if not settings.USE_TZ:
+                ca_end = ca_end.replace(tzinfo=None)
+            # Clients may reject the certificate once its issuing CA expires.
+            self.validity_end = min(self.validity_end, ca_end)
         self._generate()
         self.save()
         x509_renewed.send_robust(sender=self.__class__, instance=self)
@@ -910,7 +965,9 @@ class AbstractCa(BaseX509):
         Returns revoked certificates of this CA
         (does not include expired certificates)
         """
-        now = timezone.now()
+        now = datetime.now(dt_timezone.utc)
+        if not settings.USE_TZ:
+            now = now.replace(tzinfo=None)
         return self.cert_set.filter(
             revoked=True, validity_start__lte=now, validity_end__gte=now
         )
@@ -943,6 +1000,8 @@ class AbstractCa(BaseX509):
             self.private_key.encode(), **pkey_kwargs
         )
         now = timezone.now()
+        if timezone.is_naive(now):
+            now = timezone.make_aware(now, timezone.get_default_timezone())
         builder = (
             x509.CertificateRevocationListBuilder()
             .issuer_name(ca_cert.subject)
@@ -953,6 +1012,10 @@ class AbstractCa(BaseX509):
         for cert in self.get_revoked_certs().iterator():
             revoked_at = cert.revoked_at or cert.modified
             crl_last_modified = max(crl_last_modified, revoked_at)
+            if timezone.is_naive(revoked_at):
+                revoked_at = timezone.make_aware(
+                    revoked_at, timezone.get_default_timezone()
+                )
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))
