@@ -1,14 +1,16 @@
 import collections
 import uuid
 from datetime import datetime, timedelta
+from datetime import timezone as datetime_timezone
 
 import OpenSSL
 import swapper
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
+from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
@@ -203,12 +205,21 @@ class BaseX509(models.Model):
         self._verify_extension_format()
 
     def save(self, *args, **kwargs):
+        self._generate_if_needed()
+        super().save(*args, **kwargs)
+
+    def _generate_if_needed(self):
         if self._state.adding and not self.certificate and not self.private_key:
-            # auto generate serial number
             if not self.serial_number:
                 self.serial_number = self._generate_serial_number()
-            self._generate()
-        super().save(*args, **kwargs)
+            try:
+                self._generate()
+            except (crypto.Error, TypeError, ValueError) as error:
+                raise ValidationError(_("Invalid certificate parameters.")) from error
+
+    def full_clean(self, *args, **kwargs):
+        super().full_clean(*args, **kwargs)
+        self._generate_if_needed()
 
     @cached_property
     def x509(self):
@@ -284,6 +295,8 @@ class BaseX509(models.Model):
         (internal use only)
         generates a new x509 certificate (CA or end-entity)
         """
+        for attr in ("x509", "pkey", "x509_text"):
+            self.__dict__.pop(attr, None)
         key = crypto.PKey()
         key.generate_key(crypto.TYPE_RSA, int(self.key_length))
         cert = crypto.X509()
@@ -474,9 +487,54 @@ class BaseX509(models.Model):
         return cert
 
     def renew(self):
-        self._generate()
+        start, end = self.validity_start, self.validity_end
+        if start and end:
+            if timezone.is_naive(start):
+                start = timezone.make_aware(start, datetime_timezone.utc)
+            if timezone.is_naive(end):
+                end = timezone.make_aware(end, datetime_timezone.utc)
+        ca_end = None
+        if hasattr(self, "ca"):
+            ca_cert = x509.load_pem_x509_certificate(self.ca.certificate.encode())
+            ca_end = ca_cert.not_valid_after_utc
+            if ca_end <= datetime.now(datetime_timezone.utc):
+                raise ValidationError(
+                    _("Cannot renew a certificate with an expired CA.")
+                )
         self.serial_number = self._generate_serial_number()
-        self.validity_end = self.__class__().validity_end
+        self.validity_start = default_validity_start()
+        if settings.USE_TZ:
+            self.validity_start = timezone.make_aware(
+                self.validity_start, datetime_timezone.utc
+            )
+        if start and end and end > start:
+            start = start.astimezone(datetime_timezone.utc)
+            end = end.astimezone(datetime_timezone.utc)
+            if (start.month, start.day, start.time()) == (
+                end.month,
+                end.day,
+                end.time(),
+            ):
+                try:
+                    renewed_end = end.replace(year=end.year + end.year - start.year)
+                except ValueError:
+                    renewed_end = end.replace(
+                        year=end.year + end.year - start.year, day=28
+                    )
+            else:
+                renewed_end = end + (end - start)
+            if renewed_end <= datetime.now(datetime_timezone.utc):
+                renewed_end = datetime.now(datetime_timezone.utc) + (end - start)
+        else:
+            renewed_end = self.__class__().validity_end
+            if timezone.is_naive(renewed_end):
+                renewed_end = timezone.make_aware(renewed_end, datetime_timezone.utc)
+        if ca_end:
+            renewed_end = min(renewed_end, ca_end)
+        self.validity_end = (
+            renewed_end if settings.USE_TZ else renewed_end.replace(tzinfo=None)
+        )
+        self._generate()
         self.save()
 
     def _generate_serial_number(self):
@@ -503,13 +561,17 @@ class AbstractCa(BaseX509):
             revoked=True, validity_start__lte=now, validity_end__gte=now
         )
 
+    @transaction.atomic
     def renew(self):
         """
         Renew the certificate, private key and
         validity end date of a CA
         """
         super().renew()
-        for cert in self.cert_set.all():
+        for cert in self.cert_set.select_for_update().iterator():
+            if cert.revoked:
+                continue
+            cert.ca = self
             cert.renew()
 
     @property
@@ -533,11 +595,14 @@ class AbstractCa(BaseX509):
             .last_update(now)
             .next_update(now + timedelta(days=1))
         )
-        for cert in self.get_revoked_certs():
+        crl_last_modified = self.created
+        for cert in self.get_revoked_certs().iterator():
+            revoked_at = cert.revoked_at or cert.modified
+            crl_last_modified = max(crl_last_modified, revoked_at)
             revoked = (
                 x509.RevokedCertificateBuilder()
                 .serial_number(int(cert.serial_number))
-                .revocation_date(now)
+                .revocation_date(revoked_at)
                 .add_extension(
                     x509.CRLReason(x509.ReasonFlags.unspecified),
                     critical=False,
@@ -550,6 +615,7 @@ class AbstractCa(BaseX509):
             algorithm=hashes.SHA256(),
             backend=backend,
         )
+        self.crl_last_modified = crl_last_modified
         return crl.public_bytes(encoding=serialization.Encoding.PEM)
 
 
@@ -580,11 +646,23 @@ class AbstractCert(BaseX509):
         verbose_name_plural = _("certificates")
         unique_together = ("ca", "serial_number")
 
+    @transaction.atomic
+    def renew(self):
+        current = self.__class__._base_manager.select_for_update().get(pk=self.pk)
+        if current.revoked:
+            raise ValidationError(
+                _("Cannot renew a revoked certificate."), code="revoked"
+            )
+        return super().renew()
+
+    @transaction.atomic
     def revoke(self):
         """
         * flag certificate as revoked
         * fill in revoked_at DateTimeField
         """
+        self.__class__._base_manager.select_for_update().get(pk=self.pk)
+        self.refresh_from_db()
         now = timezone.now()
         self.revoked = True
         self.revoked_at = now

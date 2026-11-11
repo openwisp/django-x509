@@ -69,6 +69,15 @@ Current features
   certificates/CAs
 - Passphrase protected x509 content will be shown encrypted in the web UI
 
+Certificate renewal preserves the chosen validity period and starts a new
+validity interval. A certificate cannot be renewed beyond its CA's expiry
+or after the CA has expired. Revoked certificates cannot be renewed and
+are skipped when renewing a CA.
+
+CRL entries use the certificate's revocation date. For older records
+without a revocation date, the certificate's last modification date is
+used instead. CRL downloads include a ``Last-Modified`` header.
+
 Project goals
 -------------
 

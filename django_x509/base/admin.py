@@ -1,10 +1,12 @@
 from django import forms
 from django.contrib import messages
 from django.contrib.admin import ModelAdmin, action
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.utils.http import http_date
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
@@ -148,7 +150,12 @@ class AbstractCaAdmin(BaseAdmin):
             return HttpResponse(_("Forbidden"), status=403, content_type="text/plain")
         instance = get_object_or_404(self.model, pk=pk)
         return HttpResponse(
-            instance.crl, status=200, content_type="application/x-pem-file"
+            instance.crl,
+            status=200,
+            content_type="application/x-pem-file",
+            headers={
+                "Last-Modified": http_date(instance.crl_last_modified.timestamp())
+            },
         )
 
     @action(description=_("Renew selected CAs"), permissions=["change"])
@@ -249,15 +256,44 @@ class AbstractCertAdmin(BaseAdmin):
     def renew_cert(self, request, queryset):
         if request.POST.get("post"):
             renewed_rows = 0
+            revoked_rows = 0
+            other_errors = False
             for cert in queryset:
-                cert.renew()
+                try:
+                    cert.renew()
+                except ValidationError as error:
+                    if getattr(error, "code", None) == "revoked":
+                        revoked_rows += 1
+                    else:
+                        other_errors = True
+                        self.message_user(
+                            request, "; ".join(error.messages), level=messages.ERROR
+                        )
+                    continue
                 renewed_rows += 1
-            message = ngettext(
-                "%(renewed_rows)d Certificate has been successfully renewed",
-                "%(renewed_rows)d Certificates have been successfully renewed",
-                renewed_rows,
-            ) % {"renewed_rows": renewed_rows}
-            self.message_user(request, message, level=messages.SUCCESS)
+            if renewed_rows:
+                message = ngettext(
+                    "%(renewed_rows)d Certificate has been successfully renewed",
+                    "%(renewed_rows)d Certificates have been successfully renewed",
+                    renewed_rows,
+                ) % {"renewed_rows": renewed_rows}
+                self.message_user(request, message, level=messages.SUCCESS)
+            if revoked_rows:
+                if not renewed_rows and not other_errors:
+                    message = _(
+                        "Renewal failed because all selected certificates "
+                        "are already revoked."
+                    )
+                else:
+                    message = _(
+                        "Some certificates were not renewed because they are "
+                        "already revoked."
+                    )
+                self.message_user(
+                    request,
+                    message,
+                    level=messages.WARNING if renewed_rows else messages.ERROR,
+                )
         else:
             return render(
                 request,

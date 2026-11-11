@@ -516,6 +516,67 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(old_ca_end, cert.ca.validity_end)
         self.assertEqual(old_ca_serial_number, cert.ca.serial_number)
 
+    def test_renewed_certificate_matches_database(self):
+        cert = self._create_cert()
+        cert.renew()
+        cert.refresh_from_db()
+        parsed = crypto.load_certificate(crypto.FILETYPE_PEM, cert.certificate)
+        self.assertEqual(parsed.get_serial_number(), int(cert.serial_number))
+        self.assertEqual(
+            parsed.get_notAfter().decode(),
+            cert.validity_end.strftime(generalized_time),
+        )
+
+    def test_revoked_certificate_cannot_be_renewed(self):
+        cert = self._create_cert()
+        stale = Cert.objects.get(pk=cert.pk)
+        cert.revoke()
+        with self.assertRaises(ValidationError):
+            stale.renew()
+        cert.refresh_from_db()
+        self.assertTrue(cert.revoked)
+
+    def test_revoke_does_not_restore_stale_certificate(self):
+        cert = self._create_cert()
+        stale = Cert.objects.get(pk=cert.pk)
+        cert.renew()
+        renewed_certificate = cert.certificate
+        stale.revoke()
+        stale.refresh_from_db()
+        self.assertTrue(stale.revoked)
+        self.assertEqual(stale.certificate, renewed_certificate)
+
+    def test_renew_preserves_duration_and_caps_at_ca_expiry(self):
+        ca = self._create_ca()
+        now = timezone.now().replace(microsecond=0)
+        cert = self._create_cert(
+            ca=ca,
+            validity_start=now - timedelta(days=10),
+            validity_end=now + timedelta(days=10),
+        )
+        cert.renew()
+        self.assertEqual(cert.validity_end, now + timedelta(days=30))
+        cert.validity_end = ca.validity_end
+        cert.save()
+        cert.renew()
+        ca_parsed = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
+        self.assertEqual(
+            cert.validity_end.strftime(generalized_time),
+            ca_parsed.get_notAfter().decode(),
+        )
+
+    def test_invalid_extension_is_rejected_during_validation(self):
+        ca = self._create_ca()
+        cert = Cert(
+            ca=ca,
+            name="invalid",
+            extensions=[
+                {"name": "unknownExtension", "critical": False, "value": "test"}
+            ],
+        )
+        with self.assertRaises(ValidationError):
+            cert.full_clean()
+
     def test_cert_common_name_length(self):
         common_name = (
             "this is a very very very very very very"

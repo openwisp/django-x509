@@ -304,3 +304,19 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
             message="1 Certificate has been successfully renewed",
             required_perms=["change"],
         )
+
+    def test_renew_cert_action_skips_revoked(self):
+        req = deepcopy(request)
+        ca = Ca.objects.create(name="test_ca")
+        revoked = Cert.objects.create(name="revoked", ca=ca)
+        revoked.revoke()
+        active = Cert.objects.create(name="active", ca=ca)
+        old_revoked = revoked.certificate
+        old_active = active.certificate
+        req.POST.update({"post": "yes"})
+        self.cert_admin(Cert, self.site).renew_cert(req, [revoked, active])
+        revoked.refresh_from_db()
+        active.refresh_from_db()
+        self.assertEqual(revoked.certificate, old_revoked)
+        self.assertNotEqual(active.certificate, old_active)
+        self.assertEqual(len(req.get_message_strings()), 2)

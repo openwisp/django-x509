@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import http_date
 from OpenSSL import crypto
 from swapper import load_model
 
@@ -319,6 +320,22 @@ WRyKPvMvJzWT
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
+    def test_crl_preserves_revocation_date(self):
+        ca, cert = self._prepare_revoked()
+        revoked_at = timezone.now() - timedelta(days=2)
+        Cert.objects.filter(pk=cert.pk).update(revoked_at=revoked_at)
+        revoked = get_crl_revoked_certs(ca.crl)[0]
+        self.assertEqual(revoked.revocation_date_utc, revoked_at.replace(microsecond=0))
+
+    def test_crl_uses_modified_if_revocation_date_is_missing(self):
+        ca, cert = self._prepare_revoked()
+        Cert.objects.filter(pk=cert.pk).update(revoked_at=None)
+        cert.refresh_from_db()
+        revoked = get_crl_revoked_certs(ca.crl)[0]
+        self.assertEqual(
+            revoked.revocation_date_utc, cert.modified.replace(microsecond=0)
+        )
+
     def test_crl_view(self):
         ca, cert = self._prepare_revoked()
         path = reverse("admin:crl", args=[ca.pk])
@@ -329,6 +346,9 @@ WRyKPvMvJzWT
         )
         response = self.client.get(path)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Last-Modified"], http_date(cert.revoked_at.timestamp())
+        )
         revoked_list = get_crl_revoked_certs(response.content)
         self.assertIsNotNone(revoked_list)
         self.assertEqual(len(revoked_list), 1)
@@ -667,6 +687,14 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertNotEqual(old_cert2_key, cert2.private_key)
         self.assertLess(old_cert2_end, cert2.validity_end)
         self.assertNotEqual(old_cert2_serial_number, cert2.serial_number)
+
+    def test_ca_renewal_skips_revoked_certificate(self):
+        ca, cert = self._prepare_revoked()
+        certificate = cert.certificate
+        ca.renew()
+        cert.refresh_from_db()
+        self.assertEqual(cert.certificate, certificate)
+        self.assertTrue(cert.revoked)
 
     def test_ca_common_name_length(self):
         common_name = (
