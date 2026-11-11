@@ -1064,10 +1064,12 @@ class AbstractCert(BaseX509):
 
     @transaction.atomic
     def renew(self):
-        self.refresh_from_db(
-            fields=["revoked", "revoked_at"],
-            from_queryset=self.__class__._base_manager.select_for_update(),
+        current = (
+            self.__class__._base_manager.using(self._state.db)
+            .select_for_update()
+            .get(pk=self.pk)
         )
+        self.revoked, self.revoked_at = current.revoked, current.revoked_at
         if self.revoked:
             raise ValidationError(
                 _("Cannot renew a revoked certificate."), code="revoked"
@@ -1080,9 +1082,10 @@ class AbstractCert(BaseX509):
         * flag certificate as revoked
         * fill in revoked_at DateTimeField
         """
-        self.refresh_from_db(
-            from_queryset=self.__class__._base_manager.select_for_update()
+        self.__class__._base_manager.using(self._state.db).select_for_update().get(
+            pk=self.pk
         )
+        self.refresh_from_db()
         now = timezone.now()
         self.revoked = True
         self.revoked_at = now
