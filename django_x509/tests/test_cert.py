@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import ExtensionOID, NameOID
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from openwisp_utils.tests import AssertNumQueriesSubTestMixin, catch_signal
 
 from django_x509.base.models import MAX_CUSTOM_EXTENSION_PAYLOAD_LEN
@@ -903,8 +903,13 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         )
         self.assertIsNotNone(key)
 
+    @override_settings(USE_TZ=True, TIME_ZONE="Europe/Rome")
     def test_renew(self):
-        cert = self._create_cert()
+        with self.assertWarns(RuntimeWarning) as warning:
+            cert = self._create_cert()
+        self.assertIn("received a naive datetime", str(warning.warning))
+        saved = Cert.objects.get(pk=cert.pk)
+        expected_end = saved.validity_end + (saved.validity_end - saved.validity_start)
         old_cert = cert.certificate
         old_key = cert.private_key
         old_end = cert.validity_end
@@ -918,6 +923,9 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertNotEqual(old_cert, cert.certificate)
         self.assertNotEqual(old_key, cert.private_key)
         self.assertGreater(cert.validity_end, old_end)
+        self.assertEqual(
+            cert.validity_end, expected_end, "Renewal should use saved dates"
+        )
         self.assertNotEqual(old_serial_number, cert.serial_number)
         ca = cert.ca
         ca.refresh_from_db()
@@ -925,6 +933,97 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertEqual(old_ca_key, ca.private_key)
         self.assertEqual(old_ca_end, ca.validity_end)
         self.assertEqual(old_ca_serial_number, ca.serial_number)
+
+    @patch("django_x509.base.models.datetime", wraps=datetime)
+    def test_renew_preserves_validity_duration(self, clock):
+        clock.now.side_effect = lambda tz=None: datetime(2026, 11, 9, tzinfo=tz)
+        ca = self._create_ca(
+            validity_start=datetime(2026, 11, 8, tzinfo=dt_timezone.utc),
+            validity_end=datetime(2200, 1, 1, tzinfo=dt_timezone.utc),
+        )
+        cases = (
+            ((2024, 11, 10), (2026, 11, 9), (2028, 11, 7)),
+            ((2024, 12, 30), (2026, 12, 30), (2028, 12, 30)),
+            ((2092, 2, 29), (2096, 2, 29), (2100, 2, 28)),
+        )
+        for start, end, renewed_end in cases:
+            with self.subTest(start=start, end=end):
+                cert = self._create_cert(
+                    ca=ca,
+                    validity_start=datetime(*start, tzinfo=dt_timezone.utc),
+                    validity_end=datetime(*end, tzinfo=dt_timezone.utc),
+                )
+                cert.renew()
+                cert.refresh_from_db()
+                self.assertEqual(
+                    cert.validity_end,
+                    datetime(*renewed_end, tzinfo=dt_timezone.utc),
+                    "Renewal should extend the old expiry",
+                )
+
+    def test_renew_missing_validity_uses_default(self):
+        ca = self._create_ca(validity_start=datetime.now(dt_timezone.utc))
+        for field in ("validity_start", "validity_end", "invalid_period"):
+            with self.subTest(field=field):
+                cert = self._create_cert(
+                    ca=ca, validity_start=datetime.now(dt_timezone.utc)
+                )
+                if field == "invalid_period":
+                    cert.validity_start = cert.validity_end
+                else:
+                    setattr(cert, field, None)
+                expected = datetime.now(dt_timezone.utc) + timedelta(
+                    days=app_settings.DEFAULT_CERT_VALIDITY
+                )
+                with patch(
+                    "django_x509.base.models.default_cert_validity_end",
+                    return_value=expected,
+                ):
+                    cert.renew()
+                cert.refresh_from_db()
+                self.assertEqual(cert.validity_end, expected)
+
+    def test_renew_ca_validity(self):
+        for use_tz in (True, False):
+            with self.subTest(use_tz=use_tz), override_settings(USE_TZ=use_tz):
+                now = datetime.now(dt_timezone.utc).replace(microsecond=0)
+                if not use_tz:
+                    now = now.replace(tzinfo=None)
+                ca_end = now + timedelta(days=600)
+                ca = self._create_ca(
+                    validity_start=now - timedelta(days=365), validity_end=ca_end
+                )
+                for duration in (timedelta(days=90), timedelta(days=729)):
+                    with self.subTest(duration=duration):
+                        cert = self._create_cert(
+                            ca=ca, validity_start=now - duration, validity_end=now
+                        )
+                        cert.renew()
+                        cert.refresh_from_db()
+                        self.assertEqual(cert.validity_end, min(now + duration, ca_end))
+                        self.assertEqual(
+                            cert.x509.not_valid_after_utc,
+                            cert.validity_end.replace(tzinfo=dt_timezone.utc),
+                        )
+
+        with self.subTest(case="expired CA"):
+            now = datetime.now(dt_timezone.utc).replace(microsecond=0)
+            ca = self._create_ca(
+                validity_start=now - timedelta(days=365),
+                validity_end=now - timedelta(days=1),
+            )
+            cert = self._create_cert(ca=ca, validity_start=now - timedelta(days=30))
+            old_certificate = cert.certificate
+            old_serial = cert.serial_number
+            old_start = cert.validity_start
+            with self.assertRaisesMessage(
+                ValidationError, "Cannot renew a certificate with an expired CA."
+            ):
+                cert.renew()
+            self.assertEqual(cert.serial_number, old_serial)
+            self.assertEqual(cert.validity_start, old_start)
+            cert.refresh_from_db()
+            self.assertEqual(cert.certificate, old_certificate)
 
     def test_x509_renewed_signal_sent(self):
         cert = self._create_cert()

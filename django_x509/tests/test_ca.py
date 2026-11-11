@@ -420,6 +420,35 @@ tsND+97h9r73S+UTOhepQTDB
         self.assertEqual(len(revoked_list), 1)
         self.assertEqual(revoked_list[0].serial_number, int(cert.serial_number))
 
+    @override_settings(USE_TZ=False, TIME_ZONE="Europe/Athens")
+    def test_crl_renewed_certificate_with_local_time(self):
+        now = datetime.now(dt_timezone.utc).replace(tzinfo=None, microsecond=0)
+        ca = self._create_ca(
+            validity_start=now - timedelta(days=1),
+            validity_end=now + timedelta(days=1),
+        )
+        cert = self._create_cert(
+            ca=ca,
+            validity_start=now - timedelta(hours=2),
+            validity_end=now - timedelta(minutes=90),
+        )
+        cert.renew()
+        cert.revoke()
+        self.assertGreater(cert.x509.not_valid_after_utc, datetime.now(dt_timezone.utc))
+        crl = x509.load_pem_x509_crl(ca.crl)
+        self.assertEqual(
+            [entry.serial_number for entry in crl], [int(cert.serial_number)]
+        )
+        now = datetime.now(dt_timezone.utc)
+        self.assertLessEqual(crl.last_update_utc, now)
+        revoked_at = timezone.make_aware(
+            cert.revoked_at, timezone.get_default_timezone()
+        )
+        self.assertEqual(
+            crl[0].revocation_date_utc,
+            revoked_at.astimezone(dt_timezone.utc).replace(microsecond=0),
+        )
+
     @patch("django_x509.base.models.timezone.now")
     def test_crl_revocation_dates(self, mocked_now):
         now = datetime.now(dt_timezone.utc).replace(microsecond=0)
@@ -825,10 +854,22 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         )
 
     def test_renew(self):
-        ca = self._create_ca()
+        end = timezone.now().replace(microsecond=0)
+        ca_duration = timedelta(days=729)
+        ca = self._create_ca(validity_start=end - ca_duration, validity_end=end)
         certs = [
-            self._create_cert(ca=ca, name="cert1"),
-            self._create_cert(ca=ca, name="cert2"),
+            self._create_cert(
+                ca=ca,
+                name="cert1",
+                validity_start=end - timedelta(days=180),
+                validity_end=end,
+            ),
+            self._create_cert(
+                ca=ca,
+                name="cert2",
+                validity_start=end - timedelta(days=1000),
+                validity_end=end,
+            ),
         ]
         old_ca_cert = ca.certificate
         old_ca_key = ca.private_key
@@ -840,6 +881,7 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                     "cert": c.certificate,
                     "key": c.private_key,
                     "end": c.validity_end,
+                    "duration": c.validity_end - c.validity_start,
                     "serial": c.serial_number,
                 }
             )
@@ -848,14 +890,54 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         self.assertNotEqual(old_ca_cert, ca.certificate)
         self.assertNotEqual(old_ca_key, ca.private_key)
         self.assertGreater(ca.validity_end, old_ca_end)
-        for i, c in enumerate(certs):
-            c.refresh_from_db()
-            old = old_certs_data[i]
 
-            self.assertNotEqual(old["cert"], c.certificate)
-            self.assertNotEqual(old["key"], c.private_key)
-            self.assertNotEqual(old["serial"], c.serial_number)
-            self.assertGreater(c.validity_end, old["end"])
+        with self.subTest(model="CA"):
+            self.assertEqual(
+                ca.validity_end,
+                old_ca_end + ca_duration,
+                "CA renewal should extend the old expiry by its validity period",
+            )
+
+        for i, c in enumerate(certs):
+            with self.subTest(model=c.name):
+                c.refresh_from_db()
+                old = old_certs_data[i]
+                self.assertNotEqual(old["cert"], c.certificate)
+                self.assertNotEqual(old["key"], c.private_key)
+                self.assertNotEqual(old["serial"], c.serial_number)
+                self.assertGreater(c.validity_end, old["end"])
+                self.assertEqual(
+                    c.validity_end,
+                    min(old["end"] + old["duration"], ca.x509.not_valid_after_utc),
+                    f"{c.name} should not outlive the renewed CA",
+                )
+
+    def test_renew_long_expired_child(self):
+        cases = ((True, timedelta(days=180)), (False, timedelta(hours=1)))
+        for use_tz, duration in cases:
+            with self.subTest(use_tz=use_tz, duration=duration), override_settings(
+                USE_TZ=use_tz
+            ):
+                now = datetime.now(dt_timezone.utc)
+                if not use_tz:
+                    now = now.replace(tzinfo=None)
+                ca = self._create_ca(validity_start=now - duration)
+                cert = self._create_cert(
+                    ca=ca,
+                    validity_start=now - duration * 4,
+                    validity_end=now - duration * 3,
+                )
+                ca.renew()
+                cert.refresh_from_db()
+                self.assertGreaterEqual(cert.validity_end, now + duration)
+                latest = datetime.now(dt_timezone.utc)
+                if not use_tz:
+                    latest = latest.replace(tzinfo=None)
+                self.assertLessEqual(
+                    cert.validity_end,
+                    latest + duration,
+                    "Renewal should use the child's period, not the default",
+                )
 
     def test_ca_common_name_length(self):
         common_name = "a" * 65
@@ -898,8 +980,11 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
                 ca = self._create_ca(validity_start=start, validity_end=end)
                 cert = self._create_cert(ca=ca, validity_start=start, validity_end=end)
                 renewal_time = datetime.now()
+                utc_now = datetime.now(dt_timezone.utc)
                 with patch("django_x509.base.models.datetime", wraps=datetime) as clock:
-                    clock.now.return_value = renewal_time
+                    clock.now.side_effect = lambda tz=None: (
+                        utc_now.astimezone(tz) if tz else renewal_time
+                    )
                     ca.renew()
                 expected_start = (renewal_time - timedelta(days=1)).replace(
                     hour=0, minute=0, second=0, microsecond=0
