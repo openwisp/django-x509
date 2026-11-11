@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import http_date
@@ -695,6 +695,34 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
         cert.refresh_from_db()
         self.assertEqual(cert.certificate, certificate)
         self.assertTrue(cert.revoked)
+
+    def test_renewal_preserves_calendar_years_on_leap_day(self):
+        ca = self._create_ca(
+            validity_start=datetime(2092, 2, 29), validity_end=datetime(2096, 2, 29)
+        )
+        ca.renew()
+        self.assertEqual(
+            (ca.validity_end.year, ca.validity_end.month, ca.validity_end.day),
+            (2100, 2, 28),
+        )
+
+    @override_settings(USE_TZ=False)
+    def test_renewal_with_naive_dates(self):
+        ca = self._create_ca()
+        ca.renew()
+        self.assertTrue(timezone.is_naive(ca.validity_end))
+        ca.validity_start = None
+        ca.renew()
+        self.assertTrue(timezone.is_naive(ca.validity_end))
+
+    def test_renewal_of_expired_ca_uses_existing_period(self):
+        now = timezone.now()
+        ca = self._create_ca(
+            validity_start=now - timedelta(days=40),
+            validity_end=now - timedelta(days=30),
+        )
+        ca.renew()
+        self.assertGreater(ca.validity_end, now + timedelta(days=9))
 
     def test_ca_common_name_length(self):
         common_name = (

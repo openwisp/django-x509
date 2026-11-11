@@ -1,10 +1,12 @@
 from copy import deepcopy
+from datetime import timedelta
 
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from openwisp_utils.tests import AdminActionPermTestMixin
 from swapper import load_model
 
@@ -320,3 +322,25 @@ class ModelAdminTests(AdminActionPermTestMixin, TestCase):
         self.assertEqual(revoked.certificate, old_revoked)
         self.assertNotEqual(active.certificate, old_active)
         self.assertEqual(len(req.get_message_strings()), 2)
+
+    def test_renew_cert_action_with_only_revoked_certificates(self):
+        req = deepcopy(request)
+        ca = Ca.objects.create(name="test_ca")
+        cert = Cert.objects.create(name="revoked", ca=ca)
+        cert.revoke()
+        req.POST.update({"post": "yes"})
+        self.cert_admin(Cert, self.site).renew_cert(req, [cert])
+        self.assertIn("already revoked", req.get_message_strings()[0])
+
+    def test_renew_cert_action_reports_expired_ca(self):
+        req = deepcopy(request)
+        now = timezone.now()
+        ca = Ca.objects.create(
+            name="expired",
+            validity_start=now - timedelta(days=20),
+            validity_end=now - timedelta(days=10),
+        )
+        cert = Cert.objects.create(name="test_cert", ca=ca)
+        req.POST.update({"post": "yes"})
+        self.cert_admin(Cert, self.site).renew_cert(req, [cert])
+        self.assertIn("expired CA", req.get_message_strings()[0])

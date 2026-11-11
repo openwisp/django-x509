@@ -565,6 +565,16 @@ BxZA3knyYRiB0FNYSxI6YuCIqTjr0AoBvNHdkdjkv2VFomYNBd8ruA==
             ca_parsed.get_notAfter().decode(),
         )
 
+    def test_cannot_renew_certificate_with_expired_ca(self):
+        now = timezone.now()
+        ca = self._create_ca(
+            validity_start=now - timedelta(days=20),
+            validity_end=now - timedelta(days=10),
+        )
+        cert = self._create_cert(ca=ca)
+        with self.assertRaisesMessage(ValidationError, "expired CA"):
+            cert.renew()
+
     def test_invalid_extension_is_rejected_during_validation(self):
         ca = self._create_ca()
         cert = Cert(
