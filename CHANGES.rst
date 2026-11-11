@@ -1,6 +1,28 @@
 Changelog
 =========
 
+Version 1.4.2 [2026-11-11]
+--------------------------
+
+Changes
+~~~~~~~
+
+Other changes
++++++++++++++
+
+- Reset certificate validity start on renewal
+
+Bugfixes
+~~~~~~~~
+
+- Preserved validity periods when renewing certificates `#213
+  <https://github.com/openwisp/django-x509/issues/213>`_
+
+  Extend the existing expiry using the configured validity period, and
+  prevent renewed certificates from outliving their CA.
+
+- Prevented renewal of revoked certificates
+
 Version 1.4.1 [2026-10-19]
 --------------------------
 
