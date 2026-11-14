@@ -35,5 +35,7 @@ setup(
         "Framework :: Django",
         "Topic :: Security :: Cryptography",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
     ],
 )
