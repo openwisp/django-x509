@@ -78,8 +78,8 @@ Project goals
 Dependencies
 ------------
 
-- Python >= 3.11
-- Django >= 5.2.0
+- Python >= 3.11 (tested up to 3.15)
+- Django >= 5.2.0 (Python 3.15 requires Django >= 6.1.3)
 - OpenSSL
 
 Install stable version from pypi
