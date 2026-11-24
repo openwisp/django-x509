@@ -22,6 +22,8 @@ jobs:
   test:
     name: Python==${{ matrix.python-version }} | ${{ matrix.django-version }}
     runs-on: ubuntu-latest
+    env:
+      AI_REVIEW_SYSTEM_DEPS: "true"
 
     strategy:
       fail-fast: false

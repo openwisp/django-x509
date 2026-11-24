@@ -189,9 +189,8 @@ repository root with:
 
     ./runtests
 
-Pass a Django test label to run a focused test, for example ``./runtests
-django_x509.tests.test_ca.TestCa``. The supported flags are ``--failfast``
-and ``--noinput``. Test code remains untrusted.
+Pass a Django test label for a focused run, for example ``./runtests
+django_x509.tests.test_ca.TestCa``.
 
 Install and run on docker
 -------------------------
