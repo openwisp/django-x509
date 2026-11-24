@@ -16,7 +16,10 @@ class CiInstallerTests(unittest.TestCase):
             log = path / "calls"
             for name in ("sudo", "python"):
                 fake = path / name
-                fake.write_text(f'#!/bin/sh\nprintf "%s\\n" "{name} $*" >> "$CALLS"\n')
+                fake.write_text(
+                    f'#!/bin/sh\nprintf "%s\\n" "{name} $*" >> "$CALLS"\n'
+                    f'[ "${{FAIL_MATCH:-}}" != "{name} $*" ] || exit 17\n'
+                )
                 fake.chmod(0o755)
             env = os.environ.copy()
             env.pop("CI_SYSTEM_DEPS_ONLY", None)
@@ -46,3 +49,13 @@ class CiInstallerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(calls[-1], "python -m pip install django~=6.0.0")
         self.assertTrue(all(call.startswith("python ") for call in calls))
+
+    def test_failures_stop_later_commands(self):
+        for command in (
+            "sudo npm install -g prettier",
+            "python -m pip install -U -r requirements-test.txt",
+        ):
+            with self.subTest(command=command):
+                result, calls = self.run_installer(FAIL_MATCH=command)
+                self.assertEqual(result.returncode, 17)
+                self.assertEqual(calls[-1], command)

@@ -51,6 +51,8 @@ def main():
         return 2
     if all(sample):
         os.environ["SAMPLE_APP"] = "1"
+    else:
+        os.environ.pop("SAMPLE_APP", None)
     sys.path.insert(0, "tests")
     os.environ["DJANGO_SETTINGS_MODULE"] = "openwisp2.settings"
     import django
@@ -58,7 +60,18 @@ def main():
     django.setup()
     for match in labels:
         if match.group("class"):
-            module = import_module(match.group("module"))
+            module_name = match.group("module")
+            try:
+                module = import_module(module_name)
+            except ModuleNotFoundError as error:
+                if error.name == module_name or module_name.startswith(
+                    f"{error.name}."
+                ):
+                    print(
+                        f"Unsupported test argument: {match.group(0)}", file=sys.stderr
+                    )
+                    return 2
+                raise
             candidate = getattr(module, match.group("class"), None)
             if not isinstance(candidate, type) or not issubclass(candidate, TestCase):
                 print(f"Unsupported test argument: {match.group(0)}", file=sys.stderr)
