@@ -1,8 +1,75 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env python
+"""Run both CI configurations or selected Django test labels."""
 
-coverage erase
-coverage run runtests.py --parallel
-SAMPLE_APP=1 coverage run runtests.py --parallel
-coverage combine
-coverage xml
+import os
+import re
+import subprocess
+import sys
+from importlib import import_module
+from unittest import TestCase
+
+
+def main():
+    if len(sys.argv) == 1:
+        for arguments, sample in (
+            (["coverage", "erase"], False),
+            (["coverage", "run", "runtests.py", "--parallel"], False),
+            (["coverage", "run", "runtests.py", "--parallel"], True),
+            (["coverage", "combine"], False),
+            (["coverage", "xml"], False),
+        ):
+            env = {**os.environ, **({"SAMPLE_APP": "1"} if sample else {})}
+            result = subprocess.run(arguments, env=env)
+            if result.returncode:
+                return result.returncode
+        return 0
+
+    # Test modules cannot be consumed as packages to hide a non-test class.
+    pattern = re.compile(
+        r"(?P<module>django_x509\.tests\.test_\w+|openwisp2\.sample_x509\.tests)"
+        r"(?:\.(?P<class>[A-Z]\w*)(?:\.test_\w+)?)?"
+    )
+    labels = []
+    flags = []
+    for argument in sys.argv[1:]:
+        if argument in ("--failfast", "--noinput"):
+            flags.append(argument)
+            continue
+        match = pattern.fullmatch(argument)
+        if not match:
+            print(f"Unsupported test argument: {argument}", file=sys.stderr)
+            return 2
+        labels.append(match)
+    if not labels:
+        print("Unsupported test arguments: a test label is required", file=sys.stderr)
+        return 2
+    sample = [match.group("module").startswith("openwisp2.") for match in labels]
+    if any(sample) and not all(sample):
+        print(
+            "Unsupported test arguments: select one test configuration", file=sys.stderr
+        )
+        return 2
+    if all(sample):
+        os.environ["SAMPLE_APP"] = "1"
+    sys.path.insert(0, "tests")
+    os.environ["DJANGO_SETTINGS_MODULE"] = "openwisp2.settings"
+    import django
+
+    django.setup()
+    for match in labels:
+        if match.group("class"):
+            module = import_module(match.group("module"))
+            candidate = getattr(module, match.group("class"), None)
+            if not isinstance(candidate, type) or not issubclass(candidate, TestCase):
+                print(f"Unsupported test argument: {match.group(0)}", file=sys.stderr)
+                return 2
+    from django.core.management import execute_from_command_line
+
+    execute_from_command_line(
+        [sys.argv[0], "test", *[m.group(0) for m in labels], *flags]
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

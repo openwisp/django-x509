@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  test:
     name: Python==${{ matrix.python-version }} | ${{ matrix.django-version }}
     runs-on: ubuntu-latest
 
@@ -39,6 +39,10 @@ jobs:
             django-version: django~=6.0.0
           - python-version: "3.11"
             django-version: django~=6.1.0
+        include:
+          - python-version: "3.13"
+            django-version: django~=6.0.0
+            review_default: true # Used by on-demand AI reviews
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,24 +64,34 @@ jobs:
           sudo dpkg-reconfigure man-db
 
       - name: Set up Python ${{ matrix.python-version }}
+        id: python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
-          cache-dependency-path: |
-            setup.py
-            requirements-test.txt
+
+      - name: Identify runner image
+        id: platform
+        run: echo "image_os=$ImageOS" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pip downloads
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pip
+          key: >-
+            ${{ format('{0}-{1}-{2}-pip-{3}-{4}-{5}', runner.os, runner.arch,
+                steps.platform.outputs.image_os, steps.python.outputs.python-version,
+                matrix.django-version, hashFiles('setup.py', 'requirements-test.txt',
+                'requirements.txt', 'install-ci-deps.sh')) }}
 
       - name: Install Dependencies
         id: deps
         env:
           DJANGO_VERSION: ${{ matrix.django-version }}
-        run: |
-          pip install -U pip setuptools wheel
-          sudo npm install -g prettier
-          pip install -U -r requirements-test.txt
-          pip install -U -e .
-          pip install "$DJANGO_VERSION"
+        run: ./install-ci-deps.sh
+
+      - name: CI entry point tests
+        run: python -m unittest discover -s tests -p 'test_ci_*.py'
 
       - name: QA Checks
         run: ./run-qa-checks
@@ -97,7 +111,7 @@ jobs:
 
   coveralls:
     name: Finalize Coveralls report
-    needs: build
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Coveralls Finished
