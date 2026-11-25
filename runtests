@@ -2,11 +2,15 @@
 """Run both CI configurations or selected Django test labels."""
 
 import os
-import re
 import subprocess
 import sys
-from importlib import import_module
-from unittest import TestCase
+
+from openwisp_utils.test.runner import (
+    InvalidTestArgument,
+    compile_test_label_pattern,
+    parse_test_arguments,
+    validate_test_labels,
+)
 
 
 def main():
@@ -24,24 +28,16 @@ def main():
                 return result.returncode
         return 0
 
-    # Test modules cannot be consumed as packages to hide a non-test class.
-    pattern = re.compile(
-        r"(?P<module>django_x509\.tests\.test_\w+|openwisp2\.sample_x509\.tests)"
-        r"(?:\.(?P<class>[A-Z]\w*)(?:\.test_\w+)?)?"
+    pattern = compile_test_label_pattern(
+        module_roots=("django_x509.tests",),
+        exact_modules=("openwisp2.sample_x509.tests",),
     )
-    labels = []
-    flags = []
-    for argument in sys.argv[1:]:
-        if argument in ("--failfast", "--noinput"):
-            flags.append(argument)
-            continue
-        match = pattern.fullmatch(argument)
-        if not match:
-            print(f"Unsupported test argument: {argument}", file=sys.stderr)
-            return 2
-        labels.append(match)
-    if not labels:
-        print("Unsupported test arguments: a test label is required", file=sys.stderr)
+    try:
+        labels, flags = parse_test_arguments(
+            sys.argv[1:], pattern, ("--failfast", "--noinput"), require_label=True
+        )
+    except InvalidTestArgument as error:
+        print(error, file=sys.stderr)
         return 2
     sample = [match.group("module").startswith("openwisp2.") for match in labels]
     if any(sample) and not all(sample):
@@ -58,24 +54,11 @@ def main():
     import django
 
     django.setup()
-    for match in labels:
-        if match.group("class"):
-            module_name = match.group("module")
-            try:
-                module = import_module(module_name)
-            except ModuleNotFoundError as error:
-                if error.name == module_name or module_name.startswith(
-                    f"{error.name}."
-                ):
-                    print(
-                        f"Unsupported test argument: {match.group(0)}", file=sys.stderr
-                    )
-                    return 2
-                raise
-            candidate = getattr(module, match.group("class"), None)
-            if not isinstance(candidate, type) or not issubclass(candidate, TestCase):
-                print(f"Unsupported test argument: {match.group(0)}", file=sys.stderr)
-                return 2
+    try:
+        validate_test_labels(labels)
+    except InvalidTestArgument as error:
+        print(error, file=sys.stderr)
+        return 2
     from django.core.management import execute_from_command_line
 
     execute_from_command_line(

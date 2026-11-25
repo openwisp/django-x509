@@ -133,7 +133,7 @@ class CiEntrypointTests(unittest.TestCase):
         self.assertIn("unsupported", result.stderr.lower())
         self.assertNotIn("unexpected execution", result.stdout)
         self.assertEqual(missing.returncode, 2)
-        self.assertIn("test_missing", missing.stderr)
+        self.assertIn("unsupported", missing.stderr.lower())
         self.assertIn("missing_dependency", broken.stderr)
 
     def test_focused_labels_select_their_own_configuration(self):
@@ -189,3 +189,23 @@ class CiEntrypointTests(unittest.TestCase):
                         json.loads(result.stdout),
                         {"sample": expected, "args": ["test", label, "--noinput"]},
                     )
+
+    def test_rejects_callable_in_place_of_test_module(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy2(ROOT / "runtests", root / "runtests")
+            (root / "tests").mkdir()
+            (root / "django.py").write_text("def setup(): pass\n")
+            (root / "django_x509" / "tests").mkdir(parents=True)
+            (root / "django_x509" / "__init__.py").touch()
+            (root / "django_x509" / "tests" / "__init__.py").write_text(
+                'def test_action(): print("unexpected execution")\n'
+            )
+            result = subprocess.run(
+                [str(root / "runtests"), "django_x509.tests.test_action"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertNotIn("unexpected execution", result.stdout)
