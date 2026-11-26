@@ -1,8 +1,71 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env python
+"""Run both CI configurations or selected Django test labels."""
 
-coverage erase
-coverage run runtests.py --parallel
-SAMPLE_APP=1 coverage run runtests.py --parallel
-coverage combine
-coverage xml
+import os
+import subprocess
+import sys
+
+from openwisp_utils.test.runner import (
+    InvalidTestArgument,
+    compile_test_label_pattern,
+    parse_test_arguments,
+    validate_test_labels,
+)
+
+
+def main():
+    if len(sys.argv) == 1:
+        for arguments, sample in (
+            (["coverage", "erase"], False),
+            (["coverage", "run", "runtests.py", "--parallel"], False),
+            (["coverage", "run", "runtests.py", "--parallel"], True),
+            (["coverage", "combine"], False),
+            (["coverage", "xml"], False),
+        ):
+            env = {**os.environ, **({"SAMPLE_APP": "1"} if sample else {})}
+            result = subprocess.run(arguments, env=env)
+            if result.returncode:
+                return result.returncode
+        return 0
+
+    pattern = compile_test_label_pattern(
+        module_roots=("django_x509.tests",),
+        exact_modules=("openwisp2.sample_x509.tests",),
+    )
+    try:
+        labels, flags = parse_test_arguments(
+            sys.argv[1:], pattern, ("--failfast", "--noinput"), require_label=True
+        )
+    except InvalidTestArgument as error:
+        print(error, file=sys.stderr)
+        return 2
+    sample = [match.group("module").startswith("openwisp2.") for match in labels]
+    if any(sample) and not all(sample):
+        print(
+            "Unsupported test arguments: select one test configuration", file=sys.stderr
+        )
+        return 2
+    if all(sample):
+        os.environ["SAMPLE_APP"] = "1"
+    else:
+        os.environ.pop("SAMPLE_APP", None)
+    sys.path.insert(0, "tests")
+    os.environ["DJANGO_SETTINGS_MODULE"] = "openwisp2.settings"
+    import django
+
+    django.setup()
+    try:
+        validate_test_labels(labels)
+    except InvalidTestArgument as error:
+        print(error, file=sys.stderr)
+        return 2
+    from django.core.management import execute_from_command_line
+
+    execute_from_command_line(
+        [sys.argv[0], "test", *[m.group(0) for m in labels], *flags]
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

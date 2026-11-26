@@ -189,6 +189,9 @@ repository root with:
 
     ./runtests
 
+Pass a Django test label for a focused run, for example ``./runtests
+django_x509.tests.test_ca.TestCa``.
+
 Install and run on docker
 -------------------------
 
